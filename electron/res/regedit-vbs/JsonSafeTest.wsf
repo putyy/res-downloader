@@ -1,0 +1,7 @@
+<job id="JsonSafeStreamTest">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript">		
+		str = """" & vbcrlf & "测试\"
+		Write("{ ""a"": """ & JsonSafe(str) & """}" & vbcrlf)
+	</script>
+</job>

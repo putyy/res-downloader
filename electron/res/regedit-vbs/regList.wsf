@@ -1,0 +1,49 @@
+' 
+'	Lists the sub keys and values of a given registry key
+'
+'	cscript regList.wsg HKLM\Software
+'
+'	Will Yield:
+'
+'	{
+'		"hklm\software": { 
+'			"keys": [ .. array of sub keys .. ], 
+'			"values": { 
+'				"moo": { 
+'					"type": "REG_SZ", 
+'					"value": "bar"
+'				}
+'			}
+'		}
+'	}
+<job id="list">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">		
+		CheckZeroArgs("usage: cscript regList.wsf architecture regpath1 [regpath2] ... [regpathN]")
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+	
+		Write "{"
+		On Error Resume Next
+		For v = 1 To args.Count - 1
+			If (v > 1) Then
+				Write ","
+			End If
+			
+			Dim key: key = trim(args(v))
+
+			Write """" & JsonSafe(key) & """: "
+			
+			ParseHiveAndSubKey key, constHive, strSubKey
+			
+			If IsNull(constHive) Then
+				WriteLineErr "unsupported hive " & args(v)
+				WScript.Quit 25122       
+			End If
+
+			ListChildrenAsJson constHive, strSubKey
+		Next
+		Write "}"
+	</script>
+</job>

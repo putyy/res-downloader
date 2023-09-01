@@ -1,0 +1,26 @@
+<job id="test">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">
+  	CheckZeroArgs("type A as first arg!!")
+		
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+	
+		'On Error Resume Next
+
+    Dim key: key = "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+    Dim value: value = "AppData"
+    
+    ParseHiveAndSubKey key, constHive, strSubKey
+    
+    GetExpandedStringValue constHive, strSubKey, value, exResult
+    WriteLine "GetExpandedStringValue: " & exResult
+
+    GetStringValue constHive, strSubKey, value, nResult
+    WriteLine "GetStringValue: " & nResult
+		
+    set ws = createobject("Wscript.shell")
+    WriteLine "regread: " & ws.regread(key & "\AppData")
+	</script>
+</job>

@@ -1,0 +1,56 @@
+<job id="putValue">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">
+		usage = "usage: cscript regPutValue.wsf architecture" & vbNewLine _
+					& "types: REG_SZ, REG_EXPAND_SZ, REG_BINARY, REG_DWORD, REG_MULTI_SZ, REG_QWORD"
+
+		CheckZeroArgs(usage)
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+
+		ReadCount = 0
+		Dim lineArgs(3)
+
+		Do While Not stdin.AtEndOfLine
+			strLine = stdin.ReadLine()
+			strLine = unescape(trim(strLine))
+
+			If IsNull(strLine) or strLine = "" Then
+				WScript.Quit 25127
+			End If
+
+			lineArgs(ReadCount) = strLine
+			
+			ReadCount = ReadCount + 1
+
+			If ReadCount = 4 Then
+
+				ParseHiveAndSubKey lineArgs(0), constHive, strSubKey
+				
+				if IsNull(constHive) Then
+					WriteLineErr "unsupported hive " & lineArgs(0)
+					WScript.Quit 25122
+				End If
+
+				strValueName = lineArgs(1)
+				strValue = lineArgs(2)
+				strType = lineArgs(3)
+				
+				Result = PutValue(constHive, strSubKey, strValueName, strValue, strType)
+
+				If Not Result = 0 Then
+					WriteLineErr "error while putting value: " & result
+					WScript.Quit Result
+				End If
+
+				ReadCount = 0
+				Erase lineArgs				
+			End If
+		Loop
+
+		If ReadCount <> 0 Then
+			WScript.Quit 25123
+		End If
+	</script>
+</job>
