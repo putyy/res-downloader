@@ -1,11 +1,16 @@
 # res-downloader
 
-🎯 基于 [electron-vite-vue]( https://github.com/electron-vite/electron-vite-vue.git)  
+🎯 基于 [electron-vite-vue](https://github.com/electron-vite/electron-vite-vue.git)  
 📦 操作简单、可获取不同类型的资源  
 💪 支持获取视频、音频、图片、m3u8  
 🖥 支持获取视频号、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源  
 
-## 扩展开发
+## 软件下载
+🆕 [github下载](https://github.com/putyy/res-downloader/releases)  
+🆕 [蓝奏云下载 密码:9vs5](https://wwjv.lanzoum.com/b04wgtfyb)
+
+
+## 二次开发
 ```sh
 git clone https://github.com/putyy/res-downloader
 
