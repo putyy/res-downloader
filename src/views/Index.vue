@@ -2,11 +2,10 @@
 import {ref, onMounted} from "vue"
 import {ipcRenderer} from 'electron'
 import {onUnmounted} from "@vue/runtime-core"
-import {ElMessage} from "element-plus"
+import {ElMessage, ElLoading, ElTable} from "element-plus"
 import localStorageCache from "../common/localStorage"
-import {ElLoading} from 'element-plus'
 
-const tableData = ref<{
+interface resData {
   url_sign: string,
   url: string,
   size: any,
@@ -14,7 +13,9 @@ const tableData = ref<{
   progress_bar: any,
   save_path: string,
   downing: boolean
-}[]>([])
+}
+
+const tableData = ref<resData[]>([])
 
 const resType = ref({
   video: true,
@@ -26,15 +27,8 @@ const resType = ref({
 
 const isInitApp = ref(false)
 
-const toSize = (size: number) => {
-  if (size > 1048576) {
-    return (size / 1048576).toFixed(2) + "MB"
-  }
-  if (size > 1024) {
-    return (size / 1024).toFixed(2) + "KB"
-  }
-  return size + 'b'
-}
+const multipleTableRef = ref<InstanceType<typeof ElTable>>()
+const multipleSelection = ref<resData[]>([])
 
 onMounted(() => {
   let resTypeCache = localStorageCache.get("res-type")
@@ -91,6 +85,60 @@ onUnmounted(() => {
   localStorageCache.set("res-type", resType.value, -1)
 })
 
+const handleSelectionChange = (val: resData[]) => {
+  multipleSelection.value = val
+}
+
+const handleBatchDown = async () => {
+  if (multipleSelection.value.length <= 0) {
+    return
+  }
+
+
+  let save_dir = localStorageCache.get("save_dir")
+
+  if (!save_dir) {
+    ElMessage({
+      message: '请设置保存目录',
+      type: 'warning'
+    })
+    return
+  }
+
+  let loading = ElLoading.service({
+    lock: true,
+    text: '下载中',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+
+  for (const item of multipleSelection.value) {
+    let result = await ipcRenderer.invoke('invoke_file_exists', {
+      save_path: save_dir,
+      url: item.url,
+    })
+
+    if (result.is_file) {
+      item.progress_bar = "100%"
+      item.save_path = result.fileName
+      continue
+    }
+
+    let downRes = await ipcRenderer.invoke('invoke_down_file', {
+      index: 0,
+      data: Object.assign({}, item),
+      save_path: save_dir,
+      high: false
+    })
+
+    if (downRes !== false) {
+      item.progress_bar = "100%"
+      item.save_path = downRes.fullFileName
+    }
+  }
+  loading.close()
+  multipleTableRef.value!.clearSelection()
+}
+
 
 const handleDown = async (index: number, row: any, high: boolean) => {
 
@@ -106,7 +154,7 @@ const handleDown = async (index: number, row: any, high: boolean) => {
 
   let loading = ElLoading.service({
     lock: true,
-    text: 'Loading',
+    text: '下载中',
     background: 'rgba(0, 0, 0, 0.7)',
   })
 
@@ -216,6 +264,7 @@ el-container.container
   el-header
     el-row
       div
+        el-button(type="primary" @click="handleBatchDown") 批量下载
         el-button(v-if="isInitApp" @click="handleInitApp")
           el-icon
             Promotion
@@ -223,16 +272,17 @@ el-container.container
         el-button(@click="handleClear")
           el-icon
             Delete
-          p 清空
+          p 清空列表
         el-button(@click="resType.video=!resType.video" :type="resType.video ? 'primary' : 'info'" ) 视频
         el-button(@click="resType.audio=!resType.audio" :type="resType.audio ? 'primary' : 'info'" ) 音频
         el-button(@click="resType.image=!resType.image" :type="resType.image ? 'primary' : 'info'" ) 图片
         el-button(@click="resType.m3u8=!resType.m3u8" :type="resType.m3u8 ? 'primary' : 'info'" ) m3u8
         a(style="color: red") &nbsp;&nbsp;&nbsp;点击左边选项，选择需要拦截的资源类型
   el-main
-    el-table(:data="tableData" max-height="100%" stripe style="max-content")
-      el-table-column(label="预览" show-overflow-tooltip width="350px" )
-        template(#default="scope" )
+    el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" max-height="100%" stripe style="max-content")
+      el-table-column(type="selection" width="55")
+      el-table-column(label="预览" show-overflow-tooltip width="350px")
+        template(#default="scope")
           div.show_res
             video(v-if="scope.row.type_str === 'video'" :src="scope.row.down_url" controls preload="none" style="width: 100%;height: auto;") 您的浏览器不支持 video 标签。
             img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.down_url")
@@ -242,6 +292,7 @@ el-container.container
       el-table-column(prop="platform" label="主机地址")
       el-table-column(prop="size" label="资源大小")
       el-table-column(prop="save_path" label="保存目录")
+      el-table-column(prop="progress_bar" label="下载进度")
       el-table-column(label="操作")
         template(#default="scope")
           template(v-if="scope.row.type_str !== 'm3u8'" )

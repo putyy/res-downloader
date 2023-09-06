@@ -29,8 +29,9 @@ const jump = (scene: number)=>{
 </script>
 <template lang="pug">
 div.line
-  a.item 版本号: {{v}} 站长邮箱: putyy@qq.com
-  a.item(@click="jump(1)") 软件源码
+  a.item 当前版本: {{v}}
+  a.item 站长邮箱: putyy@qq.com
+  a.item(@click="jump(1)") 获取更新
   a.item(@click="jump(2)") 云盘资源
   a.item(@click="jump(3)") chatgpt
   a.item(@click="jump(4)") 问题反馈

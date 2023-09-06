@@ -36,4 +36,4 @@ yarn run build --win
 
 ## 参考项目
 
-- [WeChatVideoDownloader](https://github.com/lecepin/WeChatVideoDownloader) 原项目是react写的，且有段时间未更新，本项目参考原项目用vue3重写了一下，核心逻辑没什么变化，主要是增加了一些新的功能，再次感谢！
+- [WeChatVideoDownloader](https://github.com/lecepin/WeChatVideoDownloader) 原项目是react写的，本项目参考原项目用vue3重写了一下，核心逻辑没什么变化，主要是增加了一些新的功能，再次感谢！
