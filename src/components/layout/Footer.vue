@@ -30,10 +30,10 @@ const jump = (scene: number)=>{
 <template lang="pug">
 div.line
   a.item 当前版本: {{v}}
-  a.item 站长邮箱: putyy@qq.com
+  a.item 站长邮箱: gowas.work@gmail.com
   a.item(@click="jump(1)") 获取更新
   a.item(@click="jump(2)") 云盘资源
-  a.item(@click="jump(3)") chatgpt
+  a.item(@click="jump(3)") 图片压缩
   a.item(@click="jump(4)") 问题反馈
 </template>
 

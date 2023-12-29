@@ -4,15 +4,23 @@ import {ipcRenderer} from 'electron'
 import {onUnmounted} from "@vue/runtime-core"
 import {ElMessage, ElLoading, ElTable} from "element-plus"
 import localStorageCache from "../common/localStorage"
+import {Delete, Promotion} from "@element-plus/icons-vue";
 
 interface resData {
   url_sign: string,
   url: string,
+  down_url: string,
+  high_url: string,
   size: any,
   platform: string,
+  type: string,
+  type_str: string,
   progress_bar: any,
   save_path: string,
-  downing: boolean
+  downing: boolean,
+  decode_key: string,
+  description: string,
+  uploader: string,
 }
 
 const tableData = ref<resData[]>([])
@@ -81,6 +89,7 @@ onUnmounted(() => {
 
   ipcRenderer.invoke('invoke_close_proxy').then((res) => {
   })
+
   localStorageCache.set("res-table-data", tableData.value, -1)
   localStorageCache.set("res-type", resType.value, -1)
 })
@@ -93,7 +102,6 @@ const handleBatchDown = async () => {
   if (multipleSelection.value.length <= 0) {
     return
   }
-
 
   let save_dir = localStorageCache.get("save_dir")
 
@@ -288,6 +296,7 @@ el-container.container
             img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.down_url")
             audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
               source(:src="scope.row.down_url" :type="scope.row.type")
+            div {{scope.row.description}}
       el-table-column(prop="type_str" label="类型" show-overflow-tooltip)
       el-table-column(prop="platform" label="主机地址")
       el-table-column(prop="size" label="资源大小")
@@ -296,8 +305,7 @@ el-container.container
       el-table-column(label="操作")
         template(#default="scope")
           template(v-if="scope.row.type_str !== 'm3u8'" )
-            el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row, false)") 下载
-            el-button(v-if="!scope.row.save_path && scope.row.high_url !='' " link type="primary" @click="handleDown(scope.$index, scope.row, true)") 高清下载
+            el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row, false)") {{scope.row.decode_key ? "解密下载" : "下载"}}
             el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
           el-button(link type="primary" @click="handleCopy(scope.row.down_url)") 复制链接
           el-button(link type="primary" @click="handleDel(scope.$index)") 删 除

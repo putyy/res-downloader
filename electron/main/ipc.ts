@@ -5,7 +5,6 @@ import {downloadFile} from './utils'
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
 import fs from "fs"
-import * as urlTool from "url"
 import CryptoJS from 'crypto-js'
 import {closeProxy, setProxy} from "./setProxy"
 import log from "electron-log"
@@ -15,9 +14,8 @@ let win: BrowserWindow
 let previewWin: BrowserWindow
 let isStartProxy = false
 let isOpenProxy = false
-let videoList = {}
+
 let aesKey = "as5d45as4d6qe6wqfar6gt4749q6y7w6h34v64tv7t37ty5qwtv6t6qv"
-let qqReg = RegExp("finder.video.qq.com")
 
 const toSize = (size: number) => {
     if (size > 1048576) {
@@ -77,96 +75,7 @@ export default function initIPC() {
         isStartProxy = true
         isOpenProxy = true
         return startServer({
-            // @ts-ignore
-            interceptCallback: phase => async (req, res) => {
-                // 拦截响应
-                if (phase === 'response') {
-                    let ctype = res?._data?.headers?.['content-type']
-                    let url_sign: string = hexMD5(req.fullUrl())
-                    let res_url = req.fullUrl()
-                    let urlInfo = urlTool.parse(res_url, true)
-                    switch (ctype) {
-                        case "video/mp4":
-                            if (videoList.hasOwnProperty(url_sign) === false) {
-                                videoList[url_sign] = req.fullUrl()
-                                let high_url = ''
-                                let down_url = res_url
-                                if (qqReg.test(down_url)) {
-                                    down_url = down_url.replace("finder.video.qq.com/251/20302", "finder.video.qq.com/251/20304")
-                                    urlInfo = urlTool.parse(down_url, true)
-                                    high_url = urlInfo.protocol + "//" + urlInfo.hostname + urlInfo.pathname
-                                        + '?encfilekey=' + urlInfo.query?.encfilekey
-                                        + '&token=' + urlInfo.query?.token
-                                }
-
-                                win?.webContents?.send?.('on_get_queue', {
-                                    url_sign: url_sign,
-                                    url: down_url,
-                                    down_url: down_url,
-                                    high_url: high_url,
-                                    platform: urlInfo.hostname,
-                                    size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                    type: ctype,
-                                    type_str: 'video',
-                                    progress_bar: '',
-                                    save_path: '',
-                                    downing: false
-                                })
-                            }
-                            break;
-                        case "image/png":
-                        case "image/webp":
-                        case "image/svg+xml":
-                        case "image/gif":
-                            win?.webContents?.send?.('on_get_queue', {
-                                url_sign: url_sign,
-                                url: res_url,
-                                down_url: res_url,
-                                high_url: '',
-                                platform: urlInfo.hostname,
-                                size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                type: ctype,
-                                type_str: 'image',
-                                progress_bar: '',
-                                save_path: '',
-                                downing: false
-                            })
-                            break;
-                        case "audio/mpeg":
-                            win?.webContents?.send?.('on_get_queue', {
-                                url_sign: url_sign,
-                                url: res_url,
-                                down_url: res_url,
-                                high_url: '',
-                                platform: urlInfo.hostname,
-                                size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                type: ctype,
-                                type_str: 'audio',
-                                progress_bar: '',
-                                save_path: '',
-                                downing: false
-                            })
-                            break;
-                        case "application/vnd.apple.mpegurl":
-                            win?.webContents?.send?.('on_get_queue', {
-                                url_sign: url_sign,
-                                url: res_url,
-                                down_url: res_url,
-                                high_url: '',
-                                platform: urlInfo.hostname,
-                                size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                type: ctype,
-                                type_str: 'm3u8',
-                                progress_bar: '',
-                                save_path: '',
-                                downing: false
-                            })
-                            break;
-
-                    }
-
-                }
-            },
+            win: win,
             setProxyErrorCallback: err => {
                 isStartProxy = false
                 isOpenProxy = false
@@ -219,6 +128,7 @@ export default function initIPC() {
         // 开始下载
         return downloadFile(
             down_url,
+            data.decode_key,
             save_path_file,
             (res) => {
                 return save_path_file
