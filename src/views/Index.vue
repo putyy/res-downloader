@@ -56,7 +56,7 @@ onMounted(() => {
     }
   })
 
-  const loading = ElLoading.service({
+  let loading = ElLoading.service({
     lock: true,
     text: 'Loading',
     background: 'rgba(0, 0, 0, 0.7)',
@@ -87,8 +87,12 @@ onUnmounted(() => {
     // console.log(res)
   })
 
-  ipcRenderer.invoke('invoke_close_proxy').then((res) => {
+  ipcRenderer.removeListener('on_down_file_schedule', (res) => {
+    // console.log(res)
   })
+
+  // ipcRenderer.invoke('invoke_close_proxy').then((res) => {
+  // })
 
   localStorageCache.set("res-table-data", tableData.value, -1)
   localStorageCache.set("res-type", resType.value, -1)
@@ -117,6 +121,10 @@ const handleBatchDown = async () => {
     lock: true,
     text: '下载中',
     background: 'rgba(0, 0, 0, 0.7)',
+  })
+
+  ipcRenderer.on('on_down_file_schedule', (res: any, data: any) => {
+    loading.setText(`已下载 ${data.schedule}%`)
   })
 
   for (const item of multipleSelection.value) {
@@ -182,6 +190,10 @@ const handleDown = async (index: number, row: any, high: boolean) => {
     return
   }
 
+  ipcRenderer.on('on_down_file_schedule', (res: any, data: any) => {
+    loading.setText(`已下载 ${data.schedule}%`)
+  })
+
   ipcRenderer.invoke('invoke_down_file', {
     index: index,
     data: Object.assign({}, tableData.value[index]),
@@ -199,18 +211,49 @@ const handleDown = async (index: number, row: any, high: boolean) => {
     }
     loading.close()
   }).catch((err) => {
-    // console.log('invoke_down_file err', err)
     ElMessage({
       message: "下载失败",
       type: 'warning',
     })
     loading.close()
   })
+}
 
+const decodeWxFile = (index: number) => {
+  let loading = ElLoading.service({
+    lock: true,
+    text: "解密中",
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+
+  ipcRenderer.invoke('invoke_select_wx_file', {
+    index: index,
+    data: Object.assign({}, tableData.value[index]),
+  }).then((res) => {
+    if (res !== false) {
+      ElMessage({
+        message: "解密成功: " + res.fullFileName,
+        type: 'success',
+      })
+      tableData.value[index].progress_bar = "100%"
+      tableData.value[index].save_path = res.fullFileName
+    }else{
+      ElMessage({
+        message: "解密失败",
+        type: 'warning',
+      })
+    }
+    loading.close()
+  }).catch((err) => {
+    ElMessage({
+      message: "解密失败",
+      type: 'warning',
+    })
+    loading.close()
+  })
 }
 
 const handlePreview = (index: number, row: any) => {
-  // console.log('row.down_url',row)
   ipcRenderer.invoke('invoke_resources_preview', {url: row.down_url}).catch(() => {
   })
 }
@@ -239,19 +282,9 @@ const handleDel = (index: number)=>{
   tableData.value = arr
 }
 
-const openDir = ()=>{
-  let save_dir = localStorageCache.get("save_dir")
-
-  if (!save_dir) {
-    ElMessage({
-      message: '目录不存在',
-      type: 'warning'
-    })
-    return
-  }
-
-  ipcRenderer.invoke('invoke_open_dir', {
-    dir: save_dir
+const openFileDir = (index: number)=>{
+  ipcRenderer.invoke('invoke_open_file_dir', {
+    save_path: tableData.value[index].save_path
   })
 }
 
@@ -287,14 +320,14 @@ el-container.container
         el-button(@click="resType.m3u8=!resType.m3u8" :type="resType.m3u8 ? 'primary' : 'info'" ) m3u8
         a(style="color: red") &nbsp;&nbsp;&nbsp;点击左边选项，选择需要拦截的资源类型
   el-main
-    el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" max-height="100%" stripe style="max-content")
-      el-table-column(type="selection" width="55")
-      el-table-column(label="预览" show-overflow-tooltip width="350px")
+    el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" max-height="100%" stripe)
+      el-table-column(type="selection")
+      el-table-column(label="预览" show-overflow-tooltip width="300px")
         template(#default="scope")
           div.show_res
-            video(v-if="scope.row.type_str === 'video'" :src="scope.row.down_url" controls preload="none" style="width: 100%;height: auto;") 您的浏览器不支持 video 标签。
+            video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.down_url" controls preload="none") 您的浏览器不支持 video 标签。
             img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.down_url")
-            audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
+            audio.audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
               source(:src="scope.row.down_url" :type="scope.row.type")
             div {{scope.row.description}}
       el-table-column(prop="type_str" label="类型" show-overflow-tooltip)
@@ -302,14 +335,16 @@ el-container.container
       el-table-column(prop="size" label="资源大小")
       el-table-column(prop="save_path" label="保存目录")
       el-table-column(prop="progress_bar" label="下载进度")
-      el-table-column(label="操作")
+      el-table-column(label="操作" width="135px" )
         template(#default="scope")
-          template(v-if="scope.row.type_str !== 'm3u8'" )
-            el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row, false)") {{scope.row.decode_key ? "解密下载" : "下载"}}
-            el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
-          el-button(link type="primary" @click="handleCopy(scope.row.down_url)") 复制链接
-          el-button(link type="primary" @click="handleDel(scope.$index)") 删 除
-          el-button(link type="primary" @click="openDir()") 打开目录
+          div.actions
+            template(v-if="scope.row.type_str !== 'm3u8'" )
+              el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row, false)") {{scope.row.decode_key ? "解密下载(视频号)" : "下载"}}
+              el-button(v-if="scope.row.decode_key" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
+              el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
+            el-button(link type="primary" @click="handleCopy(scope.row.down_url)") 复制链接
+            el-button(link type="primary" @click="handleDel(scope.$index)") 删除
+            el-button(v-if="scope.row.save_path" link type="primary" @click="openFileDir(scope.$index)") 打开文件目录
 </template>
 
 <style scoped lang="less">
@@ -344,11 +379,17 @@ el-container.container
   }
 
   .show_res{
+    width: 100%;
+    height: auto;
     .img{
-      width: 100px;
-      height: auto;
       max-height: 200px;
     }
+  }
+
+  .actions{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

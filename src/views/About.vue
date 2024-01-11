@@ -24,6 +24,22 @@ const jump = (scene: number)=>{
       break;
   }
 }
+
+const str = "使用方法\n" +
+    "     1. 打开本软件\n" +
+    "     2. 软件首页选择要获取的资源类型（默认选中的视频）\n" +
+    "     3. 打开要捕获的源， 如：视频号、网页、小程序等等\n" +
+    "     4. 返回软件首页即可看到要下载的资源\n" +
+    "常见问题\n" +
+    "     1. 无法拦截获取\n" +
+    "        手动检测系统代理是否设置正确 本软件代理地址: 127.0.0.1:8899\n" +
+    "     2. 关闭软件后无法正常上网\n" +
+    "        手动关闭系统代理设置\n" +
+    "实现原理\n" +
+    "     通过代理网络抓包拦截响应，筛选出有用的资源，\n" +
+    "     同fiddler、charles等抓包软件、浏览器F12打开控制也能达到目的，\n" +
+    "     只不过这些软件需要手动进行筛选，对于小白用户上手还是有点难度，本软件对部分资源做了特殊处理，\n" +
+    "     更适合大众用户，所以就有了本项目这样的软件。\n"
 </script>
 <template lang="pug">
 div.about
@@ -36,6 +52,9 @@ div.about
     el-button(@click="jump(3)") 获取更新
   div 4. 问题反馈 &nbsp;
     el-button(@click="jump(4)") 点击前往
+  div.more
+    pre {{str}}
+
 </template>
 
 <style lang="less">
@@ -49,6 +68,9 @@ div.about
   .problem{
     padding: .3rem;
     white-space: pre-wrap;
+  }
+  .more{
+
   }
 }
 </style>

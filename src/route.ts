@@ -25,11 +25,6 @@ const routes = [
                 name: 'Setting',
                 component: () => import('./views/Setting.vue'),
             },
-            {
-                path: '/vip-parse',
-                name: 'VipParse',
-                component: () => import('./views/VipParse.vue'),
-            },
         ]
     },
 ]

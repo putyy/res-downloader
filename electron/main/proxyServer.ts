@@ -201,7 +201,7 @@ export async function startServer({
                             progress_bar: '',
                             save_path: '',
                             downing: false,
-                            decode_key: req.json.decode_key,
+                            decode_key: '',
                             description: '',
                             uploader: '',
                         })
@@ -219,7 +219,7 @@ export async function startServer({
                             progress_bar: '',
                             save_path: '',
                             downing: false,
-                            decode_key: req.json.decode_key,
+                            decode_key: '',
                             description: '',
                             uploader: '',
                         })
@@ -237,7 +237,7 @@ export async function startServer({
                             progress_bar: '',
                             save_path: '',
                             downing: false,
-                            decode_key: req.json.decode_key,
+                            decode_key: '',
                             description: '',
                             uploader: '',
                         })

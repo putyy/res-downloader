@@ -6,7 +6,7 @@ const jump = (scene: number)=>{
   switch (scene) {
     case 1:
       ipcRenderer.invoke('invoke_open_default_browser', {
-        url: "https://github.com/putyy/res-downloader"
+        url: "https://s.gowas.cn/d/4089-quan-ping-tai-zi-yuan-xia-zai-ruan-jian"
       })
       break;
     case 2:
@@ -24,6 +24,16 @@ const jump = (scene: number)=>{
         url: "https://github.com/putyy/res-downloader/issues"
       })
       break;
+    case 5:
+      ipcRenderer.invoke('invoke_open_default_browser', {
+        url: "https://haokawx.lot-ml.com/Product/Index/22550"
+      })
+      break;
+    case 6:
+      ipcRenderer.invoke('invoke_open_default_browser', {
+        url: "https://github.com/putyy/res-downloader"
+      })
+      break;
   }
 }
 </script>
@@ -33,8 +43,11 @@ div.line
   a.item 站长邮箱: gowas.work@gmail.com
   a.item(@click="jump(1)") 获取更新
   a.item(@click="jump(2)") 云盘资源
-  a.item(@click="jump(3)") 图片压缩
+div.line
+  a.item(@click="jump(3)") 图片无损压缩
   a.item(@click="jump(4)") 问题反馈
+  a.item(@click="jump(5)") 流量卡推荐
+  a.item(@click="jump(6)") 软件源码
 </template>
 
 <style lang="less" scoped>
@@ -42,6 +55,7 @@ div.line
   display: flex;
   flex-direction: row;
   justify-content: center;
+  flex-wrap: wrap;
   .item{
     padding: 0 5px;
     cursor: pointer;

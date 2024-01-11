@@ -2,7 +2,7 @@
 import {inject, onMounted, ref, watch} from 'vue'
 import localStorageCache from "../../common/localStorage";
 
-const appName = "资源下载器"
+const appName = "爱享素材"
 const sidebarCollapse = ref(inject('sidebarCollapse'))
 const defaultActive = ref("/index")
 
@@ -20,11 +20,7 @@ div.sidebar
     el-menu-item(key="1" index="/index")
       el-icon
         VideoCamera
-      span 拦截下载
-    el-menu-item(key="7"  index="/vip-parse")
-      el-icon
-        VideoCamera
-      span 影视解析
+      span 嗅探
     el-menu-item(key="2" index="/about")
       el-icon
         Share

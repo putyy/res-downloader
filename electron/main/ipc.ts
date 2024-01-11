@@ -1,13 +1,14 @@
 import {ipcMain, dialog, BrowserWindow, app, shell} from 'electron'
 import {startServer} from './proxyServer'
 import {installCert, checkCertInstalled} from './cert'
-import {downloadFile} from './utils'
+import {downloadFile, decodeWxFile} from './utils'
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
 import fs from "fs"
 import CryptoJS from 'crypto-js'
 import {closeProxy, setProxy} from "./setProxy"
 import log from "electron-log"
+import {floor} from "lodash";
 
 let getMac = require("getmac").default
 let win: BrowserWindow
@@ -16,16 +17,6 @@ let isStartProxy = false
 let isOpenProxy = false
 
 let aesKey = "as5d45as4d6qe6wqfar6gt4749q6y7w6h34v64tv7t37ty5qwtv6t6qv"
-
-const toSize = (size: number) => {
-    if (size > 1048576) {
-        return (size / 1048576).toFixed(2) + "MB"
-    }
-    if (size > 1024) {
-        return (size / 1024).toFixed(2) + "KB"
-    }
-    return size + 'b'
-}
 
 const suffix = (type: string) => {
     switch (type) {
@@ -104,6 +95,16 @@ export default function initIPC() {
         return result?.[0]
     })
 
+    ipcMain.handle('invoke_select_wx_file', async (event, {index, data}) => {
+        // 选择下载位置
+        const result = dialog.showOpenDialogSync({title: '保存', properties: ['openFile']})
+        if (!result?.[0]) {
+            return false
+        }
+        return decodeWxFile(result?.[0], data.decode_key, result?.[0].replace(".mp4", "_解密.mp4"))
+    })
+
+
     ipcMain.handle('invoke_file_exists', async (event, {save_path, url}) => {
         let url_sign = hexMD5(url)
         let res = fs.existsSync(`${save_path}/${url_sign}.mp4`)
@@ -131,7 +132,7 @@ export default function initIPC() {
             data.decode_key,
             save_path_file,
             (res) => {
-                return save_path_file
+                win?.webContents.send('on_down_file_schedule', {schedule: floor(res * 100)})
             }
         ).catch(err => {
             // console.log('invoke_down_file:err', err)
@@ -167,8 +168,8 @@ export default function initIPC() {
         shell.openExternal(url).then(r => {})
     })
 
-    ipcMain.handle('invoke_open_dir', (event, {dir}) => {
-        shell.openPath(dir).then(r => {})
+    ipcMain.handle('invoke_open_file_dir', (event, {save_path}) => {
+        shell.showItemInFolder(save_path)
     })
 }
 

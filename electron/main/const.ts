@@ -22,7 +22,7 @@ export default {
     CERT_PUBLIC_PATH: path.join(EXECUTABLE_PATH, './keys/public.pem'),
     INSTALL_CERT_FLAG: path.join(HOME_PATH, './installed.lock'),
     WIN_CERT_INSTALL_HELPER: path.join(EXECUTABLE_PATH, './w_c.exe'),
-    APP_CN_NAME: '资源下载器',
+    APP_CN_NAME: '爱享素材下载器',
     APP_EN_NAME: 'ResDownloader',
     REGEDIT_VBS_PATH: path.join(EXECUTABLE_PATH, './regedit-vbs'),
     OPEN_SSL_BIN_PATH: path.join(EXECUTABLE_PATH, './openssl/openssl.exe'),

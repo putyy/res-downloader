@@ -66,6 +66,22 @@ function downloadFile(url, decodeKey, fullFileName, progressCallback) {
     });
 }
 
+function decodeWxFile(fileName, decodeKey, fullFileName) {
+    let xorStream = xorTransform(getDecryptionArray(decodeKey));
+    let data = fs.createReadStream(fileName);
+
+    return new Promise((resolve, reject) => {
+        data.on('error', err => reject(err));
+        data.pipe(xorStream).pipe(
+            fs.createWriteStream(fullFileName).on('finish', () => {
+                resolve({
+                    fullFileName,
+                });
+            }),
+        );
+    });
+}
+
 function toSize(size: number) {
     if (size > 1048576) {
         return (size / 1048576).toFixed(2) + "MB"
@@ -76,4 +92,4 @@ function toSize(size: number) {
     return size + 'b'
 }
 
-export {downloadFile, toSize}
+export {downloadFile, toSize, decodeWxFile}
