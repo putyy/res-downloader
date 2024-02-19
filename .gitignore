@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 temp
+test
 dist-ssr
 dist-electron
 release
@@ -28,4 +29,5 @@ release
 
 # lockfile
 package-lock.json
+yarn.lock
 pnpm-lock.yaml

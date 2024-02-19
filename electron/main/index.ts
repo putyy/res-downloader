@@ -156,11 +156,6 @@ function createPreviewWindow(parent: BrowserWindow) {
     // previewWin.hide()
     previewWin.setTitle("预览")
 
-    previewWin.webContents.session.on('will-download', (event, item, webContents) => {
-        // console.log("取消下载")
-        item.cancel()
-    })
-
     previewWin.on("page-title-updated", (event) => {
         // 阻止该事件
         event.preventDefault()

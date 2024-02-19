@@ -1,6 +1,6 @@
 import fs from 'fs'
 import {Transform } from 'stream'
-import {getDecryptionArray} from '../wxjs/decrypt'
+import {getDecryptionArray} from '../wxjs/decrypt.js'
 
 const axios = require('axios')
 function xorTransform(decryptionArray) {
@@ -92,4 +92,30 @@ function toSize(size: number) {
     return size + 'b'
 }
 
-export {downloadFile, toSize, decodeWxFile}
+function suffix(type: string) {
+    switch (type) {
+        case "video/mp4":
+            return ".mp4";
+        case "image/png":
+            return ".png";
+        case "image/webp":
+            return ".webp";
+        case "image/svg+xml":
+            return ".svg";
+        case "image/gif":
+            return ".gif";
+        case "audio/mpeg":
+            return ".mp3";
+        case "application/vnd.apple.mpegurl":
+            return ".m3u8";
+        case "image/jpeg":
+            return ".jpeg";
+        case "image/jpg":
+            return ".jpg";
+        case "image/avif":
+            return ".avif";
+    }
+    return ""
+}
+
+export {downloadFile, toSize, decodeWxFile, suffix}

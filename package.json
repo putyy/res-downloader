@@ -1,6 +1,6 @@
 {
   "name": "res-downloader",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "main": "dist-electron/main/index.js",
   "description": "Electron + Vue + Vite 实现的资源下载软件，支持微信视频号下载、抖音视频下载、快手视频下载、酷狗音乐下载等",
   "author": "putyy@qq.com",
@@ -56,6 +56,7 @@
     "axios": "^1.5.0",
     "electron-store": "^8.1.0",
     "getmac": "^5.20.0",
-    "hoxy": "^3.3.1"
+    "hoxy": "^3.3.1",
+    "tunnel-agent": "^0.6.0"
   }
 }

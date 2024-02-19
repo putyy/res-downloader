@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import {ref, onMounted} from "vue"
+import {ref, onMounted, onUnmounted, watch} from "vue"
 import {ipcRenderer} from 'electron'
-import {onUnmounted} from "@vue/runtime-core"
 import {ElMessage, ElLoading, ElTable} from "element-plus"
 import localStorageCache from "../common/localStorage"
 import {Delete, Promotion} from "@element-plus/icons-vue";
@@ -37,6 +36,7 @@ const isInitApp = ref(false)
 
 const multipleTableRef = ref<InstanceType<typeof ElTable>>()
 const multipleSelection = ref<resData[]>([])
+const loading = ref()
 
 onMounted(() => {
   let resTypeCache = localStorageCache.get("res-type")
@@ -49,36 +49,39 @@ onMounted(() => {
     tableData.value = tableDataCache
   }
 
+  ipcRenderer.on('on_get_queue', (res, data) => {
+    // @ts-ignore
+    if (resType.value.hasOwnProperty(data.type_str) && resType.value[data.type_str]) {
+      tableData.value.push(data)
+      localStorageCache.set("res-table-data", tableData.value, -1)
+    }
+  })
+
+  ipcRenderer.on('on_down_file_schedule', (res: any, data: any) => {
+    loading.value && loading.value.setText(`已下载 ${data.schedule}%`)
+  })
+
   ipcRenderer.invoke('invoke_app_is_init').then((isInit: boolean) => {
-    if (!isInit) {
+    if (!isInit && !isInitApp.value) {
       isInitApp.value = true
       ipcRenderer.invoke('invoke_init_app')
     }
   })
 
-  let loading = ElLoading.service({
+  loading.value = ElLoading.service({
     lock: true,
     text: 'Loading',
     background: 'rgba(0, 0, 0, 0.7)',
   })
 
-  ipcRenderer.invoke('invoke_start_proxy').then(() => {
-    loading.close()
-    ipcRenderer.on('on_get_queue', (res, data) => {
-      // @ts-ignore
-      if (resType.value.hasOwnProperty(data.type_str) && resType.value[data.type_str]) {
-        tableData.value.push(data)
-        localStorageCache.set("res-table-data", tableData.value, -1)
-      }
-      return
-    })
+  ipcRenderer.invoke('invoke_start_proxy', {upstream_proxy: localStorageCache.get("upstream_proxy")}).then(() => {
+    loading.value.close()
   }).catch((err) => {
-    // console.log('invoke_start_proxy err', err)
     ElMessage({
       message: err,
       type: 'warning',
     })
-    loading.close()
+    loading.value.close()
   })
 })
 
@@ -90,13 +93,11 @@ onUnmounted(() => {
   ipcRenderer.removeListener('on_down_file_schedule', (res) => {
     // console.log(res)
   })
-
-  // ipcRenderer.invoke('invoke_close_proxy').then((res) => {
-  // })
-
-  localStorageCache.set("res-table-data", tableData.value, -1)
-  localStorageCache.set("res-type", resType.value, -1)
 })
+
+watch(resType, (res, res1)=>{
+  localStorageCache.set("res-type", resType.value, -1)
+}, {deep: true})
 
 const handleSelectionChange = (val: resData[]) => {
   multipleSelection.value = val
@@ -117,14 +118,10 @@ const handleBatchDown = async () => {
     return
   }
 
-  let loading = ElLoading.service({
+  loading.value = ElLoading.service({
     lock: true,
     text: '下载中',
     background: 'rgba(0, 0, 0, 0.7)',
-  })
-
-  ipcRenderer.on('on_down_file_schedule', (res: any, data: any) => {
-    loading.setText(`已下载 ${data.schedule}%`)
   })
 
   for (const item of multipleSelection.value) {
@@ -151,7 +148,7 @@ const handleBatchDown = async () => {
       item.save_path = downRes.fullFileName
     }
   }
-  loading.close()
+  loading.value.close()
   multipleTableRef.value!.clearSelection()
 }
 
@@ -168,7 +165,7 @@ const handleDown = async (index: number, row: any, high: boolean) => {
     return
   }
 
-  let loading = ElLoading.service({
+  loading.value = ElLoading.service({
     lock: true,
     text: '下载中',
     background: 'rgba(0, 0, 0, 0.7)',
@@ -186,13 +183,10 @@ const handleDown = async (index: number, row: any, high: boolean) => {
       message: "文件已存在(" + result.fileName + ")",
       type: 'warning',
     })
-    loading.close()
+    loading.value.close()
+    localStorageCache.set("res-table-data", tableData.value, -1)
     return
   }
-
-  ipcRenderer.on('on_down_file_schedule', (res: any, data: any) => {
-    loading.setText(`已下载 ${data.schedule}%`)
-  })
 
   ipcRenderer.invoke('invoke_down_file', {
     index: index,
@@ -203,24 +197,25 @@ const handleDown = async (index: number, row: any, high: boolean) => {
     if (res !== false) {
       tableData.value[index].progress_bar = "100%"
       tableData.value[index].save_path = res.fullFileName
+      localStorageCache.set("res-table-data", tableData.value, -1)
     }else{
       ElMessage({
         message: "下载失败",
         type: 'warning',
       })
     }
-    loading.close()
+    loading.value.close()
   }).catch((err) => {
     ElMessage({
       message: "下载失败",
       type: 'warning',
     })
-    loading.close()
+    loading.value.close()
   })
 }
 
 const decodeWxFile = (index: number) => {
-  let loading = ElLoading.service({
+  loading.value = ElLoading.service({
     lock: true,
     text: "解密中",
     background: 'rgba(0, 0, 0, 0.7)',
@@ -237,19 +232,20 @@ const decodeWxFile = (index: number) => {
       })
       tableData.value[index].progress_bar = "100%"
       tableData.value[index].save_path = res.fullFileName
+      localStorageCache.set("res-table-data", tableData.value, -1)
     }else{
       ElMessage({
         message: "解密失败",
         type: 'warning',
       })
     }
-    loading.close()
+    loading.value.close()
   }).catch((err) => {
     ElMessage({
       message: "解密失败",
       type: 'warning',
     })
-    loading.close()
+    loading.value.close()
   })
 }
 
@@ -280,6 +276,7 @@ const handleDel = (index: number)=>{
   let arr = tableData.value
   arr.splice(index, 1);
   tableData.value = arr
+  localStorageCache.set("res-table-data", tableData.value, -1)
 }
 
 const openFileDir = (index: number)=>{
@@ -326,7 +323,7 @@ el-container.container
         template(#default="scope")
           div.show_res
             video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.down_url" controls preload="none") 您的浏览器不支持 video 标签。
-            img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.down_url")
+            img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.down_url" crossorigin="anonymous")
             audio.audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
               source(:src="scope.row.down_url" :type="scope.row.type")
             div {{scope.row.description}}

@@ -1,41 +1,19 @@
 import {ipcMain, dialog, BrowserWindow, app, shell} from 'electron'
 import {startServer} from './proxyServer'
 import {installCert, checkCertInstalled} from './cert'
-import {downloadFile, decodeWxFile} from './utils'
+import {downloadFile, decodeWxFile, suffix} from './utils'
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
 import fs from "fs"
 import CryptoJS from 'crypto-js'
-import {closeProxy, setProxy} from "./setProxy"
-import log from "electron-log"
-import {floor} from "lodash";
+import {floor} from "lodash"
 
 let getMac = require("getmac").default
 let win: BrowserWindow
 let previewWin: BrowserWindow
 let isStartProxy = false
-let isOpenProxy = false
 
 let aesKey = "as5d45as4d6qe6wqfar6gt4749q6y7w6h34v64tv7t37ty5qwtv6t6qv"
-
-const suffix = (type: string) => {
-    switch (type) {
-        case "video/mp4":
-            return ".mp4";
-        case "image/png":
-            return ".png";
-        case "image/webp":
-            return ".webp";
-        case "image/svg+xml":
-            return ".svg";
-        case "image/gif":
-            return ".gif";
-        case "audio/mpeg":
-            return ".mp3";
-        case "application/vnd.apple.mpegurl":
-            return ".m3u8";
-    }
-}
 
 export default function initIPC() {
 
@@ -44,45 +22,24 @@ export default function initIPC() {
         return checkCertInstalled()
     })
 
-    ipcMain.handle('invoke_init_app', (event, arg) => {
+    ipcMain.handle('invoke_init_app',  (event, arg) => {
         // 开始 初始化应用 安装证书相关
-        // console.log('invoke_init_app')
-        return installCert(false)
+        installCert(false).then(r => {})
     })
 
-    ipcMain.handle('invoke_start_proxy', async (event, arg) => {
+    ipcMain.handle('invoke_start_proxy', (event, arg) => {
         // 启动代理服务
         if (isStartProxy) {
-            if (isOpenProxy === false) {
-                isOpenProxy = true
-                setProxy('127.0.0.1', 8899)
-                    .then(() => {
-                    })
-                    .catch((err) => {
-                    })
-            }
             return
         }
         isStartProxy = true
-        isOpenProxy = true
         return startServer({
             win: win,
+            upstreamProxy: arg.upstream_proxy ? arg.upstream_proxy : "",
             setProxyErrorCallback: err => {
-                isStartProxy = false
-                isOpenProxy = false
+
             },
         })
-    })
-
-    ipcMain.handle('invoke_close_proxy', (event, arg) => {
-        // 关闭代理
-        try {
-            isOpenProxy = false
-            return closeProxy()
-        } catch (error) {
-            log.log("--------------closeProxy error--------------", error)
-        }
-
     })
 
     ipcMain.handle('invoke_select_down_dir', async (event, arg) => {
@@ -123,6 +80,10 @@ export default function initIPC() {
 
         let url_sign = hexMD5(down_url)
         let save_path_file = `${save_path}/${url_sign}` + suffix(data.type)
+        if (process.platform === 'win32'){
+            save_path_file = `${save_path}\\${url_sign}` + suffix(data.type)
+        }
+
         if (fs.existsSync(save_path_file)) {
             return {fullFileName: save_path_file, totalLen: ""}
         }
@@ -135,7 +96,6 @@ export default function initIPC() {
                 win?.webContents.send('on_down_file_schedule', {schedule: floor(res * 100)})
             }
         ).catch(err => {
-            // console.log('invoke_down_file:err', err)
             return false
         })
     })
@@ -156,6 +116,8 @@ export default function initIPC() {
             return
         }
 
+        console.log('url', url)
+
         previewWin.loadURL(url).then(r => {
             return
         }).catch(res => {
@@ -170,6 +132,11 @@ export default function initIPC() {
 
     ipcMain.handle('invoke_open_file_dir', (event, {save_path}) => {
         shell.showItemInFolder(save_path)
+    })
+
+    ipcMain.handle('invoke_window_restart', (event) => {
+       app.relaunch()
+       app.exit()
     })
 }
 

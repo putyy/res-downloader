@@ -22,7 +22,13 @@ export async function setProxy(host, port) {
                         if (error) {
                             reject(null)
                         } else {
-                            resolve(network)
+                            exec(`networksetup -setwebproxy "${network}" ${host} ${port}`, error => {
+                                if (error) {
+                                    reject(null)
+                                } else {
+                                    resolve(network)
+                                }
+                            });
                         }
                     });
                 });
@@ -63,7 +69,13 @@ export async function closeProxy() {
                         if (error) {
                             reject(null)
                         } else {
-                            resolve(network)
+                            exec(`networksetup -setwebproxystate "${network}" off`, error => {
+                                if (error) {
+                                    reject(null)
+                                } else {
+                                    resolve(network)
+                                }
+                            });
                         }
                     });
                 });
