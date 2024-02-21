@@ -23,7 +23,7 @@ yarn install
 yarn run dev
 
 # 打包mac
-yarn run build --mac
+yarn run build --universal --mac
 
 # 打包win
 yarn run build --win

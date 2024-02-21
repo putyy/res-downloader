@@ -15,9 +15,16 @@
   ],
   "mac": {
     "icon": "electron/res/icon/icons/mac/icon.icns",
-    "artifactName": "${productName}_${version}.${ext}",
+    "artifactName": "${productName}_${version}.${arch}.${ext}",
+    "singleArchFiles": "*",
     "target": [
-      "dmg"
+      {
+        "target": "dmg",
+        "arch": [
+          'x64',
+          'arm64'
+        ]
+      }
     ]
   },
   "win": {
