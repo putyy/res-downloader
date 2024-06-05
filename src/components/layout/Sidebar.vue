@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {inject, onMounted, ref, watch} from 'vue'
-import localStorageCache from "../../common/localStorage";
+import localStorageCache from "../../common/localStorage"
 
 const appName = "爱享素材"
 const sidebarCollapse = ref(inject('sidebarCollapse'))

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
-import {ipcRenderer} from "electron";
-import localStorageCache from "../common/localStorage";
-import {ElMessage} from "element-plus";
+import {onMounted, ref} from "vue"
+import {ipcRenderer} from "electron"
+import localStorageCache from "../common/localStorage"
+import {ElMessage} from "element-plus"
 
 const saveDir = ref("")
 const upstream_proxy = ref("")

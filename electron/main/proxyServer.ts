@@ -160,6 +160,15 @@ export async function startServer({
                     let urlInfo = urlTool.parse(res_url, true)
                     switch (ctype) {
                         case "video/mp4":
+                        case "video/webm":
+                        case "video/ogg":
+                        case "video/x-msvideo":
+                        case "video/mpeg":
+                        case "video/quicktime":
+                        case "video/x-ms-wmv":
+                        case "video/x-flv":
+                        case "video/3gpp":
+                        case "video/x-matroska":
                             if (videoList.hasOwnProperty(url_sign) === false) {
                                 videoList[url_sign] = req.fullUrl()
                                 let high_url = ''
@@ -189,6 +198,11 @@ export async function startServer({
                         case "image/svg+xml":
                         case "image/gif":
                         case "image/avif":
+                        case "image/bmp":
+                        case "image/tiff":
+                        case "image/x-icon":
+                        case "image/heic":
+                        case "image/vnd.adobe.photoshop":
                             win?.webContents?.send?.('on_get_queue', {
                                 url_sign: url_sign,
                                 url: res_url,
@@ -207,6 +221,18 @@ export async function startServer({
                             })
                             break;
                         case "audio/mpeg":
+                        case "audio/wav":
+                        case "audio/aiff":
+                        case "audio/x-aiff":
+                        case "audio/aac":
+                        case "audio/ogg":
+                        case "audio/flac":
+                        case "audio/midi":
+                        case "audio/x-midi":
+                        case "audio/x-ms-wma":
+                        case "audio/opus":
+                        case "audio/webm":
+                        case "audio/mp4":
                             win?.webContents?.send?.('on_get_queue', {
                                 url_sign: url_sign,
                                 url: res_url,
@@ -225,6 +251,7 @@ export async function startServer({
                             })
                             break;
                         case "application/vnd.apple.mpegurl":
+                        case "application/x-mpegURL":
                             win.webContents?.send?.('on_get_queue', {
                                 url_sign: url_sign,
                                 url: res_url,

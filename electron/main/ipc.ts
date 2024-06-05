@@ -61,27 +61,23 @@ export default function initIPC() {
         return decodeWxFile(result?.[0], data.decode_key, result?.[0].replace(".mp4", "_解密.mp4"))
     })
 
-
-    ipcMain.handle('invoke_file_exists', async (event, {save_path, url}) => {
-        let url_sign = hexMD5(url)
-        let res = fs.existsSync(`${save_path}/${url_sign}.mp4`)
-        return {is_file: res, fileName: `${save_path}/${url_sign}.mp4`}
+    ipcMain.handle('invoke_file_exists', async (event, {save_path, url, description}) => {
+        let fileName = description ? description.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '') : hexMD5(url);
+        let res = fs.existsSync(`${save_path}/${fileName}.mp4`)
+        return {is_file: res, fileName: `${save_path}/${fileName}.mp4`}
     })
 
-    ipcMain.handle('invoke_down_file', async (event, {index, data, save_path, high}) => {
+    ipcMain.handle('invoke_down_file', async (event, {data, save_path, description}) => {
         let down_url = data.down_url
-        if (high && data.high_url) {
-            down_url = data.high_url
-        }
 
         if (!down_url) {
             return false
         }
 
-        let url_sign = hexMD5(down_url)
-        let save_path_file = `${save_path}/${url_sign}` + suffix(data.type)
+        let fileName = description ? description.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '') : hexMD5(down_url);
+        let save_path_file = `${save_path}/${fileName}` + suffix(data.type)
         if (process.platform === 'win32'){
-            save_path_file = `${save_path}\\${url_sign}` + suffix(data.type)
+            save_path_file = `${save_path}\\${fileName}` + suffix(data.type)
         }
 
         if (fs.existsSync(save_path_file)) {
@@ -115,8 +111,6 @@ export default function initIPC() {
         if (!url) {
             return
         }
-
-        console.log('url', url)
 
         previewWin.loadURL(url).then(r => {
             return

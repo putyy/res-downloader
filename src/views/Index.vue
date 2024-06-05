@@ -3,7 +3,7 @@ import {ref, onMounted, onUnmounted, watch} from "vue"
 import {ipcRenderer} from 'electron'
 import {ElMessage, ElLoading, ElTable} from "element-plus"
 import localStorageCache from "../common/localStorage"
-import {Delete, Promotion} from "@element-plus/icons-vue";
+import {Delete, Promotion} from "@element-plus/icons-vue"
 
 interface resData {
   url_sign: string,
@@ -153,7 +153,7 @@ const handleBatchDown = async () => {
 }
 
 
-const handleDown = async (index: number, row: any, high: boolean) => {
+const handleDown = async (index: number, row: any) => {
 
   let save_dir = localStorageCache.get("save_dir")
 
@@ -173,7 +173,8 @@ const handleDown = async (index: number, row: any, high: boolean) => {
 
   let result = await ipcRenderer.invoke('invoke_file_exists', {
     save_path: save_dir,
-    url: (high && row.high_url) ? row.high_url : row.url,
+    url: row.high_url ? row.high_url : row.url,
+    description: row.description
   })
 
   if (result.is_file) {
@@ -189,10 +190,9 @@ const handleDown = async (index: number, row: any, high: boolean) => {
   }
 
   ipcRenderer.invoke('invoke_down_file', {
-    index: index,
     data: Object.assign({}, tableData.value[index]),
     save_path: save_dir,
-    high: high
+    description: row.description
   }).then((res) => {
     if (res !== false) {
       tableData.value[index].progress_bar = "100%"
@@ -336,7 +336,7 @@ el-container.container
         template(#default="scope")
           div.actions
             template(v-if="scope.row.type_str !== 'm3u8'" )
-              el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row, false)") {{scope.row.decode_key ? "解密下载(视频号)" : "下载"}}
+              el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key ? "解密下载(视频号)" : "下载"}}
               el-button(v-if="scope.row.decode_key" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
               el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
             el-button(link type="primary" @click="handleCopy(scope.row.down_url)") 复制链接
