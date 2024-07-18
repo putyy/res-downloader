@@ -24,6 +24,11 @@ const jump = (scene: number)=>{
         url: "https://s.gowas.cn/d/4089-quan-ping-tai-zi-yuan-xia-zai-ruan-jian"
       })
       break;
+    case 5:
+      ipcRenderer.invoke('invoke_open_default_browser', {
+        url: "https://www.ais.do/ivi/rr2GaZ"
+      })
+      break;
     case 6:
       ipcRenderer.invoke('invoke_open_default_browser', {
         url: "https://github.com/putyy/res-downloader"
@@ -40,7 +45,8 @@ div.line
   a.item(@click="jump(4)") 问题反馈
 div.line
   a.item 推荐:
-  a.item(@click="jump(2)") 云盘资源
+  a.item(@click="jump(5)") Ai助手(免费)
+  a.item(@click="jump(2)") 网盘资源
   a.item(@click="jump(3)") 图片无损压缩
   a.item(@click="jump(6)") 软件源码
 </template>

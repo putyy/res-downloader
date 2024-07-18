@@ -6,20 +6,16 @@ import localStorageCache from "../common/localStorage"
 import {Delete, Promotion} from "@element-plus/icons-vue"
 
 interface resData {
-  url_sign: string,
   url: string,
-  down_url: string,
-  high_url: string,
+  url_sign: string,
   size: any,
   platform: string,
   type: string,
   type_str: string,
   progress_bar: any,
   save_path: string,
-  downing: boolean,
   decode_key: string,
   description: string,
-  uploader: string,
 }
 
 const tableData = ref<resData[]>([])
@@ -95,7 +91,7 @@ onUnmounted(() => {
   })
 })
 
-watch(resType, (res, res1)=>{
+watch(resType, (res, res1) => {
   localStorageCache.set("res-type", resType.value, -1)
 }, {deep: true})
 
@@ -137,10 +133,8 @@ const handleBatchDown = async () => {
     }
 
     let downRes = await ipcRenderer.invoke('invoke_down_file', {
-      index: 0,
       data: Object.assign({}, item),
       save_path: save_dir,
-      high: false
     })
 
     if (downRes !== false) {
@@ -173,7 +167,7 @@ const handleDown = async (index: number, row: any) => {
 
   let result = await ipcRenderer.invoke('invoke_file_exists', {
     save_path: save_dir,
-    url: row.high_url ? row.high_url : row.url,
+    url: row.url,
     description: row.description
   })
 
@@ -188,17 +182,15 @@ const handleDown = async (index: number, row: any) => {
     localStorageCache.set("res-table-data", tableData.value, -1)
     return
   }
-
   ipcRenderer.invoke('invoke_down_file', {
     data: Object.assign({}, tableData.value[index]),
-    save_path: save_dir,
-    description: row.description
+    save_path: save_dir
   }).then((res) => {
     if (res !== false) {
       tableData.value[index].progress_bar = "100%"
       tableData.value[index].save_path = res.fullFileName
       localStorageCache.set("res-table-data", tableData.value, -1)
-    }else{
+    } else {
       ElMessage({
         message: "下载失败",
         type: 'warning',
@@ -233,7 +225,7 @@ const decodeWxFile = (index: number) => {
       tableData.value[index].progress_bar = "100%"
       tableData.value[index].save_path = res.fullFileName
       localStorageCache.set("res-table-data", tableData.value, -1)
-    }else{
+    } else {
       ElMessage({
         message: "解密失败",
         type: 'warning',
@@ -250,36 +242,42 @@ const decodeWxFile = (index: number) => {
 }
 
 const handlePreview = (index: number, row: any) => {
-  ipcRenderer.invoke('invoke_resources_preview', {url: row.down_url}).catch(() => {
+  ipcRenderer.invoke('invoke_resources_preview', {url: row.url}).catch(() => {
   })
 }
 
 const handleClear = () => {
   tableData.value = []
   localStorageCache.del("res-table-data")
+  ipcRenderer.invoke('invoke_file_del', {
+    url_sign: "all"
+  })
 }
 
 const handleCopy = (text: string) => {
-    let el = document.createElement('input')
-    el.setAttribute('value', text)
-    document.body.appendChild(el)
-    el.select()
-    document.execCommand('copy')
-    document.body.removeChild(el)
-    ElMessage({
-      message: "复制成功",
-      type: 'success',
-    })
+  let el = document.createElement('input')
+  el.setAttribute('value', text)
+  document.body.appendChild(el)
+  el.select()
+  document.execCommand('copy')
+  document.body.removeChild(el)
+  ElMessage({
+    message: "复制成功",
+    type: 'success',
+  })
 }
 
-const handleDel = (index: number)=>{
+const handleDel = (index: number) => {
   let arr = tableData.value
   arr.splice(index, 1);
   tableData.value = arr
   localStorageCache.set("res-table-data", tableData.value, -1)
+  ipcRenderer.invoke('invoke_file_del', {
+    url_sign: tableData.value[index].url_sign
+  })
 }
 
-const openFileDir = (index: number)=>{
+const openFileDir = (index: number) => {
   ipcRenderer.invoke('invoke_open_file_dir', {
     save_path: tableData.value[index].save_path
   })
@@ -322,10 +320,10 @@ el-container.container
       el-table-column(label="预览" show-overflow-tooltip width="300px")
         template(#default="scope")
           div.show_res
-            video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.down_url" controls preload="none") 您的浏览器不支持 video 标签。
-            img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.down_url" crossorigin="anonymous")
+            video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.url" controls preload="none") 您的浏览器不支持 video 标签。
+            img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.url" crossorigin="anonymous")
             audio.audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
-              source(:src="scope.row.down_url" :type="scope.row.type")
+              source(:src="scope.row.url" :type="scope.row.type")
             div {{scope.row.description}}
       el-table-column(prop="type_str" label="类型" show-overflow-tooltip)
       el-table-column(prop="platform" label="主机地址")
@@ -336,10 +334,10 @@ el-container.container
         template(#default="scope")
           div.actions
             template(v-if="scope.row.type_str !== 'm3u8'" )
-              el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key ? "解密下载(视频号)" : "下载"}}
-              el-button(v-if="scope.row.decode_key" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
+              el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key || scope.row.decryptor_array ? "解密下载(视频号)" : "下载"}}
+              el-button(v-if="scope.row.decode_key || scope.row.decryptor_array" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
               el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
-            el-button(link type="primary" @click="handleCopy(scope.row.down_url)") 复制链接
+            el-button(link type="primary" @click="handleCopy(scope.row.url)") 复制链接
             el-button(link type="primary" @click="handleDel(scope.$index)") 删除
             el-button(v-if="scope.row.save_path" link type="primary" @click="openFileDir(scope.$index)") 打开文件目录
 </template>
@@ -375,15 +373,16 @@ el-container.container
     }
   }
 
-  .show_res{
+  .show_res {
     width: 100%;
     height: auto;
-    .img{
+
+    .img {
       max-height: 200px;
     }
   }
 
-  .actions{
+  .actions {
     display: flex;
     flex-direction: column;
     align-items: flex-start;

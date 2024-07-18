@@ -1,8 +1,8 @@
 {
   "name": "res-downloader",
-  "version": "1.0.6",
+  "version": "2.0.0",
   "main": "dist-electron/main/index.js",
-  "description": "Electron + Vue + Vite 实现的资源下载软件，支持微信视频号下载、抖音视频下载、快手视频下载、酷狗音乐下载等",
+  "description": "res-downloader(爱享素材下载器)，支持视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐下载等",
   "author": "putyy@qq.com",
   "license": "MIT",
   "private": true,

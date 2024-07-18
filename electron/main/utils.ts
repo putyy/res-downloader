@@ -25,13 +25,18 @@ function downloadFile(url, decodeKey, fullFileName, progressCallback) {
     if (decodeKey) {
         xorStream = xorTransform(getDecryptionArray(decodeKey));
     }
-
-    return axios.get(url, {
+    let config = {
         responseType: 'stream',
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36',
         },
-    }).then(({data, headers}) => {
+    }
+
+    if (url.includes("douyin")){
+        config.headers['Referer'] = url
+    }
+
+    return axios.get(url, config).then(({data, headers}) => {
         let currentLen = 0
         const totalLen = headers['content-length']
 
@@ -95,25 +100,46 @@ function toSize(size: number) {
 function suffix(type: string) {
     switch (type) {
         case "video/mp4":
+        case "video/webm":
+        case "video/ogg":
+        case "video/x-msvideo":
+        case "video/mpeg":
+        case "video/quicktime":
+        case "video/x-ms-wmv":
+        case "video/x-flv":
+        case "video/3gpp":
+        case "video/x-matroska":
             return ".mp4";
         case "image/png":
-            return ".png";
         case "image/webp":
-            return ".webp";
+        case "image/jpeg":
+        case "image/jpg":
         case "image/svg+xml":
-            return ".svg";
         case "image/gif":
-            return ".gif";
+        case "image/avif":
+        case "image/bmp":
+        case "image/tiff":
+        case "image/x-icon":
+        case "image/heic":
+        case "image/vnd.adobe.photoshop":
+            return ".png";
         case "audio/mpeg":
+        case "audio/wav":
+        case "audio/aiff":
+        case "audio/x-aiff":
+        case "audio/aac":
+        case "audio/ogg":
+        case "audio/flac":
+        case "audio/midi":
+        case "audio/x-midi":
+        case "audio/x-ms-wma":
+        case "audio/opus":
+        case "audio/webm":
+        case "audio/mp4":
             return ".mp3";
         case "application/vnd.apple.mpegurl":
+        case "application/x-mpegURL":
             return ".m3u8";
-        case "image/jpeg":
-            return ".jpeg";
-        case "image/jpg":
-            return ".jpg";
-        case "image/avif":
-            return ".avif";
     }
     return ""
 }

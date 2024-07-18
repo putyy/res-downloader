@@ -47,7 +47,7 @@ const str = "使用方法\n" +
 </script>
 <template lang="pug">
 div.about
-  div 1. 本软件免费、源代码已经开源，不会以任何形式收取费用。&nbsp;
+  div 1. 本软件免费、代码已开源，不会以任何形式收取费用。&nbsp;
     el-button(@click="jump(3)") 查看源码
   div 2. m3u8复制的链接如何使用? &nbsp;
     el-button(@click="jump(1)") 在线下载

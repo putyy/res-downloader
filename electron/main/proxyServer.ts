@@ -7,78 +7,35 @@ import * as urlTool from "url"
 import {toSize} from "./utils"
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
+import pkg from '../../package.json'
 
 const hoXy = require('hoxy')
 
 const port = 8899
 
-let videoList = {}
+global.videoList = {}
 
 if (process.platform === 'win32') {
     process.env.OPENSSL_BIN = CONFIG.OPEN_SSL_BIN_PATH
     process.env.OPENSSL_CONF = CONFIG.OPEN_SSL_CNF_PATH
 }
 
-// setTimeout to allow working in macOS
-// in windows: H5ExtTransfer:ok
-// in macOS: finderH5ExtTransfer:ok
+const resObject = {
+    url: "",
+    url_sign: "",
+    platform: "",
+    size: "",
+    type: "video/mp4",
+    type_str: 'video',
+    progress_bar: "",
+    save_path: "",
+    decode_key: "",
+    description: ""
+}
 
-const injection_script1 = `
-setTimeout(() => {
-  let receiver_url = "https://res-downloader.666666.com";
+const vv = hexMD5(pkg.version) + (CONFIG.IS_DEV ? Math.random() :"")
 
-  function send_response_if_is_video(response) {
-    if (response == undefined) return;
-    if (!response["err_msg"].includes("H5ExtTransfer:ok")) return;
-    let value = JSON.parse(response["jsapi_resp"]["resp_json"]);
-    if (value["object"] == undefined || value["object"]["object_desc"] == undefined  || value["object"]["object_desc"]["media"].length == 0) {
-      return;
-    }
-    let media = value["object"]["object_desc"]["media"][0];
-    let description = value["object"]["object_desc"]["description"].trim();
-    let video_data = {
-      "decode_key": media["decode_key"],
-      "url": media["url"]+media["url_token"],
-      "size": media["file_size"],
-      "description":  description,
-      "uploader": value["object"]["nickname"]
-    };
-    fetch(receiver_url, {
-      method: "POST",
-      mode: "no-cors",
-      body: JSON.stringify(video_data),
-    }).then((resp) => {
-      // alert(\`video data for \${video_data["description"]} sent!\`);
-    });
-  }
-
-  function wrapper(name,origin) {
-    return function() {
-      let cmdName = arguments[0];
-      if (arguments.length == 3) {
-        let original_callback = arguments[2];
-        arguments[2] = async function () {
-          if (arguments.length == 1) {
-            send_response_if_is_video(arguments[0]);
-          }
-          return await original_callback.apply(this, arguments);
-        }
-      } else {
-      }
-      let result = origin.apply(this,arguments);
-      return result;
-    }
-  }
-
-  window.WeixinJSBridge.invoke = wrapper("WeixinJSBridge.invoke", window.WeixinJSBridge.invoke);
-  window.wvds = true;
-}, 200);`;
-
-export async function startServer({
-                                      win,
-                                      upstreamProxy,
-                                      setProxyErrorCallback = f => f,
-                                  }) {
+export async function startServer({win, upstreamProxy, setProxyErrorCallback = f => f,}) {
     return new Promise(async (resolve: any, reject) => {
         try {
             const proxy = hoXy.createServer({
@@ -94,14 +51,14 @@ export async function startServer({
                             resolve()
                         })
                         .catch((err) => {
-                            setProxyErrorCallback(err);
-                            reject('setting proxy err: '+ err.toString());
+                            setProxyErrorCallback(err)
+                            reject('setting proxy err: ' + err.toString())
                         });
                 })
                 .on('error', err => {
-                    setProxyErrorCallback(err);
-                    reject('proxy service err: ' + err.toString());
-                });
+                    setProxyErrorCallback(err)
+                    reject('proxy service err: ' + err.toString())
+                })
 
 
             proxy.intercept(
@@ -113,26 +70,32 @@ export async function startServer({
                 (req, res) => {
                     res.string = 'ok'
                     res.statusCode = 200
-                    let url_sign: string = hexMD5(req.json.url)
-                    let urlInfo = urlTool.parse(req.json.url, true)
-                    win?.webContents?.send?.('on_get_queue', {
-                        url_sign: url_sign,
-                        url: req.json.url,
-                        down_url: req.json.url,
-                        high_url: '',
-                        platform: urlInfo.hostname,
-                        size: toSize(req.json.size ?? 0),
-                        type: "video/mp4",
-                        type_str: 'video',
-                        progress_bar: '',
-                        save_path: '',
-                        downing: false,
-                        decode_key: req.json.decode_key,
-                        description: req.json.description,
-                        uploader: '',
-                    })
+                    try {
+                        if (!req.json?.description || req.json?.media?.length <= 0) {
+                            return
+                        }
+                        const media = req.json?.media[0]
+                        const url_sign: string = hexMD5(media.url)
+                        if (global.videoList.hasOwnProperty(url_sign) === true) {
+                            return
+                        }
+                        const urlInfo = urlTool.parse(media.url, true)
+                        global.videoList[url_sign] = media.url
+                        win.webContents.send('on_get_queue', Object.assign({}, resObject, {
+                            url_sign: url_sign,
+                            url: media.url + media.urlToken,
+                            platform: urlInfo.hostname,
+                            size: media?.fileSize ? toSize(media.fileSize) : 0,
+                            type: "video/mp4",
+                            type_str: 'video',
+                            decode_key: media?.decodeKey ? media?.decodeKey : '',
+                            description: req.json.description,
+                        }))
+                    } catch (e) {
+                        log.log(e.toString())
+                    }
                 },
-            );
+            )
 
             proxy.intercept(
                 {
@@ -142,10 +105,42 @@ export async function startServer({
                 },
                 async (req, res) => {
                     if (req.url.includes('/web/pages/feed') || req.url.includes('/web/pages/home')) {
-                        res.string = res.string.replace('</body>', '\n<script>' + injection_script1 + '</script>\n</body>');
-                        res.statusCode = 200;
+                        res.string = res.string.replaceAll('.js"', '.js?v=' + vv + '"')
+                        res.statusCode = 200
                     }
                 },
+            )
+
+            proxy.intercept(
+                {
+                    phase: 'response',
+                    as: 'string',
+                },
+                async (req, res) => {
+                    if (req.url.endsWith('.js?v=' + vv)) {
+                        res.string = res.string.replaceAll('.js"', '.js?v=' + vv + '"');
+                    }
+                    if (req.url.includes("web/web-finder/res/js/virtual_svg-icons-register.publish")) {
+                        // console.log(res.string.match(/return\s*\{\s*width:([\s\S]*?)scalingInfo:([\s\S]*?)\}/))
+//                         res.string = res.string.replace(
+//                             /return\s*{\s*width:(.*?)scalingInfo:(.*?)\s*}/,
+//                             `var mediaInfo = {width:$1scalingInfo:$2};
+// console.log("mediaInfo", mediaInfo);
+// console.log("this.objectDesc", this.objectDesc);
+// return mediaInfo;`
+//                         )
+                        res.string = res.string.replace(/get\s*media\s*\(\)\s*\{/, `
+                        get media(){
+                            if(this.objectDesc){
+                                fetch("https://res-downloader.666666.com", {
+                                  method: "POST",
+                                  mode: "no-cors",
+                                  body: JSON.stringify(this.objectDesc),
+                                });
+                            };
+                        `)
+                    }
+                }
             );
 
             proxy.intercept(
@@ -153,125 +148,94 @@ export async function startServer({
                     phase: 'response',
                 },
                 async (req, res) => {
-                    // 拦截响应
-                    let ctype = res?._data?.headers?.['content-type']
-                    let url_sign: string = hexMD5(req.fullUrl())
-                    let res_url = req.fullUrl()
-                    let urlInfo = urlTool.parse(res_url, true)
-                    switch (ctype) {
-                        case "video/mp4":
-                        case "video/webm":
-                        case "video/ogg":
-                        case "video/x-msvideo":
-                        case "video/mpeg":
-                        case "video/quicktime":
-                        case "video/x-ms-wmv":
-                        case "video/x-flv":
-                        case "video/3gpp":
-                        case "video/x-matroska":
-                            if (videoList.hasOwnProperty(url_sign) === false) {
-                                videoList[url_sign] = req.fullUrl()
-                                let high_url = ''
-                                let down_url = res_url
-                                win?.webContents?.send?.('on_get_queue', {
+                    try {
+                        // 拦截响应
+                        const ctype = res?._data?.headers?.['content-type']
+                        const url_sign: string = hexMD5(req.fullUrl())
+                        const res_url = req.fullUrl()
+                        const urlInfo = urlTool.parse(res_url, true)
+                        switch (ctype) {
+                            case "video/mp4":
+                            case "video/webm":
+                            case "video/ogg":
+                            case "video/x-msvideo":
+                            case "video/mpeg":
+                            case "video/quicktime":
+                            case "video/x-ms-wmv":
+                            case "video/x-flv":
+                            case "video/3gpp":
+                            case "video/x-matroska":
+                                if (global.videoList.hasOwnProperty(url_sign) === false) {
+                                    global.videoList[url_sign] = res_url
+                                    win.webContents.send('on_get_queue', Object.assign({}, resObject, {
+                                        url: res_url,
+                                        url_sign: url_sign,
+                                        platform: urlInfo.hostname,
+                                        size: toSize(res?._data?.headers?.['content-length'] ?? 0),
+                                        type: ctype,
+                                        type_str: 'video',
+                                    }))
+                                }
+                                break;
+                            case "image/png":
+                            case "image/webp":
+                            case "image/jpeg":
+                            case "image/jpg":
+                            case "image/svg+xml":
+                            case "image/gif":
+                            case "image/avif":
+                            case "image/bmp":
+                            case "image/tiff":
+                            case "image/x-icon":
+                            case "image/heic":
+                            case "image/vnd.adobe.photoshop":
+                                win.webContents.send('on_get_queue', Object.assign({}, resObject, {
+                                    url: res_url,
                                     url_sign: url_sign,
-                                    url: down_url,
-                                    down_url: down_url,
-                                    high_url: high_url,
                                     platform: urlInfo.hostname,
-                                    size: toSize(res?._data?.headers?.['content-length'] ?? 0),
+                                    size: res?._data?.headers?.['content-length'] ? toSize(res?._data?.headers?.['content-length']) : 0,
                                     type: ctype,
-                                    type_str: 'video',
-                                    progress_bar: '',
-                                    save_path: '',
-                                    downing: false,
-                                    decode_key: '',
-                                    description: '',
-                                    uploader: '',
-                                })
-                            }
-                            break;
-                        case "image/png":
-                        case "image/webp":
-                        case "image/jpeg":
-                        case "image/jpg":
-                        case "image/svg+xml":
-                        case "image/gif":
-                        case "image/avif":
-                        case "image/bmp":
-                        case "image/tiff":
-                        case "image/x-icon":
-                        case "image/heic":
-                        case "image/vnd.adobe.photoshop":
-                            win?.webContents?.send?.('on_get_queue', {
-                                url_sign: url_sign,
-                                url: res_url,
-                                down_url: res_url,
-                                high_url: '',
-                                platform: urlInfo.hostname,
-                                size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                type: ctype,
-                                type_str: 'image',
-                                progress_bar: '',
-                                save_path: '',
-                                downing: false,
-                                decode_key: '',
-                                description: '',
-                                uploader: '',
-                            })
-                            break;
-                        case "audio/mpeg":
-                        case "audio/wav":
-                        case "audio/aiff":
-                        case "audio/x-aiff":
-                        case "audio/aac":
-                        case "audio/ogg":
-                        case "audio/flac":
-                        case "audio/midi":
-                        case "audio/x-midi":
-                        case "audio/x-ms-wma":
-                        case "audio/opus":
-                        case "audio/webm":
-                        case "audio/mp4":
-                            win?.webContents?.send?.('on_get_queue', {
-                                url_sign: url_sign,
-                                url: res_url,
-                                down_url: res_url,
-                                high_url: '',
-                                platform: urlInfo.hostname,
-                                size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                type: ctype,
-                                type_str: 'audio',
-                                progress_bar: '',
-                                save_path: '',
-                                downing: false,
-                                decode_key: '',
-                                description: '',
-                                uploader: '',
-                            })
-                            break;
-                        case "application/vnd.apple.mpegurl":
-                        case "application/x-mpegURL":
-                            win.webContents?.send?.('on_get_queue', {
-                                url_sign: url_sign,
-                                url: res_url,
-                                down_url: res_url,
-                                high_url: '',
-                                platform: urlInfo.hostname,
-                                size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                type: ctype,
-                                type_str: 'm3u8',
-                                progress_bar: '',
-                                save_path: '',
-                                downing: false,
-                                decode_key: '',
-                                description: '',
-                                uploader: '',
-                            })
-                            break;
+                                    type_str: 'image',
+                                }))
+                                break
+                            case "audio/mpeg":
+                            case "audio/wav":
+                            case "audio/aiff":
+                            case "audio/x-aiff":
+                            case "audio/aac":
+                            case "audio/ogg":
+                            case "audio/flac":
+                            case "audio/midi":
+                            case "audio/x-midi":
+                            case "audio/x-ms-wma":
+                            case "audio/opus":
+                            case "audio/webm":
+                            case "audio/mp4":
+                                win.webContents.send('on_get_queue', Object.assign({}, resObject, {
+                                    url: res_url,
+                                    url_sign: url_sign,
+                                    platform: urlInfo.hostname,
+                                    size: res?._data?.headers?.['content-length'] ? toSize(res?._data?.headers?.['content-length']) : 0,
+                                    type: ctype,
+                                    type_str: 'audio',
+                                }))
+                                break
+                            case "application/vnd.apple.mpegurl":
+                            case "application/x-mpegURL":
+                                win.webContents.send('on_get_queue', Object.assign({}, resObject, {
+                                    url: res_url,
+                                    url_sign: url_sign,
+                                    platform: urlInfo.hostname,
+                                    size: res?._data?.headers?.['content-length'] ? toSize(res?._data?.headers?.['content-length']) : 0,
+                                    type: ctype,
+                                    type_str: 'm3u8',
+                                }))
+                                break
 
+                        }
+                    } catch (e) {
+                        log.log(e.toString())
                     }
-
                 },
             )
         } catch (e) {
