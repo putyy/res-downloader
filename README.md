@@ -38,8 +38,5 @@ Win7无法使用
 >> MAC: /Users/你的用户名称/.res-downloader@putyy/res-downloader-installed.lock
 >> Win: C:\Users\Admin\.res-downloader@putyy/res-downloader-installed.lock
 
-#### 更多问题见： [issues](https://github.com/putyy/res-downloader/issues)、[爱享论坛](https://s.gowas.cn/d/4089-quan-ping-tai-zi-yuan-xia-zai-ruan-jian-zui-xin-ban-v106/171)
-
 ## 免责声明
 本软件用于学习研究使用，若因使用本软件造成的一切法律责任均与本人无关！
-```
