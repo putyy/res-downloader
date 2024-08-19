@@ -12,7 +12,10 @@ el-container
   Sidebar
   el-container
     el-main
-      router-view
+      router-view(v-slot="{ Component, route }")
+        keep-alive(v-if="route.meta.keepAlive")
+          component(:is="Component")
+        component(v-else :is="Component")
     el-footer
       Footer
 </template>

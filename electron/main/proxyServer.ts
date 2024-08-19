@@ -71,12 +71,12 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                     res.string = 'ok'
                     res.statusCode = 200
                     try {
-                        if (!req.json?.description || req.json?.media?.length <= 0) {
+                        if (req.json?.media?.length <= 0) {
                             return
                         }
                         const media = req.json?.media[0]
                         const url_sign: string = hexMD5(media.url)
-                        if (global.videoList.hasOwnProperty(url_sign) === true) {
+                        if (!media?.decodeKey || global.videoList.hasOwnProperty(url_sign) === true) {
                             return
                         }
                         const urlInfo = urlTool.parse(media.url, true)
@@ -88,7 +88,7 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                             size: media?.fileSize ? toSize(media.fileSize) : 0,
                             type: "video/mp4",
                             type_str: 'video',
-                            decode_key: media?.decodeKey ? media?.decodeKey : '',
+                            decode_key: media.decodeKey,
                             description: req.json.description,
                         }))
                     } catch (e) {
@@ -114,6 +114,7 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
             proxy.intercept(
                 {
                     phase: 'response',
+                    hostname: 'res.wx.qq.com',
                     as: 'string',
                 },
                 async (req, res) => {
@@ -121,14 +122,6 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                         res.string = res.string.replaceAll('.js"', '.js?v=' + vv + '"');
                     }
                     if (req.url.includes("web/web-finder/res/js/virtual_svg-icons-register.publish")) {
-                        // console.log(res.string.match(/return\s*\{\s*width:([\s\S]*?)scalingInfo:([\s\S]*?)\}/))
-//                         res.string = res.string.replace(
-//                             /return\s*{\s*width:(.*?)scalingInfo:(.*?)\s*}/,
-//                             `var mediaInfo = {width:$1scalingInfo:$2};
-// console.log("mediaInfo", mediaInfo);
-// console.log("this.objectDesc", this.objectDesc);
-// return mediaInfo;`
-//                         )
                         res.string = res.string.replace(/get\s*media\s*\(\)\s*\{/, `
                         get media(){
                             if(this.objectDesc){
@@ -231,7 +224,6 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                                     type_str: 'm3u8',
                                 }))
                                 break
-
                         }
                     } catch (e) {
                         log.log(e.toString())

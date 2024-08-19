@@ -317,10 +317,10 @@ el-container.container
   el-main
     el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" max-height="100%" stripe)
       el-table-column(type="selection")
-      el-table-column(label="预览" show-overflow-tooltip width="300px")
+      el-table-column(label="预览" show-overflow-tooltip width="150px")
         template(#default="scope")
           div.show_res
-            video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.url" controls preload="none") 您的浏览器不支持 video 标签。
+            video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.url" controls preload="none")
             img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.url" crossorigin="anonymous")
             audio.audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
               source(:src="scope.row.url" :type="scope.row.type")
@@ -374,10 +374,11 @@ el-container.container
   }
 
   .show_res {
-    width: 100%;
-    height: auto;
-
     .img {
+      max-height: 200px;
+    }
+    .video {
+      width: auto;
       max-height: 200px;
     }
   }

@@ -13,16 +13,19 @@ const routes = [
             {
                 path: '/index',
                 name: 'Index',
+                meta: {keepAlive: true},
                 component: () => import('./views/Index.vue'),
             },
             {
                 path: '/about',
                 name: 'about',
+                meta: {keepAlive: true},
                 component: () => import('./views/About.vue'),
             },
             {
                 path: '/setting',
                 name: 'Setting',
+                meta: {keepAlive: true},
                 component: () => import('./views/Setting.vue'),
             },
         ]
