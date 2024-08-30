@@ -3,6 +3,10 @@ import {release} from 'node:os'
 import {join} from 'node:path'
 import CONFIG from './const'
 import initIPC, {setWin} from './ipc'
+import {closeProxy} from "./setProxy"
+import log from "electron-log"
+import path from 'path'
+import {spawn} from 'child_process'
 
 // The built directory structure
 //
@@ -45,6 +49,7 @@ process.on('unhandledRejection', () => {
 
 let mainWindow: BrowserWindow | null = null
 let previewWin: BrowserWindow | null = null
+let aria2Process
 
 // Here, you can also use other preload
 const preload = join(__dirname, '../preload/index.js')
@@ -77,21 +82,16 @@ app.on('activate', () => {
     }
 })
 
-// New window example arg: new windows url
-ipcMain.handle('open-win', (_, arg) => {
-    const childWindow = new BrowserWindow({
-        webPreferences: {
-            preload,
-            nodeIntegration: true,
-            contextIsolation: false,
-        },
-    })
-
-    if (process.env.VITE_DEV_SERVER_URL) {
-        childWindow.loadURL(`${url}#${arg}`)
-    } else {
-        childWindow.loadFile(indexHtml, {hash: arg})
+app.on('before-quit', async e => {
+    e.preventDefault()
+    try {
+        await closeProxy()
+        aria2Process && aria2Process.kill();
+        log.log("--------------closeProxy success--------------")
+    } catch (error) {
+        log.log("--------------proxy catch err--------------", error)
     }
+    app.exit()
 })
 
 function createWindow() {
@@ -169,9 +169,45 @@ function createPreviewWindow(parent: BrowserWindow) {
     })
 }
 
+function createArua2Process() {
+    // 根据操作系统选择 aria2 的路径
+    try {
+        let aria2Path, aria2Conf
+        if (process.platform === 'win32') {
+            // Windows
+            aria2Path = path.join(CONFIG.EXECUTABLE_PATH, "./win/aria2/aria2c.exe")
+            aria2Conf = path.join(CONFIG.EXECUTABLE_PATH, "./win/aria2/aria2.conf")
+        } else {
+            aria2Path = path.join(CONFIG.EXECUTABLE_PATH, "./mac/aria2" + (CONFIG.IS_DEV ? `/${process.arch}` : '/') + "/aria2c");
+            aria2Conf = path.join(CONFIG.EXECUTABLE_PATH, "./mac/aria2/aria2.conf")
+        }
+        // 启动 aria2
+        console.log("启动 aria2")
+        aria2Process = spawn(aria2Path, [`--conf-path=${aria2Conf}`, `--rpc-listen-port=${CONFIG.ARIA_PORT}`], {
+            windowsHide: false,
+            stdio: CONFIG.IS_DEV ? 'pipe' : 'ignore'
+        });
+        if(!aria2Process){
+            console.log("启动 aria2 失败")
+        }
+        if (CONFIG.IS_DEV) {
+            aria2Process.stdout.on('data', (data) => {
+                console.log(`aria2: ${data}`);
+            });
+            aria2Process.stderr.on('data', (data) => {
+                console.log(`aria2 error: ${data}`);
+            });
+        }
+        console.log("aria2 成功启动")
+    } catch (e) {
+        console.log(`aria2 process start err`, e);
+    }
+}
+
 app.whenReady().then(() => {
     initIPC()
     createWindow()
     createPreviewWindow(mainWindow)
+    createArua2Process()
     setWin(mainWindow, previewWin)
 })

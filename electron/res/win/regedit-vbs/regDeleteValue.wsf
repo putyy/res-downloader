@@ -1,0 +1,29 @@
+<job id="deleteValue">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">
+
+		CheckZeroArgs("usage: cscript regDeleteValue.wsf architecture")
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+
+		Do While Not stdin.AtEndOfLine
+
+			strLine = stdin.ReadLine()
+			strLine = unescape(trim(strLine))
+
+			ParseHiveAndSubKeyAndValue strLine, constHive, strSubKey, strValue
+
+			if IsNull(constHive) Then
+				WriteLineErr "unsupported hive " & strLine
+				WScript.Quit 25122
+			End If
+
+			Result = DeleteValue(constHive, strSubKey, strValue)
+
+			If Not Result = 0 Then
+				WScript.Quit Result
+			End If
+		Loop
+	</script>
+</job>

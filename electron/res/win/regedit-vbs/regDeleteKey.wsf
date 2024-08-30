@@ -1,0 +1,29 @@
+<job id="deleteKey">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">
+
+		CheckZeroArgs("usage: cscript regDeleteKey.wsf architecture")
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+
+		Do While Not stdin.AtEndOfLine
+			
+			strLine = stdin.ReadLine()
+			strLine = unescape(trim(strLine))
+		
+			ParseHiveAndSubKey strLine, constHive, strSubKey
+
+			if IsNull(constHive) Then
+				WriteLineErr "unsupported hive " & strLine
+				WScript.Quit 25122   
+			End If
+
+			Result = DeleteKey(constHive, strSubKey)
+
+			If Not Result = 0 Then				
+				WScript.Quit Result
+			End If
+		Loop
+	</script>
+</job>

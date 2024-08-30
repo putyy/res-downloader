@@ -1,0 +1,46 @@
+' 
+'	Lists the sub keys and values of a given registry key, this script is slightly different
+'	than regList because it reads stdin for the keys to list
+'
+'	echo HKLM\Software | cscript regListStream.wsf A
+'
+'	Will Yield:
+'
+'	{
+'		"hklm\software": { 
+'			"keys": [ .. array of sub keys .. ], 
+'			"values": { 
+'				"moo": { 
+'					"type": "REG_SZ", 
+'					"value": "bar"
+'				}
+'			}
+'		}
+'	}
+<job id="listStream">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">		
+		CheckZeroArgs("usage: echo KEY | cscript regListStream.wsf architecture")
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+		
+		Do While Not stdin.AtEndOfLine
+
+			strLine = stdin.ReadLine()
+			strLine = unescape(trim(strLine))
+		
+			ParseHiveAndSubKey strLine, constHive, strSubKey
+
+			if IsNull(constHive) Then
+				WriteLineErr "unsupported hive " & strLine
+				WScript.Quit 25122       
+			End If
+
+			Write "{ ""key"" : """ & JsonSafe(strLine) & """, ""data"": "
+			ListChildrenAsJson constHive, strSubKey
+			Write "}" & vbcrlf
+		Loop
+
+	</script>
+</job>

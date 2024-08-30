@@ -1,0 +1,47 @@
+' 
+'	Lists the values of a given registry path, this script takes its input from stdin
+'
+'	echo HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\AppData | cscript regListStream.wsf A
+'
+'	Will Yield:
+'
+'	{
+'		"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\AppData": "value here"
+'	}
+<job id="regRead">
+	<script language="VBScript" src="util.vbs" />
+	<script language="VBScript" src="regUtil.vbs" />
+	<script language="VBScript">
+		CheckZeroArgs("usage: echo KEY | cscript wsRegRead.wsf architecture")
+		DetermineOSArchitecture()
+		LoadRegistryImplementationByOSArchitecture()
+		
+		set ws = createobject("Wscript.shell")
+	
+		Do While Not stdin.AtEndOfLine
+
+			strLine = stdin.ReadLine()
+			strLine = unescape(trim(strLine))
+		
+			' not really needed except for validation
+			ParseHiveAndSubKeyAndValue strLine, constHive, strSubKey, strValue
+
+			if IsNull(constHive) Then
+				WriteLineErr "unsupported hive " & strLine
+				WScript.Quit 25122       
+			End If
+			
+			Write "{ ""path"" : """ & JsonSafe(strLine) & """, "
+
+			Dim result: result = ws.RegRead(strLine)
+			Dim exists: exists = "true"
+
+			If Err.Number <> 0 Then
+				exists = "false"
+			End if
+			
+			Write """exists"": " & exists & ", "
+			Write """value"": """ &  JsonSafe(result) & """}" & vbcrlf
+		Loop
+	</script>
+</job>

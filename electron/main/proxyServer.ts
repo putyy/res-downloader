@@ -23,6 +23,8 @@ if (process.platform === 'win32') {
 const resObject = {
     url: "",
     url_sign: "",
+    cover_url: "",
+    file_format: "",
     platform: "",
     size: "",
     type: "video/mp4",
@@ -84,8 +86,10 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                         win.webContents.send('on_get_queue', Object.assign({}, resObject, {
                             url_sign: url_sign,
                             url: media.url + media.urlToken,
+                            cover_url: media.coverUrl,
+                            file_format: media.spec.map((res)=> res.fileFormat).join('#'),
                             platform: urlInfo.hostname,
-                            size: media?.fileSize ? toSize(media.fileSize) : 0,
+                            size: toSize(media.fileSize),
                             type: "video/mp4",
                             type_str: 'video',
                             decode_key: media.decodeKey,
@@ -235,13 +239,3 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
         }
     })
 }
-
-app.on('before-quit', async e => {
-    e.preventDefault()
-    try {
-        await closeProxy()
-        log.log("--------------closeProxy success--------------")
-    } catch (error) {
-    }
-    app.exit()
-})

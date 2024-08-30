@@ -54,7 +54,7 @@ onMounted(() => {
   })
 
   ipcRenderer.on('on_down_file_schedule', (res: any, data: any) => {
-    loading.value && loading.value.setText(`已下载 ${data.schedule}%`)
+    loading.value && loading.value.setText(`${data.schedule}%`)
   })
 
   ipcRenderer.invoke('invoke_app_is_init').then((isInit: boolean) => {
@@ -119,22 +119,12 @@ const handleBatchDown = async () => {
     text: '下载中',
     background: 'rgba(0, 0, 0, 0.7)',
   })
-
+  const quality = localStorageCache.get("quality") ? localStorageCache.get("quality") : -1
   for (const item of multipleSelection.value) {
-    let result = await ipcRenderer.invoke('invoke_file_exists', {
-      save_path: save_dir,
-      url: item.url,
-    })
-
-    if (result.is_file) {
-      item.progress_bar = "100%"
-      item.save_path = result.fileName
-      continue
-    }
-
     let downRes = await ipcRenderer.invoke('invoke_down_file', {
       data: Object.assign({}, item),
       save_path: save_dir,
+      quality: quality,
     })
 
     if (downRes !== false) {
@@ -148,9 +138,7 @@ const handleBatchDown = async () => {
 
 
 const handleDown = async (index: number, row: any) => {
-
-  let save_dir = localStorageCache.get("save_dir")
-
+  const save_dir = localStorageCache.get("save_dir")
   if (!save_dir) {
     ElMessage({
       message: '请设置保存目录',
@@ -165,26 +153,11 @@ const handleDown = async (index: number, row: any) => {
     background: 'rgba(0, 0, 0, 0.7)',
   })
 
-  let result = await ipcRenderer.invoke('invoke_file_exists', {
-    save_path: save_dir,
-    url: row.url,
-    description: row.description
-  })
-
-  if (result.is_file) {
-    tableData.value[index].progress_bar = "100%"
-    tableData.value[index].save_path = result.fileName
-    ElMessage({
-      message: "文件已存在(" + result.fileName + ")",
-      type: 'warning',
-    })
-    loading.value.close()
-    localStorageCache.set("res-table-data", tableData.value, -1)
-    return
-  }
+  const quality = localStorageCache.get("quality") ? localStorageCache.get("quality") : -1
   ipcRenderer.invoke('invoke_down_file', {
     data: Object.assign({}, tableData.value[index]),
-    save_path: save_dir
+    save_path: save_dir,
+    quality: quality,
   }).then((res) => {
     if (res !== false) {
       tableData.value[index].progress_bar = "100%"
@@ -334,7 +307,7 @@ el-container.container
         template(#default="scope")
           div.actions
             template(v-if="scope.row.type_str !== 'm3u8'" )
-              el-button(v-if="!scope.row.save_path" link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key || scope.row.decryptor_array ? "解密下载(视频号)" : "下载"}}
+              el-button(link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key || scope.row.decryptor_array ? "解密下载(视频号)" : "下载"}}
               el-button(v-if="scope.row.decode_key || scope.row.decryptor_array" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
               el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
             el-button(link type="primary" @click="handleCopy(scope.row.url)") 复制链接

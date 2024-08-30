@@ -21,7 +21,7 @@ export async function installCert(checkInstalled = true) {
                 `echo "输入本地登录密码" && sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${CONFIG.CERT_PUBLIC_PATH}" &&  touch ${CONFIG.INSTALL_CERT_FLAG} && echo "安装完成"`,
             )
             dialog.showMessageBoxSync({
-                type: 'info',
+                type: "info",
                 message: `命令已复制到剪贴板,粘贴命令到终端并运行以安装并信任证书`,
             });
 

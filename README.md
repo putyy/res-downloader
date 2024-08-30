@@ -1,5 +1,6 @@
-#  V2.0重磅更新，所见即所得！
-## res-downloader(爱享素材下载器)
+## res-downloader(爱享素材下载器) 【[点击加入群聊](https://qm.qq.com/q/W8mVeZideE)】
+🎯 基于 [electron-vite-vue](https://github.com/electron-vite/electron-vite-vue.git)  
+📦 操作简单、可获取不同类型的资源
 🖥️ 支持Win10、Win11、Mac  
 🌐 支持视频、音频、图片、m3u8等网络资源下载    
 💪 支持微信视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源下载  
@@ -37,6 +38,26 @@ Win7无法使用
 > 手动删除安装标识锁文件，之后再打开软件会进行检查证书是否正确安装
 >> MAC: /Users/你的用户名称/.res-downloader@putyy/res-downloader-installed.lock
 >> Win: C:\Users\Admin\.res-downloader@putyy/res-downloader-installed.lock
+
+其他问题请留言 https://github.com/putyy/res-downloader/issues
+
+## 二次开发
+> ps： 打包慢的问题可以参考 https://www.putyy.com/articles/87
+```sh
+git clone https://github.com/putyy/res-downloader
+
+cd res-downloader
+
+yarn install
+
+yarn run dev
+
+# 打包mac
+yarn run build --universal --mac
+
+# 打包win
+yarn run build --win
+```
 
 ## 免责声明
 本软件用于学习研究使用，若因使用本软件造成的一切法律责任均与本人无关！

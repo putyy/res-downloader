@@ -3,7 +3,7 @@
  */
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.putyy.ResDownloader",
+  "appId": "com.putyy.res-downloader",
   "asar": true,
   "directories": {
     "output": "release/${version}"
@@ -14,7 +14,7 @@
     "electron/res/**/*"
   ],
   "mac": {
-    "icon": "electron/res/icon/icons/mac/icon.icns",
+    "icon": "electron/res/icon/mac.icns",
     "artifactName": "${productName}_${version}.${arch}.${ext}",
     "singleArchFiles": "*",
     "target": [
@@ -22,13 +22,27 @@
         "target": "dmg",
         "arch": [
           'x64',
-          'arm64'
+          'arm64',
+          'universal'
         ]
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "electron/res/mac/aria2/aria2.conf",
+        "to": "electron/res/mac/aria2/aria2.conf",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "electron/res/mac/aria2/${arch}/aria2c",
+        "to": "electron/res/mac/aria2/aria2c",
+        "filter": ["**/*"],
       }
     ]
   },
   "win": {
-    "icon": "electron/res/icon/icons/win/icon.ico",
+    "icon": "electron/res/icon/win.ico",
+    "artifactName": "${productName}_${version}.${ext}",
     "target": [
       {
         "target": "nsis",
@@ -37,7 +51,13 @@
         ]
       }
     ],
-    "artifactName": "${productName}_${version}.${ext}"
+    "extraResources": [
+      {
+        "from": "electron/res/win",
+        "to": "electron/res/win",
+        "filter": ["**/*"],
+      }
+    ]
   },
   "nsis": {
     "oneClick": false,
@@ -47,6 +67,7 @@
     "deleteAppDataOnUninstall": false
   },
   "extraResources": [
-    "electron/res"
+    "electron/res/icon",
+    "electron/res/keys",
   ]
 }
