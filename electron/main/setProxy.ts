@@ -2,6 +2,7 @@ import {exec} from 'child_process'
 // @ts-ignore
 import regedit from 'regedit'
 import CONFIG from './const'
+import {dialog} from "electron";
 
 regedit.setExternalVBSLocation(CONFIG.REGEDIT_VBS_PATH)
 
@@ -34,6 +35,12 @@ export async function setProxy(host, port) {
                 });
             }),
         );
+    } else if (process.platform === 'linux') {
+        dialog.showMessageBoxSync({
+            type: "info",
+            message: `请手动设置系统代理`,
+        });
+        return new Promise((resolve, reject) => {})
     } else {
         const valuesToPut = {
             'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings': {
@@ -81,6 +88,11 @@ export async function closeProxy() {
                 });
             }),
         );
+    } else if (process.platform === 'linux') {
+        dialog.showMessageBoxSync({
+            type: "info",
+            message: `请手动取消系统代理`,
+        });
     } else {
         const valuesToPut = {
             'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings': {

@@ -29,13 +29,48 @@
     ],
     "extraResources": [
       {
-        "from": "electron/res/mac/aria2/aria2.conf",
-        "to": "electron/res/mac/aria2/aria2.conf",
+        "from": "electron/res/darwin/aria2/aria2.conf",
+        "to": "electron/res/darwin/aria2/aria2.conf",
         "filter": ["**/*"]
       },
       {
-        "from": "electron/res/mac/aria2/${arch}/aria2c",
-        "to": "electron/res/mac/aria2/aria2c",
+        "from": "electron/res/darwin/aria2/${arch}/aria2c",
+        "to": "electron/res/darwin/aria2/aria2c",
+        "filter": ["**/*"],
+      }
+    ]
+  },
+  "linux": {
+    "icon": "electron/res/icon/icon.png",
+    "artifactName": "${productName}_${version}.${arch}.${ext}",
+    "category": "Network",
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": [
+          "x64",
+          "arm64",
+          "armv7l"
+        ]
+      },
+      {
+        "target": "deb",
+        "arch": [
+          "x64",
+          "arm64",
+          "armv7l"
+        ]
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "electron/res/linux/aria2/aria2.conf",
+        "to": "electron/res/linux/aria2/aria2.conf",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "electron/res/linux/aria2/${arch}/aria2c",
+        "to": "electron/res/linux/aria2/aria2c",
         "filter": ["**/*"],
       }
     ]

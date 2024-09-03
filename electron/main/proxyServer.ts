@@ -1,8 +1,7 @@
 import fs from 'fs'
 import log from 'electron-log'
 import CONFIG from './const'
-import {closeProxy, setProxy} from './setProxy'
-import {app} from "electron"
+import {setProxy} from './setProxy'
 import * as urlTool from "url"
 import {toSize} from "./utils"
 // @ts-ignore

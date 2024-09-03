@@ -169,7 +169,7 @@ function createPreviewWindow(parent: BrowserWindow) {
     })
 }
 
-function createArua2Process() {
+function createAria2Process() {
     // 根据操作系统选择 aria2 的路径
     try {
         let aria2Path, aria2Conf
@@ -178,8 +178,8 @@ function createArua2Process() {
             aria2Path = path.join(CONFIG.EXECUTABLE_PATH, "./win/aria2/aria2c.exe")
             aria2Conf = path.join(CONFIG.EXECUTABLE_PATH, "./win/aria2/aria2.conf")
         } else {
-            aria2Path = path.join(CONFIG.EXECUTABLE_PATH, "./mac/aria2" + (CONFIG.IS_DEV ? `/${process.arch}` : '/') + "/aria2c");
-            aria2Conf = path.join(CONFIG.EXECUTABLE_PATH, "./mac/aria2/aria2.conf")
+            aria2Path = path.join(CONFIG.EXECUTABLE_PATH, `./${process.platform}/aria2` + (CONFIG.IS_DEV ? `/${process.arch}` : '/') + "/aria2c");
+            aria2Conf = path.join(CONFIG.EXECUTABLE_PATH, `./${process.platform}/aria2/aria2.conf`)
         }
         // 启动 aria2
         console.log("启动 aria2")
@@ -208,6 +208,6 @@ app.whenReady().then(() => {
     initIPC()
     createWindow()
     createPreviewWindow(mainWindow)
-    createArua2Process()
+    createAria2Process()
     setWin(mainWindow, previewWin)
 })

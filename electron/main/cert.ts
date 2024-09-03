@@ -27,6 +27,18 @@ export async function installCert(checkInstalled = true) {
 
             reject()
         });
+    } else if (process.platform === 'linux') {
+        return new Promise((resolve, reject) => {
+            clipboard.writeText(
+                "https://github.com/putyy/res-downloader/blob/master/electron/res/keys/public.pem",
+            )
+            dialog.showMessageBoxSync({
+                type: "info",
+                message: `Linux系统请手动安装证书，已复制下载地址`,
+            });
+
+            reject()
+        });
     } else {
         return new Promise((resolve: any, reject) => {
             const result = spawn.sync(CONFIG.WIN_CERT_INSTALL_HELPER, [
