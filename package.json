@@ -58,8 +58,6 @@
   },
   "dependencies": {
     "axios": "^1.5.0",
-    "electron-store": "^8.1.0",
-    "getmac": "^5.20.0",
     "hoxy": "^3.3.1",
     "tunnel-agent": "^0.6.0"
   }

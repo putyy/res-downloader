@@ -10,8 +10,7 @@
   },
   "files": [
     "dist-electron",
-    "dist",
-    "electron/res/**/*"
+    "dist"
   ],
   "mac": {
     "icon": "electron/res/icon/mac.icns",
