@@ -1,4 +1,4 @@
-## res-downloader(爱享素材下载器) 【[点击加入群聊](https://qm.qq.com/q/W8mVeZideE)】
+## res-downloader(爱享素材下载器) 【[加入群聊](https://qm.qq.com/q/mfDMSpCxQ4)】
 🎯 基于 [electron-vite-vue](https://github.com/electron-vite/electron-vite-vue.git)  
 📦 操作简单、可获取不同类型的资源
 🖥️ 支持Win10、Win11、Mac  
