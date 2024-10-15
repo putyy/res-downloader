@@ -16,8 +16,8 @@ el-container
         keep-alive(v-if="route.meta.keepAlive")
           component(:is="Component")
         component(v-else :is="Component")
-    el-footer
-      Footer
+      el-footer
+        Footer
 </template>
 
 <style lang="less" scoped>
@@ -26,5 +26,10 @@ el-container
 }
 .el-main {
   text-align: center;
+}
+.el-footer{
+  margin: unset !important;
+  padding: unset !important;
+  height: auto !important;
 }
 </style>

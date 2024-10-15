@@ -20,24 +20,51 @@ interface resData {
 
 const tableData = ref<resData[]>([])
 
-const resType = ref({
-  video: true,
-  audio: true,
-  image: false,
-  m3u8: false
-})
-
 
 const isInitApp = ref(false)
 
 const multipleTableRef = ref<InstanceType<typeof ElTable>>()
 const multipleSelection = ref<resData[]>([])
 const loading = ref()
+const resType = ref(["all"])
+const typeOptions = ref([
+  {
+    value: "all",
+    label: "全部",
+  },
+  {
+    value: "image",
+    label: "图片",
+  }, {
+    value: "audio",
+    label: "音频"
+  }, {
+    value: "video",
+    label: "视频"
+  }, {
+    value: "m3u8",
+    label: "m3u8"
+  }, {
+    value: "live",
+    label: "直播流"
+  }, {
+    value: "xls",
+    label: "文档"
+  }, {
+    value: "doc",
+    label: "doc"
+  }, {
+    value: "pdf",
+    label: "pdf"
+  }
+])
+
+const tableHeight = ref(400)
 
 onMounted(() => {
-  let resTypeCache = localStorageCache.get("res-type")
+  let resTypeCache = localStorageCache.get("res-type-arr")
   if (resTypeCache) {
-    resType.value = resTypeCache
+    resType.value = resTypeCache.split(",")
   }
 
   let tableDataCache = localStorageCache.get("res-table-data")
@@ -47,7 +74,7 @@ onMounted(() => {
 
   ipcRenderer.on('on_get_queue', (res, data) => {
     // @ts-ignore
-    if (resType.value.hasOwnProperty(data.type_str) && resType.value[data.type_str]) {
+    if (resType.value.includes("all") || resType.value.includes(data.type_str)) {
       tableData.value.push(data)
       localStorageCache.set("res-table-data", tableData.value, -1)
     }
@@ -79,6 +106,8 @@ onMounted(() => {
     })
     loading.value.close()
   })
+  window.addEventListener("resize", handleResize);
+  handleResize()
 })
 
 onUnmounted(() => {
@@ -92,8 +121,13 @@ onUnmounted(() => {
 })
 
 watch(resType, (res, res1) => {
-  localStorageCache.set("res-type", resType.value, -1)
+  localStorageCache.set("res-type-arr", resType.value.join(","), -1)
 }, {deep: true})
+
+const handleResize = () => {
+  const height = document.documentElement.clientHeight || window.innerHeight;
+  tableHeight.value = height - 115
+}
 
 const handleSelectionChange = (val: resData[]) => {
   multipleSelection.value = val
@@ -270,55 +304,63 @@ const handleInitApp = () => {
 
 <template lang="pug">
 el-container.container
-  el-header
-    el-row
-      div
-        el-button(type="primary" @click="handleBatchDown") 批量下载
-        el-button(v-if="isInitApp" @click="handleInitApp")
-          el-icon
-            Promotion
-          p 安装检测(如果看到此按钮说明软件安装未完成则需要手动点击此按钮)
-        el-button(@click="handleClear")
-          el-icon
-            Delete
-          p 清空列表
-        el-button(@click="resType.video=!resType.video" :type="resType.video ? 'primary' : 'info'" ) 视频
-        el-button(@click="resType.audio=!resType.audio" :type="resType.audio ? 'primary' : 'info'" ) 音频
-        el-button(@click="resType.image=!resType.image" :type="resType.image ? 'primary' : 'info'" ) 图片
-        el-button(@click="resType.m3u8=!resType.m3u8" :type="resType.m3u8 ? 'primary' : 'info'" ) m3u8
-        a(style="color: red") &nbsp;&nbsp;&nbsp;点击左边选项，选择需要拦截的资源类型
-  el-main
-    el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" max-height="100%" stripe)
-      el-table-column(type="selection")
-      el-table-column(label="预览" show-overflow-tooltip width="150px")
-        template(#default="scope")
-          div.show_res
-            video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.url" controls preload="none")
-            img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.url" crossorigin="anonymous")
-            audio.audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
-              source(:src="scope.row.url" :type="scope.row.type")
-            div {{scope.row.description}}
-      el-table-column(prop="type_str" label="类型" show-overflow-tooltip)
-      el-table-column(prop="platform" label="主机地址")
-      el-table-column(prop="size" label="资源大小")
-      el-table-column(prop="save_path" label="保存目录")
-      el-table-column(prop="progress_bar" label="下载进度")
-      el-table-column(label="操作" width="135px" )
-        template(#default="scope")
-          div.actions
-            template(v-if="scope.row.type_str !== 'm3u8'" )
-              el-button(link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key || scope.row.decryptor_array ? "解密下载(视频号)" : "下载"}}
-              el-button(v-if="scope.row.decode_key || scope.row.decryptor_array" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
-              el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
-            el-button(link type="primary" @click="handleCopy(scope.row.url)") 复制链接
-            el-button(link type="primary" @click="handleDel(scope.$index)") 删除
-            el-button(v-if="scope.row.save_path" link type="primary" @click="openFileDir(scope.$index)") 打开文件目录
+  el-header(style="display:flex;align-items: center")
+    el-button(type="primary" @click="handleBatchDown") 批量下载
+    el-button(v-if="isInitApp" @click="handleInitApp")
+      el-icon
+        Promotion
+      p 安装检测(如果看到此按钮说明软件安装未完成则需要手动点击此按钮)
+    el-button(@click="handleClear")
+      el-icon
+        Delete
+      p 清空列表
+    el-select(
+      v-model="resType"
+      multiple
+      collapse-tags
+      collapse-tags-tooltip
+      :max-collapse-tags="3"
+      placeholder="资源拦截类型"
+      style="width: auto;min-width:130px"
+    )
+      el-option(v-for="item in typeOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value")
+  el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" :height="tableHeight" max-height="100%" stripe)
+    el-table-column(type="selection")
+    el-table-column(label="预览" show-overflow-tooltip width="150px")
+      template(#default="scope")
+        div.show_res
+          video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.url" controls preload="none")
+          img.img(v-if="scope.row.type_str === 'image'" :src="scope.row.url" crossorigin="anonymous")
+          audio.audio(v-if="scope.row.type_str === 'audio'" controls preload="none")
+            source(:src="scope.row.url" :type="scope.row.type")
+          div(v-if="scope.row.type_str !== 'video' && scope.row.type_str !== 'image' && scope.row.type_str !== 'audio'") {{scope.row.type_str}}类型无法预览
+          div {{scope.row.description}}
+    el-table-column(prop="type_str" label="类型" show-overflow-tooltip)
+    el-table-column(prop="platform" label="主机地址")
+    el-table-column(prop="size" label="资源大小")
+    el-table-column(prop="save_path" label="保存目录" width="135px" :show-overflow-tooltip="true")
+    el-table-column(prop="progress_bar" label="下载进度")
+    el-table-column(label="操作" width="135px" )
+      template(#default="scope")
+        div.actions
+          template(v-if="scope.row.type_str !== 'm3u8' && scope.row.type_str !== 'live'" )
+            el-button(link type="primary" @click="handleDown(scope.$index, scope.row)") {{scope.row.decode_key || scope.row.decryptor_array ? "解密下载(视频号)" : "下载"}}
+            el-button(v-if="scope.row.decode_key || scope.row.decryptor_array" link type="primary" @click="decodeWxFile(scope.$index)") 视频解密(视频号)
+            el-button(link type="primary" @click="handlePreview(scope.$index, scope.row)") 窗口预览
+          el-button(link type="primary" @click="handleCopy(scope.row.url)") 复制链接
+          el-button(link type="primary" @click="handleDel(scope.$index)") 删除
+          el-button(v-if="scope.row.save_path" link type="primary" @click="openFileDir(scope.$index)") 打开文件目录
 </template>
 
 <style scoped lang="less">
 .container {
   padding: 0.5rem;
-
+  .el-table{
+    padding-top: 1rem;
+  }
   .el-button {
     margin: 0.1rem;
   }

@@ -144,6 +144,8 @@ function createPreviewWindow(parent: BrowserWindow) {
         parent: parent,
         width: 600,
         height: 400,
+        minWidth: 600,
+        minHeight: 400,
         show: false,
         // paintWhenInitiallyHidden: false,
         webPreferences: {

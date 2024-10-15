@@ -1,8 +1,9 @@
 import fs from 'fs'
-import {Transform } from 'stream'
+import {Transform} from 'stream'
 import {getDecryptionArray} from '../wxjs/decrypt.js'
 
 const axios = require('axios')
+
 function xorTransform(decryptionArray) {
     let processedBytes = 0;
     return new Transform({
@@ -32,7 +33,7 @@ function downloadFile(url, decodeKey, fullFileName, progressCallback) {
         },
     }
 
-    if (url.includes("douyin")){
+    if (url.includes("douyin")) {
         config.headers['Referer'] = url
     }
 
@@ -57,7 +58,7 @@ function downloadFile(url, decodeKey, fullFileName, progressCallback) {
                         });
                     }),
                 );
-            }else{
+            } else {
                 data.pipe(
                     fs.createWriteStream(fullFileName).on('finish', () => {
                         resolve({
@@ -97,7 +98,7 @@ function toSize(size: number) {
     return size + 'b'
 }
 
-function suffix(type: string) {
+function typeSuffix(type: string) {
     switch (type) {
         case "video/mp4":
         case "video/webm":
@@ -106,23 +107,25 @@ function suffix(type: string) {
         case "video/mpeg":
         case "video/quicktime":
         case "video/x-ms-wmv":
-        case "video/x-flv":
         case "video/3gpp":
         case "video/x-matroska":
-            return ".mp4";
+            return ["video", ".mp4"];
+        case "audio/video":
+        case  "video/x-flv":
+            return ["live", ".mp4"];
         case "image/png":
         case "image/webp":
         case "image/jpeg":
         case "image/jpg":
-        case "image/svg+xml":
         case "image/gif":
         case "image/avif":
         case "image/bmp":
         case "image/tiff":
-        case "image/x-icon":
         case "image/heic":
+        case "image/x-icon":
+        case "image/svg+xml":
         case "image/vnd.adobe.photoshop":
-            return ".png";
+            return ["image", ".png"];
         case "audio/mpeg":
         case "audio/wav":
         case "audio/aiff":
@@ -136,12 +139,23 @@ function suffix(type: string) {
         case "audio/opus":
         case "audio/webm":
         case "audio/mp4":
-            return ".mp3";
+            return ["audio", ".mp3"];
         case "application/vnd.apple.mpegurl":
         case "application/x-mpegURL":
-            return ".m3u8";
+            return ["m3u8", ".m3u8"];
+        case "application/pdf":
+            return ["pdf", ".pdf"];
+        case "application/vnd.ms-powerpoint":
+        case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+            return ["ppt", ".ppt"];
+        case "application/vnd.ms-excel":
+        case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            return ["xls", ".xls"];
+        case "application/msword":
+        case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            return ["doc", ".doc"];
     }
-    return ""
+    return ["", ""]
 }
 
 function getCurrentDateTimeFormatted() {
@@ -157,4 +171,4 @@ function getCurrentDateTimeFormatted() {
     return `${year}${month}${day}${hours}${minutes}${seconds}`;
 }
 
-export {downloadFile, toSize, decodeWxFile, suffix, getCurrentDateTimeFormatted}
+export {downloadFile, toSize, decodeWxFile, typeSuffix, getCurrentDateTimeFormatted}

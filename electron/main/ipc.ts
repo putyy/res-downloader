@@ -1,11 +1,12 @@
 import {ipcMain, dialog, BrowserWindow, app, shell} from 'electron'
 import {startServer} from './proxyServer'
 import {installCert, checkCertInstalled} from './cert'
-import {decodeWxFile, suffix, getCurrentDateTimeFormatted} from './utils'
+import {decodeWxFile, typeSuffix, getCurrentDateTimeFormatted} from './utils'
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
 import {Aria2RPC} from './aria2Rpc'
 import fs from "fs"
+import urlTool from "url";
 
 let win: BrowserWindow
 let previewWin: BrowserWindow
@@ -71,7 +72,16 @@ export default function initIPC() {
                 resolve(false);
             });
         }
-        if (quality !== "-1" && data.decode_key && data.file_format) {
+        if(quality === "0" && data.decode_key){
+            const urlInfo = urlTool.parse(down_url, true);
+            console.log('urlInfo', urlInfo)
+            if (urlInfo.query["token"] && urlInfo.query["encfilekey"]) {
+                down_url = urlInfo.protocol + "//" + urlInfo.hostname + urlInfo.pathname.replace("251/20302", "251/20304") +
+                    "?encfilekey=" + urlInfo.query["encfilekey"] +
+                    "&token=" + urlInfo.query["token"]
+                console.log("down_url:", down_url)
+            }
+        } else if (quality !== "-1" && data.decode_key && data.file_format) {
             const format = data.file_format.split('#');
             const qualityMap = [
                 format[0],
@@ -81,7 +91,7 @@ export default function initIPC() {
             down_url += "&X-snsvideoflag=" + qualityMap[quality];
         }
         let fileName = data?.description ? data.description.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '') : hexMD5(down_url);
-        fileName = fileName + "_" + getCurrentDateTimeFormatted() + suffix(data.type)
+        fileName = fileName + "_" + getCurrentDateTimeFormatted() + typeSuffix(data.type)[1]
         let save_path_file = `${save_path}/${fileName}`
         if (process.platform === 'win32') {
             save_path_file = `${save_path}\\${fileName}`
