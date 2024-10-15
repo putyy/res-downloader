@@ -2,7 +2,7 @@
 ### 爱享素材下载器【[加入群聊](https://qm.qq.com/q/mfDMSpCxQ4)】
 🎯 基于 [electron-vite-vue](https://github.com/electron-vite/electron-vite-vue.git)  
 📦 操作简单、可获取不同类型的资源
-🖥️ 支持Win10、Win11、Mac、Linux
+🖥️ 支持Win10、Win11、Mac、Linux  
 🌐 支持视频、音频、图片、m3u8、直播流等常见网络资源拦截   
 💪 支持微信视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源下载  
 👼 支持设置代理以获取特殊网络下的资源

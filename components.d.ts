@@ -20,7 +20,6 @@ declare module 'vue' {
     ElMenu: typeof import('element-plus/es')['ElMenu']
     ElMenuItem: typeof import('element-plus/es')['ElMenuItem']
     ElOption: typeof import('element-plus/es')['ElOption']
-    ElRow: typeof import('element-plus/es')['ElRow']
     ElSelect: typeof import('element-plus/es')['ElSelect']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     Footer: typeof import('./src/components/layout/Footer.vue')['default']
