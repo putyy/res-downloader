@@ -1,6 +1,6 @@
 {
   "name": "res-downloader",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "main": "dist-electron/main/index.js",
   "description": "res-downloader(爱享素材下载器)，支持视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐、qq短视频等",
   "homepage": "https://github.com/putyy/res-downloader",
