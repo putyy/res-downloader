@@ -30,6 +30,7 @@ const str = "使用方法\n" +
     "     2. 软件首页选择要获取的资源类型（默认选中的视频）\n" +
     "     3. 打开要捕获的源， 如：视频号、网页、小程序等等\n" +
     "     4. 返回软件首页即可看到要下载的资源\n" +
+    "     5. 直播流复制的链接如何使用？可以使用obs或者ffmpeg命令\n" +
     "常见问题\n" +
     "     1. 无法拦截获取\n" +
     "        手动检测系统代理是否设置正确 本软件代理地址: 127.0.0.1:8899\n" +
@@ -56,8 +57,7 @@ div.about
     el-button(@click="jump(3)") 获取更新
   div 4. 问题反馈 &nbsp;
     el-button(@click="jump(4)") 点击前往
-  div.more
-    pre {{str}}
+  div.more {{str}}
 
 </template>
 
@@ -74,7 +74,9 @@ div.about
     white-space: pre-wrap;
   }
   .more{
-
+    width: 100%; /* 设置容器宽度 */
+    white-space: pre-wrap;
+    overflow-wrap: break-word; /* 允许在单词边界内换行 */
   }
 }
 </style>

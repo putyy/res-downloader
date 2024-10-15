@@ -3,7 +3,7 @@ import log from 'electron-log'
 import CONFIG from './const'
 import {setProxy} from './setProxy'
 import * as urlTool from "url"
-import {toSize} from "./utils"
+import {toSize, typeSuffix} from "./utils"
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
 import pkg from '../../package.json'
@@ -146,87 +146,24 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                 async (req, res) => {
                     try {
                         // 拦截响应
-                        const ctype = res?._data?.headers?.['content-type']
-                        const url_sign: string = hexMD5(req.fullUrl())
-                        const res_url = req.fullUrl()
-                        const urlInfo = urlTool.parse(res_url, true)
-                        switch (ctype) {
-                            case "video/mp4":
-                            case "video/webm":
-                            case "video/ogg":
-                            case "video/x-msvideo":
-                            case "video/mpeg":
-                            case "video/quicktime":
-                            case "video/x-ms-wmv":
-                            case "video/x-flv":
-                            case "video/3gpp":
-                            case "video/x-matroska":
-                                if (global.videoList.hasOwnProperty(url_sign) === false) {
-                                    global.videoList[url_sign] = res_url
-                                    win.webContents.send('on_get_queue', Object.assign({}, resObject, {
-                                        url: res_url,
-                                        url_sign: url_sign,
-                                        platform: urlInfo.hostname,
-                                        size: toSize(res?._data?.headers?.['content-length'] ?? 0),
-                                        type: ctype,
-                                        type_str: 'video',
-                                    }))
-                                }
-                                break;
-                            case "image/png":
-                            case "image/webp":
-                            case "image/jpeg":
-                            case "image/jpg":
-                            case "image/svg+xml":
-                            case "image/gif":
-                            case "image/avif":
-                            case "image/bmp":
-                            case "image/tiff":
-                            case "image/x-icon":
-                            case "image/heic":
-                            case "image/vnd.adobe.photoshop":
+                        const contentType = res?._data?.headers?.['content-type']
+                        const [resType, suffix] = typeSuffix(contentType)
+                        if (resType) {
+                            const url_sign: string = hexMD5(req.fullUrl())
+                            const res_url = req.fullUrl()
+                            const urlInfo = urlTool.parse(res_url, true)
+                            const contentLength = res?._data?.headers?.['content-length']
+                            if (global.videoList.hasOwnProperty(url_sign) === false) {
+                                global.videoList[url_sign] = res_url
                                 win.webContents.send('on_get_queue', Object.assign({}, resObject, {
                                     url: res_url,
                                     url_sign: url_sign,
                                     platform: urlInfo.hostname,
-                                    size: res?._data?.headers?.['content-length'] ? toSize(res?._data?.headers?.['content-length']) : 0,
-                                    type: ctype,
-                                    type_str: 'image',
+                                    size: toSize(contentLength ? contentLength : 0),
+                                    type: contentType,
+                                    type_str: resType,
                                 }))
-                                break
-                            case "audio/mpeg":
-                            case "audio/wav":
-                            case "audio/aiff":
-                            case "audio/x-aiff":
-                            case "audio/aac":
-                            case "audio/ogg":
-                            case "audio/flac":
-                            case "audio/midi":
-                            case "audio/x-midi":
-                            case "audio/x-ms-wma":
-                            case "audio/opus":
-                            case "audio/webm":
-                            case "audio/mp4":
-                                win.webContents.send('on_get_queue', Object.assign({}, resObject, {
-                                    url: res_url,
-                                    url_sign: url_sign,
-                                    platform: urlInfo.hostname,
-                                    size: res?._data?.headers?.['content-length'] ? toSize(res?._data?.headers?.['content-length']) : 0,
-                                    type: ctype,
-                                    type_str: 'audio',
-                                }))
-                                break
-                            case "application/vnd.apple.mpegurl":
-                            case "application/x-mpegURL":
-                                win.webContents.send('on_get_queue', Object.assign({}, resObject, {
-                                    url: res_url,
-                                    url_sign: url_sign,
-                                    platform: urlInfo.hostname,
-                                    size: res?._data?.headers?.['content-length'] ? toSize(res?._data?.headers?.['content-length']) : 0,
-                                    type: ctype,
-                                    type_str: 'm3u8',
-                                }))
-                                break
+                            }
                         }
                     } catch (e) {
                         log.log(e.toString())

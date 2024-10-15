@@ -1,8 +1,9 @@
-## res-downloader(爱享素材下载器) 【[加入群聊](https://qm.qq.com/q/mfDMSpCxQ4)】
+## res-downloader
+### 爱享素材下载器【[加入群聊](https://qm.qq.com/q/mfDMSpCxQ4)】
 🎯 基于 [electron-vite-vue](https://github.com/electron-vite/electron-vite-vue.git)  
 📦 操作简单、可获取不同类型的资源
-🖥️ 支持Win10、Win11、Mac  
-🌐 支持视频、音频、图片、m3u8等网络资源下载    
+🖥️ 支持Win10、Win11、Mac、Linux
+🌐 支持视频、音频、图片、m3u8、直播流等常见网络资源拦截   
 💪 支持微信视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源下载  
 👼 支持设置代理以获取特殊网络下的资源
 
@@ -21,7 +22,7 @@
 ![](public/show.webp)
 
 ## 常见问题
-下载慢、大视频下载失败
+下载慢、大视频下载失败(最新版本以内置aria2下载器)
 > 推荐使用如下工具加速下载，视频号可以下载完成后再到对应视频操作项选择 “视频解密(视频号)” 按钮
 >> [Neat Download Manager](https://www.neatdownloadmanager.com/index.php/en/)、[Motrix](https://motrix.app/download)等软件进行下载
 
@@ -39,7 +40,8 @@ Win7无法使用
 >> MAC: /Users/你的用户名称/.res-downloader@putyy/res-downloader-installed.lock
 >> Win: C:\Users\Admin\.res-downloader@putyy/res-downloader-installed.lock
 
-其他问题请留言 https://github.com/putyy/res-downloader/issues
+其他问题  
+[github](https://github.com/putyy/res-downloader/issues)  、 [爱享论坛](https://s.gowas.cn/d/4089)  
 
 ## 二次开发
 > ps： 打包慢的问题可以参考 https://www.putyy.com/articles/87
@@ -58,6 +60,9 @@ yarn run build --universal --mac
 # 打包win
 yarn run build --win
 ```
+
+## 实现&初衷
+通过代理网络抓包拦截响应，筛选出有用的资源， 同fiddler、charles等抓包软件、浏览器F12打开控制也能达到目的，只不过这些软件需要手动进行筛选，对于小白用户上手还是有点难度，本软件对部分资源做了特殊处理，更适合大众用户，所以就有了本项目。
 
 ## 免责声明
 本软件用于学习研究使用，若因使用本软件造成的一切法律责任均与本人无关！
