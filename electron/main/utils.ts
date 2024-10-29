@@ -140,6 +140,7 @@ function typeSuffix(type: string) {
         case "audio/webm":
         case "audio/mp4":
         case "audio/mp3":
+        case "audio/mp4;charset=UTF-8":
             return ["audio", ".mp3"];
         case "application/vnd.apple.mpegurl":
         case "application/x-mpegURL":

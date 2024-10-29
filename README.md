@@ -22,6 +22,12 @@
 ![](public/show.webp)
 
 ## 常见问题
+m3u8预览和下载：
+> [下载](https://m3u8-down.gowas.cn/) [预览](https://m3u8play.com/)
+
+直播流 预览和录制：
+> [使用obs进行预览和录制]( https://obsproject.com/)
+
 下载慢、大视频下载失败(最新版本以内置aria2下载器)
 > 推荐使用如下工具加速下载，视频号可以下载完成后再到对应视频操作项选择 “视频解密(视频号)” 按钮
 >> [Neat Download Manager](https://www.neatdownloadmanager.com/index.php/en/)、[Motrix](https://motrix.app/download)等软件进行下载
@@ -59,6 +65,9 @@ yarn run build --universal --mac
 
 # 打包win
 yarn run build --win
+
+# 打包win
+yarn run build --linux
 ```
 
 ## 实现&初衷
