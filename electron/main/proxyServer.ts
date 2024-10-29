@@ -46,15 +46,15 @@ export async function startServer({win, upstreamProxy, setProxyErrorCallback = f
                     cert: fs.readFileSync(CONFIG.CERT_PUBLIC_PATH),
                 },
             })
-                .listen(port, () => {
-                    setProxy('127.0.0.1', port)
-                        .then((res) => {
-                            resolve()
-                        })
-                        .catch((err) => {
-                            setProxyErrorCallback(err)
-                            reject('setting proxy err: ' + err.toString())
-                        });
+                .listen(port, async () => {
+                    try {
+                        await setProxy('127.0.0.1', port)
+                        resolve()
+                    } catch (err) {
+                        console.error(err);
+                        setProxyErrorCallback(err)
+                        reject("请手动设置系统代理" + err.toString())
+                    }
                 })
                 .on('error', err => {
                     setProxyErrorCallback(err)
