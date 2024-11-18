@@ -7,10 +7,12 @@ import {hexMD5} from '../../src/common/md5'
 import {Aria2RPC} from './aria2Rpc'
 import fs from "fs"
 import urlTool from "url";
+import {closeProxy, setProxy} from "./setProxy";
+import path from 'path'
 
 let win: BrowserWindow
 let previewWin: BrowserWindow
-let isStartProxy = false
+
 const aria2RpcClient = new Aria2RPC()
 
 export default function initIPC() {
@@ -21,23 +23,54 @@ export default function initIPC() {
 
     ipcMain.handle('invoke_init_app', (event, arg) => {
         // 开始 初始化应用 安装证书相关
-        installCert(false).then(r => {
-        })
+        installCert(false)
     })
 
-    ipcMain.handle('invoke_start_proxy', (event, arg) => {
+    ipcMain.handle('invoke_set_config', (event, data) => {
+        const filePath = path.join(app.getPath('userData'), 'resd_config.json');
+        fs.writeFile(filePath, JSON.stringify(data), ()=>{})
+        global.resdConfig = Object.assign({}, global.resdConfig, data)
+        global.resdConfig.port = parseInt(global.resdConfig.port)
+        return true
+    })
+
+    ipcMain.handle('invoke_set_proxy', async (event, arg) => {
         // 启动代理服务
-        if (isStartProxy) {
-            return
+        if (!global.isStartProxy) {
+            dialog.showMessageBoxSync({
+                type: "error",
+                message: "代理未启动",
+            });
+            return false
         }
-        isStartProxy = true
-        return startServer({
-            win: win,
-            upstreamProxy: arg.upstream_proxy ? arg.upstream_proxy : "",
-            setProxyErrorCallback: err => {
-                console.log('setProxyErrorCallback', err)
-            },
-        })
+        try {
+            if (arg.proxy) {
+                await setProxy('127.0.0.1', global.resdConfig.port)
+            }else{
+                await closeProxy('127.0.0.1', global.resdConfig.port)
+            }
+            return true
+        } catch (err) {
+            console.error(err);
+            dialog.showMessageBoxSync({
+                type: "error",
+                message: err.toString(),
+            });
+            return false
+        }
+        // let upstream_proxy = ""
+        // if (arg.upstream_proxy && !arg.upstream_proxy.includes(':8899')) {
+        //     upstream_proxy = arg.upstream_proxy
+        // }
+        //
+        // global.isStartProxy = true
+        // return startServer({
+        //     win: win,
+        //     upstreamProxy: upstream_proxy,
+        //     setProxyErrorCallback: err => {
+        //         console.log('setProxyErrorCallback', err)
+        //     },
+        // })
     })
 
     ipcMain.handle('invoke_select_down_dir', async (event, arg) => {
@@ -72,7 +105,7 @@ export default function initIPC() {
                 resolve(false);
             });
         }
-        if(quality === "0" && data.decode_key){
+        if (quality === "0" && data.decode_key) {
             const urlInfo = urlTool.parse(down_url, true);
             console.log('urlInfo', urlInfo)
             if (urlInfo.query["token"] && urlInfo.query["encfilekey"]) {
@@ -103,18 +136,18 @@ export default function initIPC() {
 
         return new Promise((resolve, reject) => {
 
-            if (down_url.includes("douyin")) {
-                headers['Referer'] = down_url
+            if (data?.referer) {
+                headers['Referer'] = data?.referer
             }
 
             aria2RpcClient.addUri([down_url], save_path, fileName, headers).then((response) => {
-                let currentGid = response.result // 保存当前下载的 gid
+                let currentGid = response.result
                 let progressIntervalId = null
                 // // 开始定时查询下载进度
                 progressIntervalId = setInterval(() => {
                     aria2RpcClient.tellStatus(currentGid).then((status) => {
                         if (status.result.status !== "complete") {
-                            const progress = aria2RpcClient.calculateDownloadProgress(status.result.bitfield);
+                            const progress = aria2RpcClient.calculateDownloadProgress(status.result.bitfield)
                             win?.webContents.send('on_down_file_schedule', {schedule: `已下载${progress}%`})
                         } else {
                             clearInterval(progressIntervalId);
@@ -123,26 +156,26 @@ export default function initIPC() {
                                 decodeWxFile(save_path_file, data.decode_key, save_path_file.replace(".mp4", "_wx.mp4")).then((res) => {
                                     fs.unlink(save_path_file, (err) => {
                                     })
-                                    resolve(res);
+                                    resolve(res)
                                 }).catch((error) => {
                                     console.log("err:", error)
                                     resolve(false);
-                                });
+                                })
                             } else {
                                 resolve({
                                     fullFileName: save_path_file,
-                                });
+                                })
                             }
                         }
                     }).catch((error) => {
-                        console.error(error);
-                        clearInterval(progressIntervalId);
-                        resolve(false);
+                        console.error(error)
+                        clearInterval(progressIntervalId)
+                        resolve(false)
                     });
-                }, 1000);
+                }, 1000)
             }).catch((error) => {
                 console.log("err:", error)
-                resolve(false);
+                resolve(false)
             });
         });
     });

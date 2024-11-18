@@ -38,7 +38,7 @@ export async function setProxy(host, port) {
     } else if (process.platform === 'linux') {
         dialog.showMessageBoxSync({
             type: "info",
-            message: `请手动设置系统代理`,
+            message: `请手动设置系统代理 默认为: 127.0.0.1:8899`,
         });
         return new Promise((resolve, reject) => {})
     } else {

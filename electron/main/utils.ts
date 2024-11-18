@@ -99,7 +99,7 @@ function toSize(size: number) {
 }
 
 function typeSuffix(type: string) {
-    switch (type) {
+    switch (type ? type.toLowerCase() : type) {
         case "video/mp4":
         case "video/webm":
         case "video/ogg":
@@ -111,7 +111,7 @@ function typeSuffix(type: string) {
         case "video/x-matroska":
             return ["video", ".mp4"];
         case "audio/video":
-        case  "video/x-flv":
+        case "video/x-flv":
             return ["live", ".mp4"];
         case "image/png":
         case "image/webp":
@@ -143,7 +143,7 @@ function typeSuffix(type: string) {
         case "audio/mp4;charset=UTF-8":
             return ["audio", ".mp3"];
         case "application/vnd.apple.mpegurl":
-        case "application/x-mpegURL":
+        case "application/x-mpegurl":
             return ["m3u8", ".m3u8"];
         case "application/pdf":
             return ["pdf", ".pdf"];

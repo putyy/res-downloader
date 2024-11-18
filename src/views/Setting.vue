@@ -4,10 +4,15 @@ import {ipcRenderer} from "electron"
 import localStorageCache from "../common/localStorage"
 import {ElMessage} from "element-plus"
 
-const saveDir = ref("")
-const upstream_proxy = ref("")
-const upstream_proxy_old = ref("")
-const quality = ref("-1")
+const formData = ref({
+  save_dir: "",
+  quality: "-1",
+  proxy: "",
+  port: "8899",
+})
+const proxy_old = ref("")
+const port_old = ref("")
+
 const qualityOptions = ref([
   {
     value: '-1',
@@ -25,27 +30,30 @@ const qualityOptions = ref([
 ])
 
 onMounted(() => {
-  saveDir.value = localStorageCache.get("save_dir") ? localStorageCache.get("save_dir") : ""
-  quality.value = localStorageCache.get("quality") ? localStorageCache.get("quality") : "-1"
-  upstream_proxy.value = localStorageCache.get("upstream_proxy") ? localStorageCache.get("upstream_proxy") : ""
-  upstream_proxy_old.value = upstream_proxy.value
+  const cache = localStorageCache.get("resd_config")
+  if (cache) {
+    formData.value = JSON.parse(cache)
+  }
+  proxy_old.value = formData.value.proxy
+  port_old.value = formData.value.port
 })
 
 const selectSaveDir = () => {
-  ipcRenderer.invoke('invoke_select_down_dir').then(save_path => {
-    if (save_path !== false) {
-      saveDir.value = save_path
+  ipcRenderer.invoke('invoke_select_down_dir').then(save_dir => {
+    console.log("save_dir", save_dir)
+    if (save_dir !== false) {
+      formData.value.save_dir = save_dir
     }
   })
 }
 
 const onSetting = () => {
-  localStorageCache.set("save_dir", saveDir.value, -1)
-  localStorageCache.set("upstream_proxy", upstream_proxy.value, -1)
-  localStorageCache.set("quality", quality.value, -1)
-  if (upstream_proxy_old.value != upstream_proxy.value){
+  localStorageCache.set("resd_config", JSON.stringify(formData.value))
+  ipcRenderer.invoke('invoke_set_config', Object.assign({}, formData.value))
+  if (proxy_old.value != formData.value.proxy || port_old.value != formData.value.port){
     ipcRenderer.invoke('invoke_window_restart')
   }
+
   ElMessage({
     message: "保存成功",
     type: 'success',
@@ -55,16 +63,20 @@ const onSetting = () => {
 </script>
 <template lang="pug">
 el-form(style="max-width: 600px")
+  el-form-item(label="代理端口")
+    el-input(v-model="formData.port" placeholder="默认: 8899" )
   el-form-item(label="保存位置")
-    el-link(@click="selectSaveDir") {{saveDir ? saveDir : '选择'}}
+    div(style="display:flex;flex-direction: row;align-items: center;")
+      el-input(v-model="formData.save_dir" placeholder="请选择" disabled )
+      el-button(style="margin-left: 10px;" type="primary" @click="selectSaveDir") 选择
   el-form-item(label="视频号画质")
-    el-select(v-model="quality" placeholder="请选择")
+    el-select(v-model="formData.quality" placeholder="请选择")
       el-option( v-for="item in qualityOptions"
         :key="item.value"
         :label="item.label"
         :value="item.value")
   el-form-item(label="特殊代理")
-    el-input(v-model="upstream_proxy" placeholder="例如: http://127.0.0.1:7890 修改此项需重启本软件，如不清楚用途请勿设置。" )
+    el-input(v-model="formData.proxy" placeholder="例如: http://127.0.0.1:7890 修改此项需重启本软件，如不清楚用途请勿设置。" )
   el-form-item
     el-button(type="primary" @click="onSetting") 保存
 </template>

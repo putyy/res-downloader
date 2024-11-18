@@ -7,6 +7,8 @@ import {closeProxy} from "./setProxy"
 import log from "electron-log"
 import path from 'path'
 import {spawn} from 'child_process'
+import {startServer} from "./proxyServer";
+import fs from "fs";
 
 // The built directory structure
 //
@@ -56,6 +58,16 @@ const preload = join(__dirname, '../preload/index.js')
 const url = process.env.VITE_DEV_SERVER_URL
 const indexHtml = join(process.env.DIST, 'index.html')
 
+global.videoList = {}
+global.isStartProxy = false
+global.isSettingProxy = false
+global.resdConfig = {
+    save_dir: "",
+    quality: "-1",
+    proxy: "",
+    port: 8899,
+}
+
 // app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
@@ -100,8 +112,10 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         title: 'Main window',
         icon: join(process.env.VITE_PUBLIC, 'favicon.ico'),
-        width: 800,
-        height: 600,
+        width: 1024,
+        minWidth: 960,
+        height: 768,
+        minHeight: 640,
         webPreferences: {
             preload,
             // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
@@ -159,14 +173,11 @@ function createPreviewWindow(parent: BrowserWindow) {
     previewWin.setTitle("预览")
 
     previewWin.on("page-title-updated", (event) => {
-        // 阻止该事件
         event.preventDefault()
     })
 
     previewWin.on("close", (event) => {
-        // 不关闭窗口
         event.preventDefault()
-        // 影藏窗口
         previewWin.hide()
     })
 }
@@ -183,14 +194,12 @@ function createAria2Process() {
             aria2Path = path.join(CONFIG.EXECUTABLE_PATH, `./${process.platform}/aria2` + (CONFIG.IS_DEV ? `/${process.arch}` : '/') + "/aria2c");
             aria2Conf = path.join(CONFIG.EXECUTABLE_PATH, `./${process.platform}/aria2/aria2.conf`)
         }
-        // 启动 aria2
-        console.log("启动 aria2")
         aria2Process = spawn(aria2Path, [`--conf-path=${aria2Conf}`, `--rpc-listen-port=${CONFIG.ARIA_PORT}`], {
             windowsHide: false,
             stdio: CONFIG.IS_DEV ? 'pipe' : 'ignore'
         });
         if(!aria2Process){
-            console.log("启动 aria2 失败")
+            console.log("start aria2 error")
         }
         if (CONFIG.IS_DEV) {
             aria2Process.stdout.on('data', (data) => {
@@ -200,16 +209,35 @@ function createAria2Process() {
                 console.log(`aria2 error: ${data}`);
             });
         }
-        console.log("aria2 成功启动")
     } catch (e) {
         console.log(`aria2 process start err`, e);
     }
 }
 
+function initConfig(){
+    const configPath = path.join(app.getPath('userData'), 'resd_config.json')
+    if (!fs.existsSync(configPath)) {
+        return
+    }
+    const buff =  fs.readFileSync(configPath);
+    if (buff) {
+        try {
+            const jsonData = JSON.parse(buff)
+            global.resdConfig = Object.assign({}, global.resdConfig, jsonData)
+            if (!global.resdConfig.port) {
+                global.resdConfig.port = 8899
+            }
+        } catch (parseErr) {
+        }
+    }
+}
+
 app.whenReady().then(() => {
-    initIPC()
     createWindow()
     createPreviewWindow(mainWindow)
-    createAria2Process()
     setWin(mainWindow, previewWin)
+    initConfig()
+    initIPC()
+    startServer(mainWindow)
+    createAria2Process()
 })
