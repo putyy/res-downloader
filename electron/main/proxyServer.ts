@@ -6,7 +6,6 @@ import {toSize, typeSuffix} from "./utils"
 // @ts-ignore
 import {hexMD5} from '../../src/common/md5'
 import pkg from '../../package.json'
-import {dialog} from "electron";
 
 const hoXy = require('hoxy')
 
@@ -18,6 +17,7 @@ if (process.platform === 'win32') {
 const resObject = {
     url: "",
     url_sign: "",
+    referer: "",
     cover_url: "",
     file_format: "",
     platform: "",
@@ -38,6 +38,7 @@ export function startServer(win) {
         if (global.resdConfig.proxy && !global.resdConfig.proxy.includes(':' + global.resdConfig.port)) {
             upstreamProxy = global.resdConfig?.proxy
         }
+        console.log("global.resdConfig.port:", global.resdConfig.port)
         const proxy = hoXy.createServer({
             upstreamProxy: upstreamProxy,
             certAuthority: {
@@ -47,27 +48,13 @@ export function startServer(win) {
         })
             .listen(global.resdConfig.port, () => {
                 global.isStartProxy = true
-                // try {
-                //     await setProxy('127.0.0.1', port)
-                //     resolve()
-                // } catch (err) {
-                //     console.error(err);
-                //     setProxyErrorCallback(err)
-                //     reject("请手动设置系统代理" + err.toString())
-                // }
             })
             .on('error', err => {
-                console.error(err);
-                dialog.showMessageBoxSync({
-                    type: 'error',
-                    message: err.toString(),
-                });
-                // setProxyErrorCallback(err)
-                // reject('proxy service err: ' + err.toString())
+                console.error("hoXy err:", err);
             })
         intercept(proxy, win)
     } catch (e) {
-        log.log("--------------proxy catch err--------------", e)
+        console.error("--------------proxy catch err--------------");
     }
 }
 
@@ -96,6 +83,7 @@ function intercept(proxy, win) {
                     url_sign: url_sign,
                     url: media.url + media.urlToken,
                     cover_url: media.coverUrl,
+                    referer: "",
                     file_format: media.spec.map((res) => res.fileFormat).join('#'),
                     platform: urlInfo.hostname,
                     size: toSize(media.fileSize),
@@ -165,9 +153,11 @@ function intercept(proxy, win) {
                     const contentLength = res?._data?.headers?.['content-length']
                     if (global.videoList.hasOwnProperty(url_sign) === false) {
                         global.videoList[url_sign] = res_url
+                        let referer = req?._data?.headers?.['referer']
                         win.webContents.send('on_get_queue', Object.assign({}, resObject, {
                             url: res_url,
                             url_sign: url_sign,
+                            referer: referer ? referer : "",
                             platform: urlInfo.hostname,
                             size: toSize(contentLength ? contentLength : 0),
                             type: contentType,

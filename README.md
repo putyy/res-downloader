@@ -66,7 +66,7 @@ yarn run build --universal --mac
 # 打包win
 yarn run build --win
 
-# 打包win
+# 打包linux
 yarn run build --linux
 ```
 

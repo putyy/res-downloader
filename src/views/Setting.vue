@@ -13,10 +13,6 @@ const formData = ref({
 const proxy_old = ref("")
 const port_old = ref("")
 
-const saveDir = ref("")
-const upstream_proxy = ref("")
-const upstream_proxy_old = ref("")
-const quality = ref("-1")
 const qualityOptions = ref([
   {
     value: '-1',
@@ -44,6 +40,7 @@ onMounted(() => {
 
 const selectSaveDir = () => {
   ipcRenderer.invoke('invoke_select_down_dir').then(save_dir => {
+    console.log("save_dir", save_dir)
     if (save_dir !== false) {
       formData.value.save_dir = save_dir
     }
@@ -67,9 +64,11 @@ const onSetting = () => {
 <template lang="pug">
 el-form(style="max-width: 600px")
   el-form-item(label="代理端口")
-    el-input(v-model="formData.proxy" placeholder="默认: 8899" )
+    el-input(v-model="formData.port" placeholder="默认: 8899" )
   el-form-item(label="保存位置")
-    el-link(@click="selectSaveDir") {{saveDir ? saveDir : '选择'}}
+    div(style="display:flex;flex-direction: row;align-items: center;")
+      el-input(v-model="formData.save_dir" placeholder="请选择" disabled )
+      el-button(style="margin-left: 10px;" type="primary" @click="selectSaveDir") 选择
   el-form-item(label="视频号画质")
     el-select(v-model="formData.quality" placeholder="请选择")
       el-option( v-for="item in qualityOptions"

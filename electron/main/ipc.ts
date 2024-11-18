@@ -7,7 +7,7 @@ import {hexMD5} from '../../src/common/md5'
 import {Aria2RPC} from './aria2Rpc'
 import fs from "fs"
 import urlTool from "url";
-import {setProxy} from "./setProxy";
+import {closeProxy, setProxy} from "./setProxy";
 import path from 'path'
 
 let win: BrowserWindow
@@ -44,7 +44,11 @@ export default function initIPC() {
             return false
         }
         try {
-            await setProxy('127.0.0.1', global.resdConfig.proxy)
+            if (arg.proxy) {
+                await setProxy('127.0.0.1', global.resdConfig.port)
+            }else{
+                await closeProxy('127.0.0.1', global.resdConfig.port)
+            }
             return true
         } catch (err) {
             console.error(err);
@@ -132,18 +136,18 @@ export default function initIPC() {
 
         return new Promise((resolve, reject) => {
 
-            if (down_url.includes("douyin")) {
-                headers['Referer'] = down_url
+            if (data?.referer) {
+                headers['Referer'] = data?.referer
             }
 
             aria2RpcClient.addUri([down_url], save_path, fileName, headers).then((response) => {
-                let currentGid = response.result // 保存当前下载的 gid
+                let currentGid = response.result
                 let progressIntervalId = null
                 // // 开始定时查询下载进度
                 progressIntervalId = setInterval(() => {
                     aria2RpcClient.tellStatus(currentGid).then((status) => {
                         if (status.result.status !== "complete") {
-                            const progress = aria2RpcClient.calculateDownloadProgress(status.result.bitfield);
+                            const progress = aria2RpcClient.calculateDownloadProgress(status.result.bitfield)
                             win?.webContents.send('on_down_file_schedule', {schedule: `已下载${progress}%`})
                         } else {
                             clearInterval(progressIntervalId);
@@ -152,26 +156,26 @@ export default function initIPC() {
                                 decodeWxFile(save_path_file, data.decode_key, save_path_file.replace(".mp4", "_wx.mp4")).then((res) => {
                                     fs.unlink(save_path_file, (err) => {
                                     })
-                                    resolve(res);
+                                    resolve(res)
                                 }).catch((error) => {
                                     console.log("err:", error)
                                     resolve(false);
-                                });
+                                })
                             } else {
                                 resolve({
                                     fullFileName: save_path_file,
-                                });
+                                })
                             }
                         }
                     }).catch((error) => {
-                        console.error(error);
-                        clearInterval(progressIntervalId);
-                        resolve(false);
+                        console.error(error)
+                        clearInterval(progressIntervalId)
+                        resolve(false)
                     });
-                }, 1000);
+                }, 1000)
             }).catch((error) => {
                 console.log("err:", error)
-                resolve(false);
+                resolve(false)
             });
         });
     });

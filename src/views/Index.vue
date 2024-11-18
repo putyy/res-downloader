@@ -8,6 +8,8 @@ import {Delete, Filter, Promotion} from "@element-plus/icons-vue"
 interface resData {
   url: string,
   url_sign: string,
+  referer: string,
+  cover_url: string,
   size: any,
   platform: string,
   type: string,
@@ -31,19 +33,21 @@ const tableData = ref<resData[]>([])
 
 const filteredData = computed(() => {
   if (filtersAction.value.descValue && filtersAction.value.typeValue.length === 0) {
-    return tableData.value.filter(item => {
+    return tableData.value.filter((item: resData) => {
       return item.description.includes(filtersAction.value.descValue)
     });
   }
 
   if (!filtersAction.value.descValue && filtersAction.value.typeValue.length > 0) {
-    return tableData.value.filter(item => {
+    return tableData.value.filter((item: resData) => {
+      // @ts-ignore
       return filtersAction.value.typeValue.includes(item.type_str)
     });
   }
 
   if (filtersAction.value.descValue && filtersAction.value.typeValue.length > 0) {
-    return tableData.value.filter(item => {
+    return tableData.value.filter((item: resData) => {
+      // @ts-ignore
       return item.description.includes(filtersAction.value.descValue) && filtersAction.value.typeValue.includes(item.type_str)
     });
   }
@@ -107,7 +111,7 @@ onMounted(() => {
 
   ipcRenderer.on('on_get_queue', (res, data) => {
     // @ts-ignore
-    if (resType.value.includes("all") || resType.value.includes(data.type_str)) {
+    if (isSetProxy.value && resType.value.includes("all") || resType.value.includes(data.type_str)) {
       tableData.value.push(data)
       localStorageCache.set("res-table-data", tableData.value, -1)
     }
@@ -204,8 +208,7 @@ const handleBatchDown = async () => {
   multipleTableRef.value!.clearSelection()
 }
 
-
-const handleDown = async (index: number, row: any) => {
+const handleDown = (index: number, row: any) => {
   const config = resdConfig()
   const save_dir = config?.save_dir
   if (!save_dir) {
@@ -338,7 +341,7 @@ const handleInitApp = () => {
 const setProxy = ()=>{
   isSetProxy.value = !isSetProxy.value
   ipcRenderer.invoke('invoke_set_proxy', {proxy: isSetProxy.value}).then((res) => {
-    if (res) {
+    if (!res) {
       ElMessage({
         type: "warning",
         message: "设置系统代理失败",
@@ -410,7 +413,7 @@ el-container.container
               el-button(size="small" @click="filtersAction.descVisible = false") 关闭
               el-button(size="small" type="primary" @click="handleFilter('desc')") 筛选
             template(#reference)
-              el-icon(@click="filtersAction.descVisible = true")
+              el-icon(@click="filtersAction.descVisible = true" :color="filtersAction.typeValue.length > 0 ? '#409eff' : ''")
                 Filter
       template(#default="scope")
         div.show_res
@@ -426,24 +429,13 @@ el-container.container
           span(:style="filtersAction.typeValue.length > 0 ? 'color: #409eff' : ''") 类型
           el-popover(:visible="filtersAction.typeVisible")
             div
-              el-select(
-                v-model="filtersAction.typeInput"
-                multiple
-                collapse-tags
-                collapse-tags-tooltip
-                :max-collapse-tags="3"
-                placeholder="资源拦截类型"
-                style="width: auto;min-width:130px"
-              )
-                el-option(v-for="item in typeFilters"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value")
+              el-checkbox-group(v-model="filtersAction.typeInput" style="display:flex;flex-direction: column;")
+                el-checkbox(v-for="item in typeFilters" :label="item.label" :value="item.value")
             div(style="margin-top:10px;display:flex;justify-content: center;")
               el-button(size="small" @click="filtersAction.typeVisible = false") 关闭
               el-button(size="small" type="primary" @click="handleFilter('type')") 筛选
             template(#reference)
-              el-icon(@click="filtersAction.typeVisible = true")
+              el-icon(@click="filtersAction.typeVisible = true" :color="filtersAction.typeValue.length > 0 ? '#409eff' : ''")
                 Filter
     el-table-column(prop="platform" label="主机地址")
     el-table-column(prop="size" label="资源大小")
