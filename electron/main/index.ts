@@ -7,6 +7,8 @@ import {closeProxy} from "./setProxy"
 import log from "electron-log"
 import path from 'path'
 import {spawn} from 'child_process'
+import {startServer} from "./proxyServer";
+import fs from "fs";
 
 // The built directory structure
 //
@@ -56,6 +58,16 @@ const preload = join(__dirname, '../preload/index.js')
 const url = process.env.VITE_DEV_SERVER_URL
 const indexHtml = join(process.env.DIST, 'index.html')
 
+global.videoList = {}
+global.isStartProxy = false
+global.isSettingProxy = false
+global.resdConfig = {
+    save_dir: "",
+    quality: "-1",
+    proxy: "",
+    port: 8899,
+}
+
 // app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
@@ -100,8 +112,10 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         title: 'Main window',
         icon: join(process.env.VITE_PUBLIC, 'favicon.ico'),
-        width: 800,
-        height: 600,
+        width: 1024,
+        minWidth: 960,
+        height: 768,
+        minHeight: 640,
         webPreferences: {
             preload,
             // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
@@ -206,10 +220,32 @@ function createAria2Process() {
     }
 }
 
+function initConfig(){
+    const configPath = path.join(app.getPath('userData'), 'resd_config.json')
+    if (!fs.existsSync(configPath)) {
+        return
+    }
+    fs.readFile(configPath, (err, data) => {
+        if (!err) {
+            try {
+                const jsonData = JSON.parse(data)
+                console.log("jsonData:", jsonData)
+                global.resdConfig = Object.assign({}, global.resdConfig, jsonData)
+                if (!global.resdConfig.proxy) {
+                    global.resdConfig.proxy = "8899"
+                }
+            } catch (parseErr) {
+            }
+        }
+    });
+}
+
 app.whenReady().then(() => {
-    initIPC()
     createWindow()
     createPreviewWindow(mainWindow)
-    createAria2Process()
     setWin(mainWindow, previewWin)
+    initConfig()
+    initIPC()
+    startServer(mainWindow)
+    createAria2Process()
 })

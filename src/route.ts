@@ -1,6 +1,4 @@
 import {createMemoryHistory, createRouter} from 'vue-router'
-// @ts-ignore
-import localStorageCache from "./common/localStorage"
 
 const routes = [
     {

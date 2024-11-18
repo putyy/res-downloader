@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import {ref, onMounted, onUnmounted, watch} from "vue"
+import {ref, onMounted, onUnmounted, watch, computed} from "vue"
 import {ipcRenderer} from 'electron'
 import {ElMessage, ElLoading, ElTable} from "element-plus"
 import localStorageCache from "../common/localStorage"
-import {Delete, Promotion} from "@element-plus/icons-vue"
+import {Delete, Filter, Promotion} from "@element-plus/icons-vue"
 
 interface resData {
   url: string,
@@ -18,10 +18,41 @@ interface resData {
   description: string,
 }
 
+const filtersAction = ref({
+  descInput: "",
+  descVisible: false,
+  descValue: "",
+  typeInput: [],
+  typeVisible: false,
+  typeValue: [],
+})
+
 const tableData = ref<resData[]>([])
 
+const filteredData = computed(() => {
+  if (filtersAction.value.descValue && filtersAction.value.typeValue.length === 0) {
+    return tableData.value.filter(item => {
+      return item.description.includes(filtersAction.value.descValue)
+    });
+  }
+
+  if (!filtersAction.value.descValue && filtersAction.value.typeValue.length > 0) {
+    return tableData.value.filter(item => {
+      return filtersAction.value.typeValue.includes(item.type_str)
+    });
+  }
+
+  if (filtersAction.value.descValue && filtersAction.value.typeValue.length > 0) {
+    return tableData.value.filter(item => {
+      return item.description.includes(filtersAction.value.descValue) && filtersAction.value.typeValue.includes(item.type_str)
+    });
+  }
+
+  return tableData.value
+});
 
 const isInitApp = ref(false)
+const isSetProxy = ref(false)
 
 const multipleTableRef = ref<InstanceType<typeof ElTable>>()
 const multipleSelection = ref<resData[]>([])
@@ -59,6 +90,8 @@ const typeOptions = ref([
   }
 ])
 
+const typeFilters = ref(Array.from(typeOptions.value).slice(1))
+
 const tableHeight = ref(400)
 
 onMounted(() => {
@@ -91,21 +124,21 @@ onMounted(() => {
     }
   })
 
-  loading.value = ElLoading.service({
-    lock: true,
-    text: 'Loading',
-    background: 'rgba(0, 0, 0, 0.7)',
-  })
+  // loading.value = ElLoading.service({
+  //   lock: true,
+  //   text: 'Loading',
+  //   background: 'rgba(0, 0, 0, 0.7)',
+  // })
 
-  ipcRenderer.invoke('invoke_start_proxy', {upstream_proxy: localStorageCache.get("upstream_proxy")}).then(() => {
-    loading.value.close()
-  }).catch((err) => {
-    ElMessage({
-      message: err,
-      type: 'warning',
-    })
-    loading.value.close()
-  })
+  // ipcRenderer.invoke('invoke_start_proxy', {upstream_proxy: localStorageCache.get("upstream_proxy")}).then(() => {
+  //   loading.value.close()
+  // }).catch((err) => {
+  //   ElMessage({
+  //     message: err,
+  //     type: 'warning',
+  //   })
+  //   loading.value.close()
+  // })
   window.addEventListener("resize", handleResize);
   handleResize()
 })
@@ -137,8 +170,9 @@ const handleBatchDown = async () => {
   if (multipleSelection.value.length <= 0) {
     return
   }
+  const config = resdConfig()
 
-  let save_dir = localStorageCache.get("save_dir")
+  const save_dir = config?.save_dir
 
   if (!save_dir) {
     ElMessage({
@@ -153,7 +187,7 @@ const handleBatchDown = async () => {
     text: '下载中',
     background: 'rgba(0, 0, 0, 0.7)',
   })
-  const quality = localStorageCache.get("quality") ? localStorageCache.get("quality") : -1
+  const quality = config?.quality ? config?.quality : -1
   for (const item of multipleSelection.value) {
     let downRes = await ipcRenderer.invoke('invoke_down_file', {
       data: Object.assign({}, item),
@@ -172,7 +206,8 @@ const handleBatchDown = async () => {
 
 
 const handleDown = async (index: number, row: any) => {
-  const save_dir = localStorageCache.get("save_dir")
+  const config = resdConfig()
+  const save_dir = config?.save_dir
   if (!save_dir) {
     ElMessage({
       message: '请设置保存目录',
@@ -187,7 +222,7 @@ const handleDown = async (index: number, row: any) => {
     background: 'rgba(0, 0, 0, 0.7)',
   })
 
-  const quality = localStorageCache.get("quality") ? localStorageCache.get("quality") : -1
+  const quality = config?.quality ? config?.quality : -1
   ipcRenderer.invoke('invoke_down_file', {
     data: Object.assign({}, tableData.value[index]),
     save_path: save_dir,
@@ -300,11 +335,46 @@ const handleInitApp = () => {
   })
 }
 
+const setProxy = ()=>{
+  isSetProxy.value = !isSetProxy.value
+  ipcRenderer.invoke('invoke_set_proxy', {proxy: isSetProxy.value}).then((res) => {
+    if (res) {
+      ElMessage({
+        type: "warning",
+        message: "设置系统代理失败",
+      })
+    }
+  }).catch((err) => {
+    ElMessage({
+      type: "warning",
+      message: err,
+    })
+  })
+}
+
+const handleFilter = (type: string)=>{
+  if (type === "desc") {
+    filtersAction.value.descValue = filtersAction.value.descInput
+    filtersAction.value.descVisible = false
+    return
+  }
+  filtersAction.value.typeValue = filtersAction.value.typeInput
+  filtersAction.value.typeVisible = false
+}
+
+const resdConfig = ()=>{
+  const cache = localStorageCache.get("resd_config")
+  if (cache) {
+    return JSON.parse(cache)
+  }
+  return null
+}
 </script>
 
 <template lang="pug">
 el-container.container
   el-header(style="display:flex;align-items: center")
+    el-button(:type="isSetProxy ? 'primary' : 'info'" @click="setProxy") {{isSetProxy ? '关闭代理' : '启动代理'}}
     el-button(type="primary" @click="handleBatchDown") 批量下载
     el-button(v-if="isInitApp" @click="handleInitApp")
       el-icon
@@ -327,9 +397,21 @@ el-container.container
         :key="item.value"
         :label="item.label"
         :value="item.value")
-  el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="tableData" :height="tableHeight" max-height="100%" stripe)
+  el-table(ref="multipleTableRef" @selection-change="handleSelectionChange" :data="filteredData" :height="tableHeight" max-height="100%" stripe)
     el-table-column(type="selection")
     el-table-column(label="预览" show-overflow-tooltip width="150px")
+      template(#header)
+        div(style="display:flex;align-items: center")
+          span(:style="filtersAction.descValue ? 'color: #409eff' : ''") 信息
+          el-popover(:visible="filtersAction.descVisible")
+            div
+              el-input(v-model="filtersAction.descInput" placeholder="请输入")
+            div(style="margin-top:10px;display:flex;justify-content: center;")
+              el-button(size="small" @click="filtersAction.descVisible = false") 关闭
+              el-button(size="small" type="primary" @click="handleFilter('desc')") 筛选
+            template(#reference)
+              el-icon(@click="filtersAction.descVisible = true")
+                Filter
       template(#default="scope")
         div.show_res
           video.video(v-if="scope.row.type_str === 'video'" :src="scope.row.url" controls preload="none")
@@ -339,6 +421,30 @@ el-container.container
           div(v-if="scope.row.type_str !== 'video' && scope.row.type_str !== 'image' && scope.row.type_str !== 'audio'") {{scope.row.type_str}}类型无法预览
           div {{scope.row.description}}
     el-table-column(prop="type_str" label="类型" show-overflow-tooltip)
+      template(#header)
+        div(style="display:flex;align-items: center")
+          span(:style="filtersAction.typeValue.length > 0 ? 'color: #409eff' : ''") 类型
+          el-popover(:visible="filtersAction.typeVisible")
+            div
+              el-select(
+                v-model="filtersAction.typeInput"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                :max-collapse-tags="3"
+                placeholder="资源拦截类型"
+                style="width: auto;min-width:130px"
+              )
+                el-option(v-for="item in typeFilters"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value")
+            div(style="margin-top:10px;display:flex;justify-content: center;")
+              el-button(size="small" @click="filtersAction.typeVisible = false") 关闭
+              el-button(size="small" type="primary" @click="handleFilter('type')") 筛选
+            template(#reference)
+              el-icon(@click="filtersAction.typeVisible = true")
+                Filter
     el-table-column(prop="platform" label="主机地址")
     el-table-column(prop="size" label="资源大小")
     el-table-column(prop="save_path" label="保存目录" width="135px" :show-overflow-tooltip="true")

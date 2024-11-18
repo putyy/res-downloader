@@ -7,10 +7,12 @@ import {hexMD5} from '../../src/common/md5'
 import {Aria2RPC} from './aria2Rpc'
 import fs from "fs"
 import urlTool from "url";
+import {setProxy} from "./setProxy";
+import path from 'path'
 
 let win: BrowserWindow
 let previewWin: BrowserWindow
-let isStartProxy = false
+
 const aria2RpcClient = new Aria2RPC()
 
 export default function initIPC() {
@@ -21,23 +23,50 @@ export default function initIPC() {
 
     ipcMain.handle('invoke_init_app', (event, arg) => {
         // 开始 初始化应用 安装证书相关
-        installCert(false).then(r => {
-        })
+        installCert(false)
     })
 
-    ipcMain.handle('invoke_start_proxy', (event, arg) => {
+    ipcMain.handle('invoke_set_config', (event, data) => {
+        const filePath = path.join(app.getPath('userData'), 'resd_config.json');
+        fs.writeFile(filePath, JSON.stringify(data), ()=>{})
+        global.resdConfig = Object.assign({}, global.resdConfig, data)
+        global.resdConfig.port = parseInt(global.resdConfig.port)
+        return true
+    })
+
+    ipcMain.handle('invoke_set_proxy', async (event, arg) => {
         // 启动代理服务
-        if (isStartProxy) {
-            return
+        if (!global.isStartProxy) {
+            dialog.showMessageBoxSync({
+                type: "error",
+                message: "代理未启动",
+            });
+            return false
         }
-        isStartProxy = true
-        return startServer({
-            win: win,
-            upstreamProxy: arg.upstream_proxy ? arg.upstream_proxy : "",
-            setProxyErrorCallback: err => {
-                console.log('setProxyErrorCallback', err)
-            },
-        })
+        try {
+            await setProxy('127.0.0.1', global.resdConfig.proxy)
+            return true
+        } catch (err) {
+            console.error(err);
+            dialog.showMessageBoxSync({
+                type: "error",
+                message: err.toString(),
+            });
+            return false
+        }
+        // let upstream_proxy = ""
+        // if (arg.upstream_proxy && !arg.upstream_proxy.includes(':8899')) {
+        //     upstream_proxy = arg.upstream_proxy
+        // }
+        //
+        // global.isStartProxy = true
+        // return startServer({
+        //     win: win,
+        //     upstreamProxy: upstream_proxy,
+        //     setProxyErrorCallback: err => {
+        //         console.log('setProxyErrorCallback', err)
+        //     },
+        // })
     })
 
     ipcMain.handle('invoke_select_down_dir', async (event, arg) => {
@@ -72,7 +101,7 @@ export default function initIPC() {
                 resolve(false);
             });
         }
-        if(quality === "0" && data.decode_key){
+        if (quality === "0" && data.decode_key) {
             const urlInfo = urlTool.parse(down_url, true);
             console.log('urlInfo', urlInfo)
             if (urlInfo.query["token"] && urlInfo.query["encfilekey"]) {

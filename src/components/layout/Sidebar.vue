@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import {inject, onMounted, ref, watch} from 'vue'
-import localStorageCache from "../../common/localStorage"
 
 const appName = "爱享素材"
 const sidebarCollapse = ref(inject('sidebarCollapse'))
 const defaultActive = ref("/index")
 
 onMounted(() => {
-  let lastRoute = localStorageCache.get('last-route')
-  defaultActive.value = lastRoute ? lastRoute : "/index"
+  defaultActive.value = "/index"
 })
 </script>
 <template lang="pug">
