@@ -48,7 +48,7 @@ const selectSaveDir = () => {
 }
 
 const onSetting = () => {
-  localStorageCache.set("resd_config", JSON.stringify(formData.value))
+  localStorageCache.set("resd_config", JSON.stringify(formData.value), -1)
   ipcRenderer.invoke('invoke_set_config', Object.assign({}, formData.value))
   if (proxy_old.value != formData.value.proxy || port_old.value != formData.value.port){
     ipcRenderer.invoke('invoke_window_restart')

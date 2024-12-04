@@ -69,6 +69,8 @@ global.resdConfig = {
 }
 
 // app.whenReady().then(createWindow)
+// 修复部分机型GPU主窗口空白错误
+app.disableHardwareAcceleration();
 
 app.on('window-all-closed', () => {
     mainWindow = null

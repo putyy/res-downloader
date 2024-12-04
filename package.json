@@ -1,6 +1,6 @@
 {
   "name": "res-downloader",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "main": "dist-electron/main/index.js",
   "description": "res-downloader(爱享素材下载器)，支持视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐、qq短视频等",
   "homepage": "https://github.com/putyy/res-downloader",
@@ -32,8 +32,8 @@
     "@vitejs/plugin-vue": "^4.3.3",
     "cross-spawn": "^7.0.3",
     "crypto-js": "^4.1.1",
-    "electron": "^26.0.0",
-    "electron-builder": "^24.6.3",
+    "electron": "^22.3.27",
+    "electron-builder": "^23.6.0",
     "electron-is-dev": "^2.0.0",
     "electron-log": "^4.4.8",
     "element-plus": "^2.3.12",
