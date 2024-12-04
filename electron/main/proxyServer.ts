@@ -38,7 +38,6 @@ export function startServer(win) {
         if (global.resdConfig.proxy && !global.resdConfig.proxy.includes(':' + global.resdConfig.port)) {
             upstreamProxy = global.resdConfig?.proxy
         }
-        console.log("global.resdConfig.port:", global.resdConfig.port)
         const proxy = hoXy.createServer({
             upstreamProxy: upstreamProxy,
             certAuthority: {
@@ -54,7 +53,7 @@ export function startServer(win) {
             })
         intercept(proxy, win)
     } catch (e) {
-        console.error("--------------proxy catch err--------------");
+        console.error("--------------proxy catch err--------------", e);
     }
 }
 

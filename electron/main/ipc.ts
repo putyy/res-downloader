@@ -58,19 +58,6 @@ export default function initIPC() {
             });
             return false
         }
-        // let upstream_proxy = ""
-        // if (arg.upstream_proxy && !arg.upstream_proxy.includes(':8899')) {
-        //     upstream_proxy = arg.upstream_proxy
-        // }
-        //
-        // global.isStartProxy = true
-        // return startServer({
-        //     win: win,
-        //     upstreamProxy: upstream_proxy,
-        //     setProxyErrorCallback: err => {
-        //         console.log('setProxyErrorCallback', err)
-        //     },
-        // })
     })
 
     ipcMain.handle('invoke_select_down_dir', async (event, arg) => {
@@ -107,12 +94,10 @@ export default function initIPC() {
         }
         if (quality === "0" && data.decode_key) {
             const urlInfo = urlTool.parse(down_url, true);
-            console.log('urlInfo', urlInfo)
             if (urlInfo.query["token"] && urlInfo.query["encfilekey"]) {
                 down_url = urlInfo.protocol + "//" + urlInfo.hostname + urlInfo.pathname.replace("251/20302", "251/20304") +
                     "?encfilekey=" + urlInfo.query["encfilekey"] +
                     "&token=" + urlInfo.query["token"]
-                console.log("down_url:", down_url)
             }
         } else if (quality !== "-1" && data.decode_key && data.file_format) {
             const format = data.file_format.split('#');
@@ -158,7 +143,7 @@ export default function initIPC() {
                                     })
                                     resolve(res)
                                 }).catch((error) => {
-                                    console.log("err:", error)
+                                    console.log("decodeWxFile err:", error)
                                     resolve(false);
                                 })
                             } else {
@@ -168,13 +153,13 @@ export default function initIPC() {
                             }
                         }
                     }).catch((error) => {
-                        console.error(error)
+                        console.log("aria2RpcClient err:", error)
                         clearInterval(progressIntervalId)
                         resolve(false)
                     });
                 }, 1000)
             }).catch((error) => {
-                console.log("err:", error)
+                console.log("aria2RpcClient.addUri err:", error)
                 resolve(false)
             });
         });
