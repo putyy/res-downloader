@@ -2,6 +2,7 @@
 ### 爱享素材下载器【[加入群聊](https://qm.qq.com/q/HS8FdhpZCK)】
 🎯 基于Go + [wails](https://github.com/wailsapp/wails)  
 📦 操作简单、可获取不同类型资源  
+
 🖥️ 支持Windows、Mac、Linux  
 🌐 支持视频、音频、图片、m3u8、直播流等常见网络资源  
 💪 支持微信视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源下载  
