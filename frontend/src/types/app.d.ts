@@ -44,4 +44,14 @@ export namespace appType {
         Status: string
         Message: string
     }
+
+    interface Message {
+        code: number
+        message: string
+    }
+
+    interface Handle {
+        type: string
+        event: any
+    }
 }

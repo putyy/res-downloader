@@ -2,7 +2,7 @@ import {defineStore} from 'pinia'
 import {ref} from "vue"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
-import {Environment} from "../../wailsjs/runtime";
+import {Environment} from "../../wailsjs/runtime"
 
 export const useIndexStore = defineStore("index-store", () => {
     const appInfo = ref<appType.App>({

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -68,7 +69,7 @@ func (fd *FileDownloader) init() error {
 		fd.Referer = parsedURL.Scheme + "://" + parsedURL.Host + "/"
 	}
 
-	if globalConfig.DownloadProxy && globalConfig.UpstreamProxy != "" {
+	if globalConfig.DownloadProxy && globalConfig.UpstreamProxy != "" && !strings.Contains(globalConfig.UpstreamProxy, globalConfig.Port) {
 		proxyURL, err := url.Parse(globalConfig.UpstreamProxy)
 		if err == nil {
 			fd.ProxyUrl = proxyURL

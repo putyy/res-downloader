@@ -40,10 +40,10 @@ import ShowLoading from "@/components/ShowLoading.vue"
 import {getDecryptionArray} from '@/assets/js/decrypt.js'
 import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
-import {DwStatus} from "@/const";
+import {DwStatus} from "@/const"
 import ResAction from "@/components/ResAction.vue"
-import {useEventStore} from "@/stores/event";
-import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime";
+import {useEventStore} from "@/stores/event"
+import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 
 const eventStore = useEventStore()
 

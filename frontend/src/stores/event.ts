@@ -1,7 +1,7 @@
 import {defineStore} from "pinia"
 import {ref} from "vue"
-import type {wsType} from "@/types/ws"
 import {EventsOn} from "../../wailsjs/runtime"
+import {appType} from "@/types/app"
 
 export const useEventStore = defineStore('ws-store', () => {
     const handles = ref<any>({})
@@ -17,7 +17,7 @@ export const useEventStore = defineStore('ws-store', () => {
         })
     }
 
-    const addHandle = (handle: wsType.Handle) => {
+    const addHandle = (handle: appType.Handle) => {
         handles.value[handle.type] = handle.event
     }
 

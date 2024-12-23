@@ -20,15 +20,11 @@ type ResponseData struct {
 	Data    interface{} `json:"data"`
 }
 
-type HttpServer struct {
-	broadcast chan []byte
-}
+type HttpServer struct{}
 
 func initHttpServer() *HttpServer {
 	if httpServerOnce == nil {
-		httpServerOnce = &HttpServer{
-			broadcast: make(chan []byte),
-		}
+		httpServerOnce = &HttpServer{}
 	}
 	return httpServerOnce
 }
@@ -38,7 +34,6 @@ func (h *HttpServer) run() {
 	if err != nil {
 		log.Fatalf("无法启动监听: %v", err)
 	}
-	go h.handleMessages()
 	fmt.Println("服务已启动，监听 http://" + globalConfig.Host + ":" + globalConfig.Port)
 	if err := http.Serve(listener, proxyOnce.Proxy); err != nil {
 		fmt.Printf("服务器异常: %v", err)
@@ -90,13 +85,6 @@ func (h *HttpServer) preview(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (h *HttpServer) handleMessages() {
-	for {
-		msg := <-h.broadcast
-		runtime.EventsEmit(appOnce.ctx, "event", string(msg))
-	}
-}
-
 func (h *HttpServer) send(t string, data interface{}) {
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"type": t,
@@ -106,7 +94,7 @@ func (h *HttpServer) send(t string, data interface{}) {
 		fmt.Println("Error converting map to JSON:", err)
 		return
 	}
-	h.broadcast <- jsonData
+	runtime.EventsEmit(appOnce.ctx, "event", string(jsonData))
 }
 
 func (h *HttpServer) writeJson(w http.ResponseWriter, data ResponseData) {
@@ -179,13 +167,13 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 	case "linux":
 		// linux
 		// 尝试使用不同的文件管理器
-		cmd = exec.Command("nautilus", filePath) // 尝试Nautilus
+		cmd = exec.Command("nautilus", filePath)
 		if err := cmd.Start(); err != nil {
-			cmd = exec.Command("thunar", filePath) // 尝试Thunar
+			cmd = exec.Command("thunar", filePath)
 			if err := cmd.Start(); err != nil {
-				cmd = exec.Command("dolphin", filePath) // 尝试Dolphin
+				cmd = exec.Command("dolphin", filePath)
 				if err := cmd.Start(); err != nil {
-					cmd = exec.Command("pcmanfm", filePath) // 尝试PCManFM
+					cmd = exec.Command("pcmanfm", filePath)
 					if err := cmd.Start(); err != nil {
 						globalLogger.err(err)
 						h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})

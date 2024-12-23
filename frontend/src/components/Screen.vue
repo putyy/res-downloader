@@ -35,7 +35,6 @@ const minimizeWindow = () => {
   WindowMinimise()
 }
 const maximizeWindow = () => {
-  console.log("maximizeWindow")
   isMaximized.value = !isMaximized.value;
   if (isMaximized.value) {
     WindowFullscreen()

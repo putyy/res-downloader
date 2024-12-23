@@ -5,94 +5,88 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"log"
-	"net"
 	"os/exec"
 	"strings"
 )
 
-func (s *SystemSetup) getActiveInterface() (string, error) {
-	interfaces, err := net.Interfaces()
+func (s *SystemSetup) getNetworkServices() ([]string, error) {
+	cmd := exec.Command("networksetup", "-listallnetworkservices")
+	output, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to execute command: %v", err)
 	}
 
-	for _, inter := range interfaces {
-		if inter.Flags&net.FlagUp != 0 && inter.Flags&net.FlagLoopback == 0 {
-			return inter.Name, nil
-		}
-	}
-	return "", fmt.Errorf("no active network interface found")
-}
+	services := strings.Split(string(output), "\n")
 
-func (s *SystemSetup) getNetworkServiceName(interfaceName string) (string, error) {
-	cmd := exec.Command("networksetup", "-listallhardwareports")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	if err := cmd.Run(); err != nil {
-		return "", err
+	var validServices []string
+	for _, service := range services {
+		service = strings.TrimSpace(service)
+		if service != "" && !strings.Contains(service, "*") && !strings.Contains(service, "Serial Port") {
+			validServices = append(validServices, service)
+		}
 	}
 
-	output := out.String()
-	lines := strings.Split(output, "\n")
-	var serviceName string
-	for _, line := range lines {
-		if strings.Contains(line, "Hardware Port:") {
-			serviceName = strings.TrimSpace(strings.Split(line, ":")[1])
-		}
-		if strings.Contains(line, "Device: "+interfaceName) {
-			return serviceName, nil
-		}
-	}
-	return "", fmt.Errorf("no matching network service found for interface %s", interfaceName)
+	return validServices, nil
 }
 
 func (s *SystemSetup) setProxy() error {
-	interfaceName, err := s.getActiveInterface()
+	services, err := s.getNetworkServices()
 	if err != nil {
 		return err
 	}
-
-	serviceName, err := s.getNetworkServiceName(interfaceName)
-	if err != nil {
-		return err
-	}
-	commands := [][]string{
-		{"networksetup", "-setwebproxy", serviceName, "127.0.0.1", globalConfig.Port},
-		{"networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", globalConfig.Port},
+	if len(services) == 0 {
+		return fmt.Errorf("find to Network failed")
 	}
 
-	for _, cmd := range commands {
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
-			return err
+	is := false
+	for _, serviceName := range services {
+		if err := exec.Command("networksetup", "-setwebproxy", serviceName, "127.0.0.1", globalConfig.Port).Run(); err != nil {
+			fmt.Println(err)
+		} else {
+			is = true
+		}
+		if err := exec.Command("networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", globalConfig.Port).Run(); err != nil {
+			fmt.Println(err)
+		} else {
+			is = true
 		}
 	}
-	return nil
+
+	if is {
+		return nil
+	}
+
+	return fmt.Errorf("find to Network failed")
 }
 
 func (s *SystemSetup) unsetProxy() error {
-	interfaceName, err := s.getActiveInterface()
+	services, err := s.getNetworkServices()
 	if err != nil {
 		return err
 	}
-
-	serviceName, err := s.getNetworkServiceName(interfaceName)
-	if err != nil {
-		return err
-	}
-	commands := [][]string{
-		{"networksetup", "-setwebproxystate", serviceName, "off"},
-		{"networksetup", "-setsecurewebproxystate", serviceName, "off"},
+	if len(services) == 0 {
+		return fmt.Errorf("find to Network failed")
 	}
 
-	for _, cmd := range commands {
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
-			log.Println("UnsetProxy failed:", err)
-			return err
+	is := false
+	for _, serviceName := range services {
+		if err := exec.Command("networksetup", "-setwebproxystate", serviceName, "off").Run(); err != nil {
+			fmt.Println(err)
+		} else {
+			is = true
+		}
+		if err := exec.Command("networksetup", "-setsecurewebproxystate", serviceName, "off").Run(); err != nil {
+			fmt.Println(err)
+		} else {
+			is = true
 		}
 	}
 
-	return nil
+	if is {
+		return nil
+	}
+
+	return fmt.Errorf("find to Network failed")
 }
 
 func (s *SystemSetup) installCert() (string, error) {

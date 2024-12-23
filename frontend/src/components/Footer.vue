@@ -58,7 +58,7 @@
 
 <script lang="ts" setup>
 import {useIndexStore} from "@/stores"
-import {BrowserOpenURL} from "../../wailsjs/runtime";
+import {BrowserOpenURL} from "../../wailsjs/runtime"
 const store = useIndexStore()
 const props = defineProps(["showModal"])
 const emits = defineEmits(["update:showModal"])

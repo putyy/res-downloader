@@ -166,7 +166,7 @@ func (a *App) OpenSystemProxy() bool {
 		a.IsProxy = true
 		return true
 	}
-	DialogErr("设置失败")
+	DialogErr("设置失败" + err.Error())
 	return false
 }
 

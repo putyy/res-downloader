@@ -47,7 +47,7 @@
 </template>
 
 <script lang="ts" setup>
-import type {MenuOption} from "naive-ui"
+import {MenuOption} from "naive-ui"
 import {NIcon} from "naive-ui"
 import {computed, h, ref, watch} from "vue"
 import {useRoute, useRouter} from "vue-router"
@@ -55,7 +55,7 @@ import {
   CloudOutline,
   SettingsOutline,
   HelpCircleOutline,
-  MoonOutline
+  MoonOutline, SunnyOutline
 } from "@vicons/ionicons5"
 import {useIndexStore} from "@/stores"
 import Footer from "@/components/Footer.vue"
@@ -73,6 +73,10 @@ const envInfo = store.envInfo
 
 const globalConfig = computed(()=>{
   return store.globalConfig
+})
+
+const theme = computed(() => {
+  return store.globalConfig.Theme === "darkTheme" ? renderIcon(SunnyOutline) : renderIcon(MoonOutline)
 })
 
 watch(() => route.path, (newPath, oldPath) => {
@@ -100,7 +104,7 @@ const footerOptions = ref([
   {
     label: "主题",
     key: 'theme',
-    icon: renderIcon(MoonOutline),
+    icon: theme,
   },
   {
     label: "关于",

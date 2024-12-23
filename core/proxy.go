@@ -95,7 +95,7 @@ func (p *Proxy) setTransport() {
 		IdleConnTimeout:       30 * time.Second,
 	}
 
-	if globalConfig.UpstreamProxy != "" && globalConfig.OpenProxy {
+	if globalConfig.UpstreamProxy != "" && globalConfig.OpenProxy && !strings.Contains(globalConfig.UpstreamProxy, globalConfig.Port) {
 		proxyURL, err := url.Parse(globalConfig.UpstreamProxy)
 		if err == nil {
 			transport.Proxy = http.ProxyURL(proxyURL)

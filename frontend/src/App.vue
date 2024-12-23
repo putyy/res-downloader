@@ -12,9 +12,9 @@
 import NaiveProvider from '@/components/NaiveProvider.vue'
 import {darkTheme, lightTheme, zhCN} from 'naive-ui'
 import {useIndexStore} from "@/stores"
-import {computed, onMounted, watch} from "vue"
-import type {wsType} from "@/types/ws"
+import {computed, onMounted} from "vue"
 import {useEventStore} from "@/stores/event"
+import {appType} from "@/types/app";
 
 const store = useIndexStore()
 const eventStore = useEventStore()
@@ -33,7 +33,7 @@ onMounted(async () => {
   eventStore.init()
   eventStore.addHandle({
     type: "message",
-    event: (res: wsType.Message)=>{
+    event: (res: appType.Message)=>{
       switch (res?.code) {
         case 0:
           window?.$message?.error(res.message)
