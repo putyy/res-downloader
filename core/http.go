@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -35,7 +36,18 @@ func (h *HttpServer) run() {
 		log.Fatalf("无法启动监听: %v", err)
 	}
 	fmt.Println("服务已启动，监听 http://" + globalConfig.Host + ":" + globalConfig.Port)
-	if err := http.Serve(listener, proxyOnce.Proxy); err != nil {
+	if err := http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host == "127.0.0.1:"+globalConfig.Port && strings.Contains(r.URL.Path, "/cert") {
+			w.Header().Set("Content-Type", "application/x-x509-ca-data")
+			w.Header().Set("Content-Disposition", "attachment;filename=res-downloader-public.crt")
+			w.Header().Set("Content-Transfer-Encoding", "binary")
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(appOnce.PublicCrt)))
+			w.WriteHeader(http.StatusOK)
+			_, err = io.Copy(w, io.NopCloser(bytes.NewReader(appOnce.PublicCrt)))
+		} else {
+			proxyOnce.Proxy.ServeHTTP(w, r) // 代理
+		}
+	})); err != nil {
 		fmt.Printf("服务器异常: %v", err)
 	}
 }

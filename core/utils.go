@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"net/url"
 	"os"
 	"strings"
@@ -14,9 +15,11 @@ func Empty(data interface{}) {
 }
 
 func DialogErr(message string) {
-	httpServerOnce.send("message", map[string]interface{}{
-		"code":    0,
-		"message": message,
+	_, _ = runtime.MessageDialog(appOnce.ctx, runtime.MessageDialogOptions{
+		Type:          runtime.ErrorDialog,
+		Title:         "Error",
+		Message:       message,
+		DefaultButton: "Cancel",
 	})
 }
 

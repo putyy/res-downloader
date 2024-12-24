@@ -85,7 +85,7 @@
           <span>可结合其他代理工具，用于访问国外网站、以及正常网络无法访问的资源(格式http://username:password@your.proxy.server:port)</span>
         </NTooltip>
       </NFormItem>
-      <NFormItem label="开启上游代理" path="OpenProxy" size="small">
+      <NFormItem label="开启代理" path="OpenProxy" size="small">
         <NSwitch v-model:value="formValue.OpenProxy" />
       </NFormItem>
       <NFormItem label="下载代理" path="DownloadProxy" size="small">
@@ -101,6 +101,14 @@
       </NFormItem>
       <NFormItem label="连接数" path="TaskNumber" size="small">
         <NInputNumber v-model:value="formValue.TaskNumber" :min="2" :max="64" class="w-64"/>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NIcon size="20" class="pl-1">
+              <HelpCircleOutline />
+            </NIcon>
+          </template>
+          <span>如不清楚请保持默认，通常CPU核心数*2，用于分片下载</span>
+        </NTooltip>
       </NFormItem>
       <NFormItem label="UserAgent" path="UserAgent" size="small">
         <NInput v-model:value="formValue.UserAgent" style="width:256px" placeholder=""/>

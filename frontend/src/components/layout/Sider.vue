@@ -55,11 +55,12 @@ import {
   CloudOutline,
   SettingsOutline,
   HelpCircleOutline,
-  MoonOutline, SunnyOutline
+  MoonOutline, SunnyOutline, LogoGithub
 } from "@vicons/ionicons5"
 import {useIndexStore} from "@/stores"
 import Footer from "@/components/Footer.vue"
 import Screen from "@/components/Screen.vue";
+import {BrowserOpenURL} from "../../../wailsjs/runtime";
 
 const route = useRoute()
 const router = useRouter()
@@ -107,6 +108,11 @@ const footerOptions = ref([
     icon: theme,
   },
   {
+    label: "github",
+    key: 'github',
+    icon: renderIcon(LogoGithub),
+  },
+  {
     label: "关于",
     key: 'about',
     icon: renderIcon(HelpCircleOutline),
@@ -120,6 +126,11 @@ const handleUpdateValue = (key: string, item: MenuOption) => {
 const handleFooterUpdate = (key: string, item: MenuOption) => {
   if (key === "about") {
     showAppInfo.value = true
+    return
+  }
+
+  if (key === "github") {
+    BrowserOpenURL("https://github.com/putyy/res-downloader")
     return
   }
   if (key === "theme") {

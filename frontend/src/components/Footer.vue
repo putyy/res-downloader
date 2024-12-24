@@ -47,6 +47,7 @@
         <div>{{ store.appInfo.Copyright }}</div>
         <div class="flex">
           <button class="pl-4" @click="toWebsite('https://s.gowas.cn/d/4089')">论坛</button>
+          <button class="pl-4" @click="toWebsite('http://127.0.0.1:8899/cert')">证书</button>
           <button class="pl-4" @click="toWebsite('https://github.com/putyy/res-downloader')">软件源码</button>
           <button class="pl-4" @click="toWebsite('https://github.com/putyy/res-downloader/issues')">帮助支持</button>
           <button class="pl-4" @click="toWebsite('https://github.com/putyy/res-downloader/releases')">更新日志</button>

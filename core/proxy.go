@@ -105,38 +105,16 @@ func (p *Proxy) setTransport() {
 }
 
 func (p *Proxy) httpRequestEvent(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-	if strings.Contains(r.Host, "res-downloader.666666.com") {
-		if strings.Contains(r.URL.Path, "/wechat") {
-			if globalConfig.WxAction && r.URL.Query().Get("type") == "1" {
-				return p.handleWechatRequest(r, ctx)
-			} else if !globalConfig.WxAction && r.URL.Query().Get("type") == "2" {
-				return p.handleWechatRequest(r, ctx)
-			} else {
-				return r, p.buildEmptyResponse(r)
-			}
-		}
-
-		if strings.Contains(r.URL.Path, "/cert") {
-			return p.handleCertRequest(r, ctx)
+	if strings.Contains(r.Host, "res-downloader.666666.com") && strings.Contains(r.URL.Path, "/wechat") {
+		if globalConfig.WxAction && r.URL.Query().Get("type") == "1" {
+			return p.handleWechatRequest(r, ctx)
+		} else if !globalConfig.WxAction && r.URL.Query().Get("type") == "2" {
+			return p.handleWechatRequest(r, ctx)
+		} else {
+			return r, p.buildEmptyResponse(r)
 		}
 	}
 	return r, nil
-}
-
-func (p *Proxy) handleCertRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header: http.Header{
-			"Content-Type":              []string{"application/x-x509-ca-data"},
-			"Content-Disposition":       []string{"attachment;filename=z-der-data.crt"},
-			"Content-Transfer-Encoding": []string{"binary"},
-		},
-		Body:    io.NopCloser(bytes.NewReader(appOnce.PublicCrt)),
-		Request: r,
-	}
-	return r, resp
 }
 
 func (p *Proxy) handleWechatRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
