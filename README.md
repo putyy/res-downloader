@@ -11,6 +11,16 @@
 🆕 [github下载](https://github.com/putyy/res-downloader/releases)  
 🆕 [蓝奏云下载 密码:9vs5](https://wwjv.lanzoum.com/b04wgtfyb)  
 
+## Linux 版本
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/res-downloader.svg)](https://repology.org/project/res-downloader/versions)
+
+### Arch Linux
+
+```bash
+yay -Syu res-downloader
+```
+
 ## 使用方法
 > 0. 安装时一定要同意安装证书文件、一定要允许网络访问  
 > 1. 打开本软件 软件首页左上角点击 “启动代理”  

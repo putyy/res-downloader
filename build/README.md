@@ -8,6 +8,18 @@ The structure is:
 * darwin - macOS specific files
 * windows - Windows specific files
 
+## Linux
+
+```bash
+git clone https://github.com/putyy/res-downloader.git
+cd res-downloader
+wails build
+cd build
+sudo install -Dvm755 bin/res-downloader -t /usr/bin
+sudo install -Dvm644 appicon.png /usr/share/icons/hicolor/512x512/apps/res-downloader.png
+sudo install -Dvm644 linux/res-downloader.desktop /usr/share/applications/res-downloader.desktop 
+```
+
 ## Mac
 
 The `darwin` directory holds files specific to Mac builds.
