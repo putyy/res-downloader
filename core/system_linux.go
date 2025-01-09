@@ -34,14 +34,14 @@ func (s *SystemSetup) installCert() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	destFile := "/usr/local/share/ca-certificates/" + appOnce.AppName + ".crt"
+	destFile := "/usr/share/ca-certificates/trust-source/" + appOnce.AppName + ".crt"
 
 	err = os.WriteFile(destFile, certData, 0644)
 	if err != nil {
 		return "", err
 	}
 
-	cmd := exec.Command("sudo", "update-ca-certificates")
+	cmd := exec.Command("sudo", "update-ca-trust")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), err
