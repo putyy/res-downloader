@@ -95,7 +95,7 @@ func (s *SystemSetup) installCert() (string, error) {
 		return "", err
 	}
 
-	getPasswordCmd := exec.Command("osascript", "-e", `tell app "System Events" to display dialog "请输入密码，用于安装证书:" default answer "" with hidden answer`, "-e", `text returned of result`)
+	getPasswordCmd := exec.Command("osascript", "-e", `tell app "System Events" to display dialog "请输入你的电脑密码，用于安装证书文件:" default answer "" with hidden answer`, "-e", `text returned of result`)
 	passwordOutput, err := getPasswordCmd.Output()
 	if err != nil {
 		return string(passwordOutput), err

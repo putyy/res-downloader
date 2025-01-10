@@ -3,7 +3,7 @@
 package core
 
 import (
-	"os"
+	"fmt"
 	"os/exec"
 )
 
@@ -15,13 +15,18 @@ func (s *SystemSetup) setProxy() error {
 		{"gsettings", "set", "org.gnome.system.proxy.https", "host", "127.0.0.1"},
 		{"gsettings", "set", "org.gnome.system.proxy.https", "port", globalConfig.Port},
 	}
-
+	is := false
 	for _, cmd := range commands {
 		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
-			return err
+			fmt.Println(err)
+		} else {
+			is = true
 		}
 	}
-	return nil
+	if is {
+		return nil
+	}
+	return fmt.Errorf("Failed to activate proxy")
 }
 
 func (s *SystemSetup) unsetProxy() error {
@@ -30,21 +35,40 @@ func (s *SystemSetup) unsetProxy() error {
 }
 
 func (s *SystemSetup) installCert() (string, error) {
-	certData, err := s.initCert()
-	if err != nil {
-		return "", err
-	}
-	destFile := "/usr/share/ca-certificates/trust-source/" + appOnce.AppName + ".crt"
-
-	err = os.WriteFile(destFile, certData, 0644)
+	_, err := s.initCert()
 	if err != nil {
 		return "", err
 	}
 
-	cmd := exec.Command("sudo", "update-ca-trust")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(output), err
+	actions := [][]string{
+		{"/usr/local/share/ca-certificates/", "update-ca-certificates"},
+		{"/usr/share/ca-certificates/trust-source/anchors/", "update-ca-trust"},
+		{"/usr/share/ca-certificates/trust-source/anchors/", "trust extract-compat"},
+		{"/etc/pki/ca-trust/source/anchors/", "update-ca-trust"},
+		{"/etc/ssl/ca-certificates/", "update-ca-certificates"},
 	}
+
+	is := false
+
+	for _, action := range actions {
+		dir := action[0]
+		if err := exec.Command("sudo", "cp", "-f", s.CertFile, dir+appOnce.AppName+".crt").Run(); err != nil {
+			fmt.Printf("Failed to copy to %s: %v\n", dir, err)
+			continue
+		}
+
+		cmd := action[1]
+		if err := exec.Command("sudo", cmd).Run(); err != nil {
+			fmt.Printf("Failed to refresh certificates using %s: %v\n", cmd, err)
+			continue
+		}
+
+		is = true
+	}
+
+	if !is {
+		return "", fmt.Errorf("Certificate installation failed")
+	}
+
 	return "", nil
 }

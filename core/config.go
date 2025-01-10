@@ -37,7 +37,7 @@ func initConfig() *Config {
   "OpenProxy": false,
   "DownloadProxy": false,
   "AutoProxy": false,
-  "WxAction": false,
+  "WxAction": true,
   "TaskNumber": __TaskNumber__,
   "UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 }
@@ -59,6 +59,8 @@ func initConfig() *Config {
 
 func (c *Config) setConfig(config Config) {
 	oldProxy := c.UpstreamProxy
+	c.Host = config.Host
+	c.Port = config.Port
 	c.Theme = config.Theme
 	c.Quality = config.Quality
 	c.SaveDirectory = config.SaveDirectory

@@ -1,0 +1,9 @@
+Package: res-downloader
+Version: {{Version}}
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libwebkit2gtk-4.0-37
+Maintainer: putyy@qq.com
+Homepage: https://github.com/putyy/res-downloader
+Description: This is a high-value and high-performance and diverse resource downloader called res-downloader

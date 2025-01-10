@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=res-downloader
+Comment=This is a high-value and high-performance and diverse resource downloader called res-downloader
+Exec=/usr/bin/res-downloader
+Icon=/usr/share/icons/hicolor/256x256/apps/res-downloader
+Terminal=false
+Categories=Utility;
