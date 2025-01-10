@@ -59,8 +59,11 @@ echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '
 dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_arm.deb
 ```
 
-
-> ArchLinux环境
+> ArchLinux环境  
+> 安装  
+> yay -Syu res-downloader  
+[![Packaging status](https://repology.org/badge/vertical-allrepos/res-downloader.svg)](https://repology.org/project/res-downloader/versions)
+> 
 ```bash
 git clone https://github.com/putyy/res-downloader.git
 cd res-downloader
