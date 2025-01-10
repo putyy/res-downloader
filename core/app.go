@@ -42,7 +42,7 @@ func GetApp(assets embed.FS) *App {
 		appOnce = &App{
 			assets:      assets,
 			AppName:     "res-downloader",
-			Version:     "3.0.1",
+			Version:     "3.0.2",
 			Description: "res-downloader是一款集网络资源嗅探 + 高速下载功能于一体的软件，高颜值、高性能和多样化，提供个人用户下载自己上传到各大平台的网络资源功能！",
 			Copyright:   "Copyright © 2023~" + strconv.Itoa(time.Now().Year()),
 			PublicCrt: []byte(`
@@ -142,10 +142,12 @@ func (a *App) OnExit() {
 func (a *App) installCert() {
 	if res, err := systemOnce.installCert(); err != nil {
 		if sysRuntime.GOOS == "darwin" {
-			DialogErr("证书安装失败，请手动执行安装命令(已复制到剪切板),err:" + err.Error() + ", " + res)
-			_ = runtime.ClipboardSetText(appOnce.ctx, `echo "输入本地登录密码" && sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "`+systemOnce.CertFile+`" &&  touch `+a.LockFile+` && echo "安装完成"`)
+			_ = runtime.ClipboardSetText(appOnce.ctx, `echo "输入本地登录密码" && sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "`+systemOnce.CertFile+`" && touch `+a.LockFile+` && echo "安装完成"`)
+			DialogErr("证书安装失败，请打开终端执行安装(命令已复制到剪切板),err:" + err.Error() + ", " + res)
 		} else if sysRuntime.GOOS == "windows" && strings.Contains(err.Error(), "Access is denied.") {
 			DialogErr("首次启用本软件，请使用鼠标右键选择以管理员身份运行")
+		} else if sysRuntime.GOOS == "linux" && strings.Contains(err.Error(), "Access is denied.") {
+			DialogErr("证书路径: " + systemOnce.CertFile + ", 请手动安装，安装完成后请执行: touch" + a.LockFile + " err:" + err.Error() + ", " + res)
 		} else {
 			globalLogger.Esg(err, res)
 			DialogErr("err:" + err.Error() + ", " + res)
