@@ -59,17 +59,26 @@ echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '
 dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_arm.deb
 ```
 
-> ArchLinux环境  
-> 安装  
-> yay -Syu res-downloader  
+### Arch Linux 
+
 [![Packaging status](https://repology.org/badge/vertical-allrepos/res-downloader.svg)](https://repology.org/project/res-downloader/versions)
-> 
+
+```bash
+yay -Syu res-downloader 
+```
+### Linux 本地编译
+
 ```bash
 git clone https://github.com/putyy/res-downloader.git
 cd res-downloader
+# -- GO Proxy --
+# 如果国内编译时 go 下载慢或报错，可以设置 go 国内代理加速，否则不用设置
+export GO111MODULE=on
+export GOPROXY=https://goproxy.cn,direct
+# -- Go Proxy --
 wails build
 cd build
 sudo install -Dvm755 bin/res-downloader -t /usr/bin
 sudo install -Dvm644 appicon.png /usr/share/icons/hicolor/512x512/apps/res-downloader.png
-sudo install -Dvm644 linux/res-downloader.desktop /usr/share/applications/res-downloader.desktop 
+sudo install -Dvm644 build/linux/Arch/res-downloader.desktop /usr/share/applications/res-downloader.desktop 
 ```
