@@ -175,6 +175,12 @@ func (p *Proxy) handleWechatRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*ht
 			ContentType: "video/mp4",
 		}
 
+		if mediaType, ok := firstMedia["mediaType"].(float64); ok && mediaType == 9 {
+			res.Classify = "image"
+			res.Suffix = ".png"
+			res.ContentType = "image/png"
+		}
+
 		if urlToken, ok := firstMedia["urlToken"].(string); ok {
 			res.Url = res.Url + urlToken
 		}
