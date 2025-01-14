@@ -83,6 +83,10 @@ func (fd *FileDownloader) init() error {
 
 	fd.TotalSize = resp.ContentLength
 
+	if fd.TotalSize <= 0 {
+		return fmt.Errorf("invalid file")
+	}
+
 	if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > 10485760 {
 		fd.IsMultiPart = true
 	}
@@ -90,21 +94,21 @@ func (fd *FileDownloader) init() error {
 	resp.Body.Close()
 
 	fd.FileName = filepath.Clean(fd.FileName)
-	_, err = os.Stat(fd.FileName)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fd.File, err = os.Create(fd.FileName)
-			if err != nil && fd.TotalSize > 0 {
-				err = fd.File.Truncate(fd.TotalSize)
-			}
-		}
-	} else {
-		fd.File, err = os.OpenFile(fd.FileName, os.O_RDWR, os.ModeAppend)
-	}
-	if err != nil {
+
+	dir := filepath.Dir(fd.FileName)
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return err
 	}
 
+	fd.File, err = os.OpenFile(fd.FileName, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("文件初始化失败: %w", err)
+	}
+
+	if err = fd.File.Truncate(fd.TotalSize); err != nil {
+		fd.File.Close()
+		return fmt.Errorf("文件大小设置失败: %w", err)
+	}
 	return nil
 }
 
