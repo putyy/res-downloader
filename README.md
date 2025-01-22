@@ -1,5 +1,6 @@
 ## res-downloader  V3全新版来袭、全新实现，支持更多设置，视频号、直播流、m3u8预览等！  
-### 爱享素材下载器【[加入群聊](https://qm.qq.com/q/HS8FdhpZCK)】
+### 爱享素材下载器【[加入群聊](https://qm.qq.com/q/ImE37ayJmc)】
+
 🎯 基于Go + [wails](https://github.com/wailsapp/wails)  
 📦 操作简单、可获取不同类型资源  
 🖥️ 支持Windows、Mac、Linux  
