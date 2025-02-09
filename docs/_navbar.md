@@ -1,4 +1,4 @@
-* 友情链接
-    * [putyy](https://www.putyy.com/)
-    * [爱享素材](https://s.gowas.cn/)
-    * [智多星Ai](https://www.ais.do/)
+* [论坛](https://s.gowas.cn/d/4089)
+* [反馈](https://github.com/putyy/res-downloader/issues)
+* [日志](https://github.com/putyy/res-downloader/releases)
+* [QQ群](https://qm.qq.com/q/ImE37ayJmc)

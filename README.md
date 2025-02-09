@@ -20,7 +20,7 @@
 > 4. 返回软件首页即可看到资源列表  
 
 ## 软件截图
-![](preview/show.webp)
+![](docs/images/show.webp)
 
 ## 常见问题
 m3u8: 预览和下载：
