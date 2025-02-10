@@ -4,4 +4,3 @@
 * [功能演示](examples.md)
 * [更多说明](more.md)
 * [常见问题](troubleshooting.md)
-* [贡献指南](contribution.md)

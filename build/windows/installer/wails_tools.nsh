@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "res-downloader"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "3.0.2"
+    !define INFO_PRODUCTVERSION "3.0.3"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "Copyright © 2023"

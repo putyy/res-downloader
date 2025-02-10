@@ -23,9 +23,12 @@ var assets embed.FS
 //go:embed build/appicon.png
 var icon []byte
 
+//go:embed wails.json
+var wailsJson string
+
 func main() {
 	// Create an instance of the app structure
-	app := core.GetApp(assets)
+	app := core.GetApp(assets, wailsJson)
 	isMac := runtime.GOOS == "darwin"
 	// menu
 	appMenu := menu.NewMenu()
@@ -58,6 +61,8 @@ func main() {
 	|_|     \___| |___/          \__,_|  \___/    \_/\_/   |_| |_| |_|  \___/   \__ ,_|  \__,_|  \___| |_|`
 
 			log.Println(logo)
+			fmt.Println("version", app.Version)
+			fmt.Println("lockfile:", app.LockFile)
 			app.Startup(ctx)
 		},
 		OnShutdown: func(ctx context.Context) {

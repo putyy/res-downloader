@@ -1,6 +1,6 @@
 ## Mac
 ```bash
-wails build -platform "darwin/universal" --dmg-name
+wails build -platform "darwin/universal"
 create-dmg 'build/bin/res-downloader.app' \
   --overwrite --dmg-title="res-downloader" \
   --dmg-name "res-downloader_$(jq -r '.info.productVersion' wails.json).dmg" \

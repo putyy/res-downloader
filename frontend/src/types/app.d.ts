@@ -12,6 +12,8 @@ export namespace appType {
         Port: string
         Quality: number
         SaveDirectory: string
+        FilenameLen: number
+        FilenameTime: boolean
         UpstreamProxy: string
         OpenProxy: boolean
         DownloadProxy: boolean

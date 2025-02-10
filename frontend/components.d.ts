@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     Footer: typeof import('./src/components/Footer.vue')['default']
+    ImportJson: typeof import('./src/components/ImportJson.vue')['default']
     Index: typeof import('./src/components/layout/Index.vue')['default']
     NaiveProvider: typeof import('./src/components/NaiveProvider.vue')['default']
     NButton: typeof import('naive-ui')['NButton']
