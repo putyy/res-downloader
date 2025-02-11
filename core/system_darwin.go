@@ -18,24 +18,38 @@ func (s *SystemSetup) getNetworkServices() ([]string, error) {
 
 	services := strings.Split(string(output), "\n")
 
-	var validServices []string
+	var activeServices []string
 	for _, service := range services {
 		service = strings.TrimSpace(service)
-		if service != "" && !strings.Contains(service, "*") && !strings.Contains(service, "Serial Port") {
-			validServices = append(validServices, service)
+		if service == "" || strings.Contains(service, "*") || strings.Contains(service, "Serial Port") {
+			continue
+		}
+
+		// 检查服务是否活动
+		infoCmd := exec.Command("networksetup", "-getinfo", service)
+		infoOutput, err := infoCmd.Output()
+		if err != nil {
+			fmt.Printf("failed to get info for service %s: %v\n", service, err)
+			continue
+		}
+
+		// 如果输出中包含 "IP address:"，说明服务是活动的
+		if strings.Contains(string(infoOutput), "IP address:") {
+			activeServices = append(activeServices, service)
 		}
 	}
 
-	return validServices, nil
+	if len(activeServices) == 0 {
+		return nil, fmt.Errorf("no active network services found")
+	}
+
+	return activeServices, nil
 }
 
 func (s *SystemSetup) setProxy() error {
 	services, err := s.getNetworkServices()
 	if err != nil {
 		return err
-	}
-	if len(services) == 0 {
-		return fmt.Errorf("find to Network failed")
 	}
 
 	is := false
@@ -56,16 +70,13 @@ func (s *SystemSetup) setProxy() error {
 		return nil
 	}
 
-	return fmt.Errorf("find to Network failed")
+	return fmt.Errorf("failed to set proxy for any active network service")
 }
 
 func (s *SystemSetup) unsetProxy() error {
 	services, err := s.getNetworkServices()
 	if err != nil {
 		return err
-	}
-	if len(services) == 0 {
-		return fmt.Errorf("find to Network failed")
 	}
 
 	is := false
@@ -86,7 +97,7 @@ func (s *SystemSetup) unsetProxy() error {
 		return nil
 	}
 
-	return fmt.Errorf("find to Network failed")
+	return fmt.Errorf("failed to set proxy for any active network service")
 }
 
 func (s *SystemSetup) installCert() (string, error) {

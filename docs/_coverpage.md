@@ -5,5 +5,5 @@
 ### 简单、高效、轻便 (仅 ~10M)
 
 
-[开始使用 Let Go](/README.md)
-[下载](/README.md)
+[开始使用 Let Go](/readme.md)
+[下载](/getting-started.md)

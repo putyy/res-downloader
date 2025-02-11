@@ -1,4 +1,4 @@
-* [简介](README.md)
+* [简介](readme.md)
 * [快速开始](getting-started.md)
 * [安装指南](installation.md)
 * [功能演示](examples.md)
