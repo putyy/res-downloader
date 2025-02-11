@@ -113,13 +113,22 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		fileName := Md5(rawUrl)
 		if mediaInfo.Description != "" {
 			fileName = regexp.MustCompile(`[^\w\p{Han}]`).ReplaceAllString(mediaInfo.Description, "")
+			fileLen := globalConfig.FilenameLen
+			if fileLen <= 0 {
+				fileLen = 10
+			}
+
 			runes := []rune(fileName)
-			if len(runes) > 10 {
-				fileName = string(runes[:10])
+			if len(runes) > fileLen {
+				fileName = string(runes[:fileLen])
 			}
 		}
 
-		mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+GetCurrentDateTimeFormatted()+mediaInfo.Suffix)
+		if globalConfig.FilenameTime {
+			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+GetCurrentDateTimeFormatted()+mediaInfo.Suffix)
+		} else {
+			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+mediaInfo.Suffix)
+		}
 
 		if strings.Contains(rawUrl, "qq.com") {
 			if globalConfig.Quality == 1 &&

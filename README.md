@@ -1,5 +1,5 @@
-## res-downloader  V3全新版来袭、全新实现，支持更多设置，视频号、直播流、m3u8预览等！  
-### 爱享素材下载器【[加入群聊](https://qm.qq.com/q/ImE37ayJmc)】
+## res-downloader  
+### 爱享素材下载器  
 
 🎯 基于Go + [wails](https://github.com/wailsapp/wails)  
 📦 操作简单、可获取不同类型资源  
@@ -8,11 +8,13 @@
 💪 支持微信视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源下载  
 👼 支持设置代理以获取特殊网络下的资源  
 
-## 软件下载(Win7下载2.3.0版本)
-🆕 [github下载](https://github.com/putyy/res-downloader/releases)  
-🆕 [蓝奏云下载 密码:9vs5](https://wwjv.lanzoum.com/b04wgtfyb)
+## [在线文档](https://res.putyy.com/)、[加入群聊](https://qm.qq.com/q/ImE37ayJmc)、[Electron版](https://github.com/putyy/res-downloader/tree/old)  
 
-## 使用方法
+## 软件下载(Win7下载2.3.0版本)  
+🆕 [github下载](https://github.com/putyy/res-downloader/releases)  
+🆕 [蓝奏云下载 密码:9vs5](https://wwjv.lanzoum.com/b04wgtfyb)  
+
+## 使用方法  
 > 0. 安装时一定要同意安装证书文件、一定要允许网络访问  
 > 1. 打开本软件 软件首页左上角点击 “启动代理”  
 > 2. 软件首页选择要获取的资源类型（默认选中的全部）  
@@ -20,7 +22,7 @@
 > 4. 返回软件首页即可看到资源列表  
 
 ## 软件截图
-![](preview/show.webp)
+![](docs/images/show.webp)  
 
 ## 常见问题
 m3u8: 预览和下载：

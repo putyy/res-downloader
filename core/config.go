@@ -15,6 +15,8 @@ type Config struct {
 	Port          string `json:"Port"`
 	Quality       int    `json:"Quality"`
 	SaveDirectory string `json:"SaveDirectory"`
+	FilenameLen   int    `json:"FilenameLen"`
+	FilenameTime  bool   `json:"FilenameTime"`
 	UpstreamProxy string `json:"UpstreamProxy"`
 	OpenProxy     bool   `json:"OpenProxy"`
 	DownloadProxy bool   `json:"DownloadProxy"`
@@ -33,6 +35,8 @@ func initConfig() *Config {
   "Theme": "lightTheme",
   "Quality": 0,
   "SaveDirectory": "",
+  "FilenameLen": 0,
+  "FilenameTime": true,
   "UpstreamProxy": "",
   "OpenProxy": false,
   "DownloadProxy": false,
@@ -64,6 +68,8 @@ func (c *Config) setConfig(config Config) {
 	c.Theme = config.Theme
 	c.Quality = config.Quality
 	c.SaveDirectory = config.SaveDirectory
+	c.FilenameLen = config.FilenameLen
+	c.FilenameTime = config.FilenameTime
 	c.UpstreamProxy = config.UpstreamProxy
 	c.UserAgent = config.UserAgent
 	c.OpenProxy = config.OpenProxy

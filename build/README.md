@@ -1,16 +1,14 @@
 ## Mac
 ```bash
-wails build -platform "darwin/universal" --dmg-name
-create-dmg 'build/bin/res-downloader.app' \
-  --overwrite --dmg-title="res-downloader" \
-  --dmg-name "res-downloader_$(jq -r '.info.productVersion' wails.json).dmg" \
-  ./build/bin
+wails build -platform "darwin/universal"
+create-dmg 'build/bin/res-downloader.app' --overwrite ./build/bin
+mv -f "build/bin/res-downloader $(jq -r '.info.productVersion' wails.json).dmg" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json).dmg"
 ```
 
 ## Windows
 ```bash
-wails build -f -nsis -platform "windows/amd64" -webview2 Embed
-wails build -f -nsis -platform "windows/arm64" -webview2 Embed  
+wails build -f -nsis -platform "windows/amd64" -webview2 Embed && mv -f "build/bin/res-downloader-amd64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_x64.exe"
+wails build -f -nsis -platform "windows/arm64" -webview2 Embed && mv -f "build/bin/res-downloader-arm64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_arm.exe"
 ```
 
 ## Linux

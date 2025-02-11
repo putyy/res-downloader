@@ -1,12 +1,13 @@
 <template>
   <div class="flex flex-col px-5 py-5">
-    <div class="pb-2 z-40">
+    <div class="pb-2 z-40" @click="triggerEvent">
       <NSpace>
-        <NButton v-if="isProxy" secondary type="primary" @click="close" style="--wails-draggable:no-drag">关闭代理</NButton>
-        <NButton v-else tertiary type="tertiary" @click="open" style="--wails-draggable:no-drag">开启代理</NButton>
-        <NButton tertiary type="info" @click="batchDown" style="--wails-draggable:no-drag">批量下载</NButton>
-        <NButton tertiary type="error" @click="clear" style="--wails-draggable:no-drag">清空列表</NButton>
+        <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">关闭代理</NButton>
+        <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">开启代理</NButton>
+        <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">批量下载</NButton>
+        <NButton tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">清空列表</NButton>
         <NSelect style="min-width: 100px;--wails-draggable:no-drag" placeholder="拦截类型" v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="options"></NSelect>
+        <NButton v-if="isDebug" tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">导入数据</NButton>
       </NSpace>
     </div>
     <div class="flex-1">
@@ -25,12 +26,13 @@
     </div>
     <Preview v-model:showModal="showPreviewRow" :previewRow="previewRow"/>
     <ShowLoading :loadingText="loadingText" :isLoading="loading"/>
+    <ImportJson v-model:showModal="showImport" @submit="handleImport"/>
   </div>
 </template>
 
 <script lang="ts" setup>
 import {NButton, NImage, NTooltip} from "naive-ui"
-import {computed, h, onMounted, ref, watch} from "vue"
+import {computed, h, onMounted, ref, watch, provide} from "vue"
 import type {appType} from "@/types/app"
 
 import type {DataTableRowKey, ImageRenderToolbarProps} from "naive-ui"
@@ -42,23 +44,19 @@ import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
 import {DwStatus} from "@/const"
 import ResAction from "@/components/ResAction.vue"
+import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 
 const eventStore = useEventStore()
-
 const isProxy = computed(() => {
   return store.isProxy
 })
-
 const data = ref<any[]>([])
-
 const store = useIndexStore()
-
 const tableHeight = computed(() => {
   return store.tableHeight - 132
 })
-
 const resourcesType = ref<string[]>(["all"])
 const options = [
   {
@@ -216,12 +214,17 @@ const columns = ref<any[]>([
   }
 ])
 const downIndex = ref(0)
-
 const checkedRowKeysValue = ref<DataTableRowKey[]>([])
 const showPreviewRow = ref(false)
 const previewRow = ref<appType.MediaInfo>()
 const loading = ref(false)
 const loadingText = ref("")
+const isDebug = ref(false)
+const showImport = ref(false)
+let clickCount = 0
+let clickTimeout: any = null
+
+provide('isDebug', isDebug);
 
 onMounted(() => {
   const temp = localStorage.getItem("resources-type")
@@ -290,6 +293,15 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       break;
     case "copy":
       ClipboardSetText(row.Url).then((is: boolean) => {
+        if (is) {
+          window?.$message?.success("复制成功")
+        } else {
+          window?.$message?.error("复制失败")
+        }
+      })
+      break
+    case "json":
+      ClipboardSetText(encodeURIComponent(JSON.stringify(row))).then((is: boolean) => {
         if (is) {
           window?.$message?.success("复制成功")
         } else {
@@ -444,4 +456,39 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
   })
 }
 
+
+const triggerEvent = ()=>{
+  if(isDebug.value) {
+    return
+  }
+  clickCount++
+  if (clickCount === 5) {
+    // 连续点击5次开启debug
+    isDebug.value = true
+    clickCount = 0
+  } else {
+    clearTimeout(clickTimeout);
+    clickTimeout = setTimeout(() => {
+      clickCount = 0
+    }, 1000)
+  }
+}
+
+const handleImport = (content: string)=>{
+  content.split("\n").forEach((line, index) => {
+    try {
+      let res = JSON.parse(decodeURIComponent(line))
+      if (res && res?.Id) {
+        res.Id = res.Id + Math.floor(Math.random() * 100000)
+        res.SavePath = ""
+        res.Status = "ready"
+        data.value.unshift(res)
+      }
+    }catch (e) {
+      console.log(e)
+    }
+  });
+  localStorage.setItem("resources-data", JSON.stringify(data.value))
+  showImport.value = false
+}
 </script>

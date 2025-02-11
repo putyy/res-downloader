@@ -19,6 +19,8 @@ export const useIndexStore = defineStore("index-store", () => {
         Quality: 0,
         SaveDirectory: "",
         UpstreamProxy: "",
+        FilenameLen: 0,
+        FilenameTime: false,
         OpenProxy: false,
         DownloadProxy: false,
         AutoProxy: false,

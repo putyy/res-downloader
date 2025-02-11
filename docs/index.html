@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>res-downloader</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="keywords" content="res-downloader,视频号下载,抖音下载,快手下载,小红书下载,万能下载器,爱享素材,爱享素材下载器">
+  <meta name="description" content="res-downloader是一款集网络资源嗅探 + 高速下载功能于一体的软件，高颜值、高性能和多样化，提供个人用户下载自己上传到各大平台的网络资源功能！">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: 'res-downloader',
+      repo: 'https://github.com/putyy/res-downloader',
+      // 侧边栏支持，默认加载的是项目根目录下的_sidebar.md文件
+      loadSidebar: true,
+      // 导航栏支持，默认加载的是项目根目录下的_navbar.md文件
+      loadNavbar: true,
+      // 封面支持，默认加载的是项目根目录下的_coverpage.md文件
+      coverpage: true,
+      // 最大支持渲染的标题层级
+      maxLevel: 5,
+      // 自定义侧边栏后默认不会再生成目录，设置生成目录的最大层级（建议配置为2-4）
+      subMaxLevel: 4,
+      // 小屏设备下合并导航栏到侧边栏
+      mergeNavbar: true,
+      search: {
+        maxAge: 86400000,// 过期时间，单位毫秒，默认一天
+        paths: 'auto',// 注意：仅适用于 paths: 'auto' 模式
+        placeholder: '搜索',
+        // 支持本地化
+        placeholder: {
+          '/zh-cn/': '搜索',
+          '/': 'Type to search'
+        },
+        noData: '找不到结果',
+        depth: 4,
+        hideOtherSidebarContent: false,
+        namespace: 'Docsify-Guide',
+      }
+    }
+  </script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/emoji.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+</body>
+</html>

@@ -10,7 +10,7 @@
         class="px-5 py-5"
     >
       <NFormItem label="代理Host" path="Port" size="small">
-        <NInput v-model:value="formValue.Host" placeholder="0.0.0.0" style="width:256px"/>
+        <NInput v-model:value="formValue.Host" placeholder="127.0.0.1" style="width:256px"/>
         <NTooltip trigger="hover">
           <template #trigger>
             <NIcon size="20" class="pl-1">
@@ -36,6 +36,25 @@
           <NInput v-model:value="formValue.SaveDirectory" disabled placeholder="保存位置" style="width:256px"/>
           <NButton strong secondary type="success" @click="selectDir">选择</NButton>
         </NSpace>
+      </NFormItem>
+      <NFormItem label="文件命名" path="FilenameLen" size="small">
+        <NInputNumber v-model:value="formValue.FilenameLen" :min="0" :max="9999" placeholder="0" style="width:256px"/>
+        <NSwitch class="pl-1" v-model:value="formValue.FilenameTime" aria-placeholder="随机数">
+          <template #checked>
+            是
+          </template>
+          <template #unchecked>
+            否
+          </template>
+        </NSwitch>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NIcon size="20" class="pl-1">
+              <HelpCircleOutline />
+            </NIcon>
+          </template>
+          <span>输入框控制文件命名的长度(不含时间、0为无效，此选项有描述信息时有效)，开关控制文件末尾是否添加时间标识</span>
+        </NTooltip>
       </NFormItem>
       <NFormItem label="主题" path="theme" size="small">
         <NRadio :checked="formValue.Theme === 'lightTheme'" value="lightTheme" name="theme" @change="handleChange">浅色主题</NRadio>
@@ -76,6 +95,7 @@
       </NFormItem>
       <NFormItem label="上游代理" path="UpstreamProxy" size="small">
         <NInput v-model:value="formValue.UpstreamProxy" placeholder="例如: http://127.0.0.1:7890" style="width:256px"/>
+        <NSwitch class="pl-1" v-model:value="formValue.OpenProxy" />
         <NTooltip trigger="hover">
           <template #trigger>
             <NIcon size="20" class="pl-1">
@@ -84,9 +104,6 @@
           </template>
           <span>可结合其他代理工具，用于访问国外网站、以及正常网络无法访问的资源(格式http://username:password@your.proxy.server:port)</span>
         </NTooltip>
-      </NFormItem>
-      <NFormItem label="开启代理" path="OpenProxy" size="small">
-        <NSwitch v-model:value="formValue.OpenProxy" />
       </NFormItem>
       <NFormItem label="下载代理" path="DownloadProxy" size="small">
         <NSwitch v-model:value="formValue.DownloadProxy" />
