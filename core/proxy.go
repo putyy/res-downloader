@@ -249,8 +249,10 @@ func (p *Proxy) httpResponseEvent(resp *http.Response, ctx *goproxy.ProxyCtx) *h
 
 	if strings.HasSuffix(host, "res.wx.qq.com") {
 		respTemp := resp
+		is := false
 		if strings.HasSuffix(respTemp.Request.URL.RequestURI(), ".js?v="+p.v()) {
 			respTemp = p.replaceWxJsContent(respTemp, ".js\"", ".js?v="+p.v()+"\"")
+			is = true
 		}
 
 		if strings.Contains(Path, "web/web-finder/res/js/virtual_svg-icons-register.publish") {
@@ -292,7 +294,9 @@ func (p *Proxy) httpResponseEvent(resp *http.Response, ctx *goproxy.ProxyCtx) *h
 			respTemp.Header.Set("Content-Length", fmt.Sprintf("%d", len(newBodyBytes)))
 			return respTemp
 		}
-		return respTemp
+		if is {
+			return respTemp
+		}
 	}
 
 	classify, suffix := TypeSuffix(resp.Header.Get("Content-Type"))
