@@ -32,8 +32,8 @@
         </NTooltip>
       </NFormItem>
       <NFormItem label="保存位置" path="SaveDirectory" size="small">
-        <NSpace>
-          <NInput v-model:value="formValue.SaveDirectory" disabled placeholder="保存位置" style="width:256px"/>
+        <NSpace :reverse="!formValue.SaveDirectory">
+          <div v-show="formValue.SaveDirectory" style="width:256px;overflow: auto;">{{ formValue.SaveDirectory }}</div>
           <NButton strong secondary type="success" @click="selectDir">选择</NButton>
         </NSpace>
       </NFormItem>
