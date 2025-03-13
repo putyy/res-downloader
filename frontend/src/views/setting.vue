@@ -33,7 +33,7 @@
       </NFormItem>
       <NFormItem label="保存位置" path="SaveDirectory" size="small">
         <NSpace>
-          <NInput v-model:value="formValue.SaveDirectory" disabled placeholder="保存位置" style="width:256px"/>
+          <NInput :value="formValue.SaveDirectory" placeholder="保存位置" style="width:256px"/>
           <NButton strong secondary type="success" @click="selectDir">选择</NButton>
         </NSpace>
       </NFormItem>
