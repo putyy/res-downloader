@@ -8,7 +8,8 @@
 💪 支持微信视频号、小程序、抖音、快手、小红书、酷狗音乐、qq音乐等网络资源下载  
 👼 支持设置代理以获取特殊网络下的资源  
 
-## [在线文档](https://res.putyy.com/)、[加入群聊](https://qm.qq.com/q/ImE37ayJmc)、[Electron版](https://github.com/putyy/res-downloader/tree/old)  
+## [在线文档](https://res.putyy.com/)、[加入群聊](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)、[Electron版](https://github.com/putyy/res-downloader/tree/old)  
+## 群满+v：AmorousWorld  请备注来源
 
 ## 软件下载(Win7下载2.3.0版本)  
 🆕 [github下载](https://github.com/putyy/res-downloader/releases)  
