@@ -7,8 +7,9 @@ mv -f "build/bin/res-downloader $(jq -r '.info.productVersion' wails.json).dmg" 
 
 ## Windows
 ```bash
-wails build -f -nsis -platform "windows/amd64" -webview2 Embed && mv -f "build/bin/res-downloader-amd64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_amd64.exe"
-wails build -f -nsis -platform "windows/arm64" -webview2 Embed && mv -f "build/bin/res-downloader-arm64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_arm64.exe"
+wails build -f -nsis -platform "windows/amd64" -webview2 Embed -skipbindings && mv -f "build/bin/res-downloader-amd64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_amd64.exe"
+wails build -f -nsis -platform "windows/arm64" -webview2 Embed -skipbindings && mv -f "build/bin/res-downloader-arm64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_arm64.exe"
+
 ```
 
 ## Linux
@@ -41,7 +42,7 @@ wget -O ./build/bin/appimagetool-x86_64.AppImage https://github.com/AppImage/App
 chmod +x ./build/bin/appimagetool-x86_64.AppImage
 ./build/bin/appimagetool-x86_64.AppImage build/linux/AppImage build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64.AppImage
 
-cp build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64
+mv -f build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64
 ```
 
 > arm64
@@ -58,7 +59,7 @@ cp build/bin/res-downloader build/linux/Debian/usr/local/bin/
 echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g")" > build/linux/Debian/DEBIAN/control
 dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64.deb
 
-cp build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64
+mv -f build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64
 ```
 
 ### Arch Linux 
