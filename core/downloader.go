@@ -76,15 +76,30 @@ func (fd *FileDownloader) init() error {
 		}
 	}
 
-	resp, e := http.Head(fd.Url)
-	if e != nil {
-		return e
+	req, err := http.NewRequest("HEAD", fd.Url, nil)
+	if err != nil {
+		return fmt.Errorf("create request failed")
 	}
+
+	// 设置请求头
+	if globalConfig.UserAgent != "" {
+		req.Header.Set("User-Agent", globalConfig.UserAgent)
+	}
+
+	if fd.Referer != "" {
+		req.Header.Set("Referer", fd.Referer)
+	}
+
+	resp, err := fd.buildClient().Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed" + err.Error())
+	}
+	defer resp.Body.Close()
 
 	fd.TotalSize = resp.ContentLength
 
 	if fd.TotalSize <= 0 {
-		return fmt.Errorf("invalid file")
+		return fmt.Errorf("request init failed: size 0")
 	}
 
 	if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > 10485760 {
