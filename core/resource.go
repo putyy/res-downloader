@@ -26,8 +26,7 @@ type WxFileDecodeResult struct {
 }
 
 type Resource struct {
-	mark      map[string]bool
-	markMu    sync.RWMutex
+	mediaMark sync.Map
 	resType   map[string]bool
 	resTypeMu sync.RWMutex
 }
@@ -35,7 +34,6 @@ type Resource struct {
 func initResource() *Resource {
 	if resourceOnce == nil {
 		resourceOnce = &Resource{
-			mark: make(map[string]bool),
 			resType: map[string]bool{
 				"all":   true,
 				"image": true,
@@ -52,17 +50,13 @@ func initResource() *Resource {
 	return resourceOnce
 }
 
-func (r *Resource) getMark(key string) (bool, bool) {
-	r.markMu.RLock()
-	defer r.markMu.RUnlock()
-	value, ok := r.mark[key]
-	return value, ok
+func (r *Resource) mediaIsMarked(key string) bool {
+	_, loaded := r.mediaMark.Load(key)
+	return loaded
 }
 
-func (r *Resource) setMark(key string, value bool) {
-	r.markMu.Lock()
-	defer r.markMu.Unlock()
-	r.mark[key] = value
+func (r *Resource) markMedia(key string) {
+	r.mediaMark.Store(key, true)
 }
 
 func (r *Resource) getResType(key string) (bool, bool) {
@@ -93,15 +87,11 @@ func (r *Resource) setResType(n []string) {
 }
 
 func (r *Resource) clear() {
-	r.markMu.Lock()
-	defer r.markMu.Unlock()
-	r.mark = make(map[string]bool)
+	r.mediaMark.Clear()
 }
 
 func (r *Resource) delete(sign string) {
-	r.markMu.Lock()
-	defer r.markMu.Unlock()
-	delete(r.mark, sign)
+	r.mediaMark.Delete(sign)
 }
 
 func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {

@@ -106,8 +106,6 @@ func (fd *FileDownloader) init() error {
 		fd.IsMultiPart = true
 	}
 
-	resp.Body.Close()
-
 	fd.FileName = filepath.Clean(fd.FileName)
 
 	dir := filepath.Dir(fd.FileName)
