@@ -61,7 +61,7 @@ func main() {
 	|_|     \___| |___/          \__,_|  \___/    \_/\_/   |_| |_| |_|  \___/   \__ ,_|  \__,_|  \___| |_|`
 
 			log.Println(logo)
-			fmt.Println("version", app.Version)
+			fmt.Println("version:", app.Version)
 			fmt.Println("lockfile:", app.LockFile)
 			app.Startup(ctx)
 		},

@@ -2,13 +2,13 @@
 ```bash
 wails build -platform "darwin/universal"
 create-dmg 'build/bin/res-downloader.app' --overwrite ./build/bin
-mv -f "build/bin/res-downloader $(jq -r '.info.productVersion' wails.json).dmg" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json).dmg"
+mv -f "build/bin/res-downloader $(jq -r '.info.productVersion' wails.json).dmg" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_mac.dmg"
 ```
 
 ## Windows
 ```bash
-wails build -f -nsis -platform "windows/amd64" -webview2 Embed && mv -f "build/bin/res-downloader-amd64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_x64.exe"
-wails build -f -nsis -platform "windows/arm64" -webview2 Embed && mv -f "build/bin/res-downloader-arm64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_arm.exe"
+wails build -f -nsis -platform "windows/amd64" -webview2 Embed && mv -f "build/bin/res-downloader-amd64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_amd64.exe"
+wails build -f -nsis -platform "windows/arm64" -webview2 Embed && mv -f "build/bin/res-downloader-arm64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_arm64.exe"
 ```
 
 ## Linux
@@ -20,12 +20,12 @@ docker build --network host -f build/linux/dockerfile -t res-downloader-amd-linu
 docker run -it --name res-downloader-amd-build --network host --privileged -v ./:/www/res-downloader res-downloader-amd-linux /bin/bash
 # 容器内
 cd /www/res-downloader
-wails build
+wails build -platform "linux/amd64" -s -skipbindings
 
 # 打包debian
 cp build/bin/res-downloader build/linux/Debian/usr/local/bin/
 echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g")" > build/linux/Debian/DEBIAN/control
-dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_x64.deb
+dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64.deb
 
 # 打包AppImage
 cp build/bin/res-downloader build/linux/AppImage/usr/bin/
@@ -39,7 +39,9 @@ popd
 
 wget -O ./build/bin/appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage 
 chmod +x ./build/bin/appimagetool-x86_64.AppImage
-./build/bin/appimagetool-x86_64.AppImage build/linux/AppImage build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_x64.AppImage
+./build/bin/appimagetool-x86_64.AppImage build/linux/AppImage build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64.AppImage
+
+cp build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64
 ```
 
 > arm64
@@ -49,12 +51,14 @@ docker build --platform linux/arm64 --network host -f build/linux/dockerfile -t 
 docker run --platform linux/arm64 -it --name res-downloader-arm-build --network host --privileged -v ./:/www/res-downloader res-downloader-arm-linux /bin/bash
 # 容器内
 cd /www/res-downloader
-wails build
+wails build -platform "linux/arm64" -s -skipbindings
 
 # 打包debian
 cp build/bin/res-downloader build/linux/Debian/usr/local/bin/
 echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g")" > build/linux/Debian/DEBIAN/control
-dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_arm.deb
+dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64.deb
+
+cp build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64
 ```
 
 ### Arch Linux 

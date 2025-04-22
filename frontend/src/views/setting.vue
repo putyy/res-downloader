@@ -138,9 +138,6 @@
           <span>如不清楚请保持默认</span>
         </NTooltip>
       </NFormItem>
-      <NFormItem label=" " path="UserAgent" size="small">
-        <NButton strong secondary type="success" @click="save" class="w-20">保存</NButton>
-      </NFormItem>
     </NForm>
   </div>
 </template>
@@ -175,6 +172,10 @@ const options = [
 
 const formValue = ref<appType.Config>(Object.assign({}, store.globalConfig))
 
+watch(formValue.value, () => {
+  store.setConfig(Object.assign({}, store.globalConfig, formValue.value))
+}, {deep: true})
+
 watch(()=>{
   return store.globalConfig.Theme
 }, ()=>{
@@ -193,10 +194,5 @@ const selectDir = () => {
   }).catch((err: any) => {
     window?.$message?.error(err)
   });
-}
-
-const save = () => {
-  store.setConfig(formValue.value)
-  window?.$message?.success("保存成功")
 }
 </script>
