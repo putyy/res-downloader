@@ -336,6 +336,12 @@ func (p *Proxy) httpResponseEvent(resp *http.Response, ctx *goproxy.ProxyCtx) *h
 			Description: "",
 			ContentType: resp.Header.Get("Content-Type"),
 		}
+
+		// Store entire request headers as JSON
+		if headers, err := json.Marshal(resp.Request.Header); err == nil {
+			res.OtherData["headers"] = string(headers)
+		}
+
 		resourceOnce.markMedia(urlSign)
 		httpServerOnce.send("newResources", res)
 	}

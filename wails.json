@@ -13,8 +13,8 @@
   "info": {
     "companyName": "res-downloader",
     "productName": "res-downloader",
-    "productVersion": "3.0.4",
+    "productVersion": "3.0.5",
     "copyright": "Copyright © 2023",
-    "comments": "This is a high-value, high-performance, and diverse resource downloader called res-downloader."
+    "comments": "This is a high-value high-performance and diverse resource downloader called res-downloader."
   }
 }

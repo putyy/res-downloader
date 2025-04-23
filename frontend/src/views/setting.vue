@@ -138,6 +138,17 @@
           <span>如不清楚请保持默认</span>
         </NTooltip>
       </NFormItem>
+      <NFormItem label="UseHeaders" path="UseHeaders" size="small">
+        <NInput v-model:value="formValue.UseHeaders" style="width:256px" placeholder=""/>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NIcon size="20" class="pl-1">
+              <HelpCircleOutline />
+            </NIcon>
+          </template>
+          <span>3.0.4版本缓存了请求header信息，这个参数定义在下载时可使用的header参数:  ,分割</span>
+        </NTooltip>
+      </NFormItem>
     </NForm>
   </div>
 </template>

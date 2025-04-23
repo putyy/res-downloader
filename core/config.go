@@ -24,6 +24,7 @@ type Config struct {
 	WxAction      bool   `json:"WxAction"`
 	TaskNumber    int    `json:"TaskNumber"`
 	UserAgent     string `json:"UserAgent"`
+	UseHeaders    string `json:"UseHeaders"`
 }
 
 func initConfig() *Config {
@@ -43,7 +44,8 @@ func initConfig() *Config {
   "AutoProxy": true,
   "WxAction": true,
   "TaskNumber": __TaskNumber__,
-  "UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+  "UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+  "UseHeaders": "User-Agent,Referer,Authorization,Cookie"
 }
 `
 		def = strings.ReplaceAll(def, "__TaskNumber__", strconv.Itoa(runtime.NumCPU()*2))
@@ -51,9 +53,23 @@ func initConfig() *Config {
 			storage: NewStorage("config.json", []byte(def)),
 		}
 
+		defaultMap := make(map[string]interface{})
+		_ = json.Unmarshal([]byte(def), &defaultMap)
+
 		data, err := globalConfig.storage.Load()
 		if err == nil {
-			_ = json.Unmarshal(data, &globalConfig)
+			var loadedMap map[string]interface{}
+			_ = json.Unmarshal(data, &loadedMap)
+
+			for key, val := range defaultMap {
+				if _, ok := loadedMap[key]; !ok {
+					loadedMap[key] = val
+				}
+			}
+
+			finalBytes, _ := json.Marshal(loadedMap)
+			_ = json.Unmarshal(finalBytes, &globalConfig)
+
 		} else {
 			globalLogger.Esg(err, "load config err")
 		}
@@ -77,6 +93,7 @@ func (c *Config) setConfig(config Config) {
 	c.AutoProxy = config.AutoProxy
 	c.TaskNumber = config.TaskNumber
 	c.WxAction = config.WxAction
+	c.UseHeaders = config.UseHeaders
 	if oldProxy != c.UpstreamProxy {
 		proxyOnce.setTransport()
 	}

@@ -21,6 +21,7 @@ export namespace appType {
         WxAction: boolean
         TaskNumber: number
         UserAgent: string
+        UseHeaders: string
     }
 
     interface MediaInfo {

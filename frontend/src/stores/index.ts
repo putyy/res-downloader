@@ -27,6 +27,7 @@ export const useIndexStore = defineStore("index-store", () => {
         WxAction: false,
         TaskNumber: 8,
         UserAgent: "",
+        UseHeaders: "",
     })
 
     const envInfo = ref({
