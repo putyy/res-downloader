@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -32,17 +31,19 @@ type FileDownloader struct {
 	totalTasks       int
 	TotalSize        int64
 	IsMultiPart      bool
+	Headers          map[string]string
 	DownloadTaskList []*DownloadTask
 	progressCallback ProgressCallback
 }
 
-func NewFileDownloader(url, filename string, totalTasks int) *FileDownloader {
+func NewFileDownloader(url, filename string, totalTasks int, headers map[string]string) *FileDownloader {
 	return &FileDownloader{
 		Url:              url,
 		FileName:         filename,
 		totalTasks:       totalTasks,
 		IsMultiPart:      false,
 		TotalSize:        0,
+		Headers:          headers,
 		DownloadTaskList: make([]*DownloadTask, 0),
 	}
 }
@@ -53,10 +54,16 @@ func (fd *FileDownloader) buildClient() *http.Client {
 		transport.Proxy = http.ProxyURL(fd.ProxyUrl)
 	}
 	// Cookie handle
-	jar, _ := cookiejar.New(nil)
 	return &http.Client{
 		Transport: transport,
-		Jar:       jar,
+	}
+}
+
+func (fd *FileDownloader) setHeaders(request *http.Request) {
+	for key, values := range fd.Headers {
+		if strings.Contains(globalConfig.UseHeaders, key) {
+			request.Header.Set(key, values)
+		}
 	}
 }
 
@@ -76,21 +83,22 @@ func (fd *FileDownloader) init() error {
 		}
 	}
 
-	req, err := http.NewRequest("HEAD", fd.Url, nil)
+	request, err := http.NewRequest("HEAD", fd.Url, nil)
 	if err != nil {
 		return fmt.Errorf("create request failed")
 	}
 
-	// 设置请求头
-	if globalConfig.UserAgent != "" {
-		req.Header.Set("User-Agent", globalConfig.UserAgent)
+	if _, ok := fd.Headers["User-Agent"]; !ok {
+		fd.Headers["User-Agent"] = globalConfig.UserAgent
 	}
 
-	if fd.Referer != "" {
-		req.Header.Set("Referer", fd.Referer)
+	if _, ok := fd.Headers["Referer"]; !ok {
+		fd.Headers["Referer"] = fd.Referer
 	}
 
-	resp, err := fd.buildClient().Do(req)
+	fd.setHeaders(request)
+
+	resp, err := fd.buildClient().Do(request)
 	if err != nil {
 		return fmt.Errorf("request failed" + err.Error())
 	}
@@ -182,8 +190,9 @@ func (fd *FileDownloader) startDownloadTask(waitGroup *sync.WaitGroup, progressC
 		globalLogger.Error().Stack().Err(err).Msgf("任务%d创建请求出错", task.taskID)
 		return
 	}
-	request.Header.Set("User-Agent", globalConfig.UserAgent)
-	request.Header.Set("Referer", fd.Referer)
+
+	fd.setHeaders(request)
+
 	if fd.IsMultiPart {
 		request.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", task.rangeStart, task.rangeEnd))
 	}

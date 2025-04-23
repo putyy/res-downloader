@@ -4,7 +4,7 @@
 > A cross-platform resource downloader built with Go + [Wails](https://github.com/wailsapp/wails).  
 Clean UI, easy to use, and supports a wide range of resource sniffing and downloading.
 
-### 📖 [中文](./README.md) | English 
+### 📖 [中文](./README.md) | English  
 
 ---
 

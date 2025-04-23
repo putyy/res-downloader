@@ -20,7 +20,7 @@
 ## 📚 文档 & 版本
 
 - 📘 [在线文档](https://res.putyy.com/)
-- 🧩 [Mini版 UI使用默认浏览器展示](https://github.com/putyy/res-downloader) ｜ [Electron旧版 支持Win7](https://github.com/putyy/res-downloader/tree/old)
+- 🧩 [Mini版 UI使用默认浏览器展示](https://github.com/putyy/resd-mini) ｜ [Electron旧版 支持Win7](https://github.com/putyy/res-downloader/tree/old)
 - 💬 [加入交流群](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
   > *群满时可加微信 `AmorousWorld`，请备注“来源”*
 
@@ -32,7 +32,7 @@
 - 🆕 [蓝奏云下载（密码：9vs5）](https://wwjv.lanzoum.com/b04wgtfyb)
 - ⚠️ *Win7 用户请下载 `2.3.0` 版本*
 
----
+--- 
 
 ## 🚀 使用方法
 

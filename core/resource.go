@@ -2,6 +2,8 @@ package core
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -142,7 +144,9 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 			}
 		}
 
-		downloader := NewFileDownloader(rawUrl, mediaInfo.SavePath, globalConfig.TaskNumber)
+		headers, _ := r.parseHeaders(mediaInfo)
+
+		downloader := NewFileDownloader(rawUrl, mediaInfo.SavePath, globalConfig.TaskNumber, headers)
 		downloader.progressCallback = func(totalDownloaded float64) {
 			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded))+"%", DownloadStatusRunning)
 		}
@@ -160,6 +164,27 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		}
 		r.progressEventsEmit(mediaInfo, "完成", DownloadStatusDone)
 	}(mediaInfo)
+}
+
+// 解析并组装 headers
+func (r *Resource) parseHeaders(mediaInfo MediaInfo) (map[string]string, error) {
+	headers := make(map[string]string)
+
+	if hh, ok := mediaInfo.OtherData["headers"]; ok {
+		var tempHeaders map[string][]string
+		// 解析 JSON 字符串为 map[string][]string
+		if err := json.Unmarshal([]byte(hh), &tempHeaders); err != nil {
+			return headers, fmt.Errorf("parse headers JSON err: %v", err)
+		}
+
+		for key, values := range tempHeaders {
+			if len(values) > 0 {
+				headers[key] = values[0]
+			}
+		}
+	}
+
+	return headers, nil
 }
 
 func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string) (string, error) {

@@ -9,7 +9,6 @@ mv -f "build/bin/res-downloader $(jq -r '.info.productVersion' wails.json).dmg" 
 ```bash
 wails build -f -nsis -platform "windows/amd64" -webview2 Embed -skipbindings && mv -f "build/bin/res-downloader-amd64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_amd64.exe"
 wails build -f -nsis -platform "windows/arm64" -webview2 Embed -skipbindings && mv -f "build/bin/res-downloader-arm64-installer.exe" "build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_win_arm64.exe"
-
 ```
 
 ## Linux
