@@ -223,24 +223,24 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 					cmd = exec.Command("pcmanfm", filePath)
 					if err := cmd.Start(); err != nil {
 						globalLogger.err(err)
-						h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+						h.error(w, err.Error())
 						return
 					}
 				}
 			}
 		}
 	default:
-		h.writeJson(w, ResponseData{Code: 0, Message: "unsupported platform"})
+		h.error(w, "unsupported platform")
 		return
 	}
 
 	err = cmd.Start()
 	if err != nil {
 		globalLogger.err(err)
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) setSystemPassword(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +299,7 @@ func (h *HttpServer) getConfig(w http.ResponseWriter, r *http.Request) {
 func (h *HttpServer) setConfig(w http.ResponseWriter, r *http.Request) {
 	var data Config
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
 	globalConfig.setConfig(data)
@@ -344,7 +344,7 @@ func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 		DecodeStr string `json:"decodeStr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
 	resourceOnce.download(data.MediaInfo, data.DecodeStr)
