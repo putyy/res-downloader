@@ -1,6 +1,13 @@
 import request from '@/api/request'
 
 export default {
+    setSystemPassword(data: object) {
+        return request({
+            url: 'api/set-system-password',
+            method: 'post',
+            data: data
+        })
+    },
     openSystemProxy() {
         return request({
             url: 'api/proxy-open',
@@ -89,6 +96,13 @@ export default {
     wxFileDecode(data: object) {
         return request({
             url: 'api/wx-file-decode',
+            method: 'post',
+            data: data
+        })
+    },
+    batchImport(data: object) {
+        return request({
+            url: 'api/batch-import',
             method: 'post',
             data: data
         })

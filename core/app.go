@@ -166,30 +166,28 @@ func (a *App) installCert() {
 	}
 }
 
-func (a *App) OpenSystemProxy() bool {
+func (a *App) OpenSystemProxy() error {
 	if a.IsProxy {
-		return true
+		return nil
 	}
 	err := systemOnce.setProxy()
 	if err == nil {
 		a.IsProxy = true
-		return true
+		return nil
 	}
-	DialogErr("设置失败:" + err.Error())
-	return false
+	return err
 }
 
-func (a *App) UnsetSystemProxy() bool {
+func (a *App) UnsetSystemProxy() error {
 	if !a.IsProxy {
-		return true
+		return nil
 	}
 	err := systemOnce.unsetProxy()
 	if err == nil {
 		a.IsProxy = false
-		return true
+		return nil
 	}
-	DialogErr("设置失败:" + err.Error())
-	return false
+	return err
 }
 
 func (a *App) isInstall() bool {

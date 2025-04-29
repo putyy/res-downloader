@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-type ProgressCallback func(totalDownloaded float64)
+type ProgressCallback func(totalDownloaded float64, totalSize float64)
 
 type DownloadTask struct {
 	taskID         int
@@ -53,16 +53,15 @@ func (fd *FileDownloader) buildClient() *http.Client {
 	if fd.ProxyUrl != nil {
 		transport.Proxy = http.ProxyURL(fd.ProxyUrl)
 	}
-	// Cookie handle
 	return &http.Client{
 		Transport: transport,
 	}
 }
 
 func (fd *FileDownloader) setHeaders(request *http.Request) {
-	for key, values := range fd.Headers {
+	for key, value := range fd.Headers {
 		if strings.Contains(globalConfig.UseHeaders, key) {
-			request.Header.Set(key, values)
+			request.Header.Set(key, value)
 		}
 	}
 }
@@ -85,50 +84,42 @@ func (fd *FileDownloader) init() error {
 
 	request, err := http.NewRequest("HEAD", fd.Url, nil)
 	if err != nil {
-		return fmt.Errorf("create request failed")
+		return fmt.Errorf("create HEAD request failed: %w", err)
 	}
 
 	if _, ok := fd.Headers["User-Agent"]; !ok {
 		fd.Headers["User-Agent"] = globalConfig.UserAgent
 	}
-
 	if _, ok := fd.Headers["Referer"]; !ok {
 		fd.Headers["Referer"] = fd.Referer
 	}
 
 	fd.setHeaders(request)
-
 	resp, err := fd.buildClient().Do(request)
 	if err != nil {
-		return fmt.Errorf("request failed" + err.Error())
+		return fmt.Errorf("HEAD request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	fd.TotalSize = resp.ContentLength
-
 	if fd.TotalSize <= 0 {
-		return fmt.Errorf("request init failed: size 0")
+		return fmt.Errorf("invalid file size")
 	}
-
-	if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > 10485760 {
+	if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > 10*1024*1024 {
 		fd.IsMultiPart = true
 	}
-
-	fd.FileName = filepath.Clean(fd.FileName)
 
 	dir := filepath.Dir(fd.FileName)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return err
 	}
-
 	fd.File, err = os.OpenFile(fd.FileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return fmt.Errorf("文件初始化失败: %w", err)
+		return fmt.Errorf("file open failed: %w", err)
 	}
-
-	if err = fd.File.Truncate(fd.TotalSize); err != nil {
+	if err := fd.File.Truncate(fd.TotalSize); err != nil {
 		fd.File.Close()
-		return fmt.Errorf("文件大小设置失败: %w", err)
+		return fmt.Errorf("file truncate failed: %w", err)
 	}
 	return nil
 }
@@ -139,97 +130,100 @@ func (fd *FileDownloader) createDownloadTasks() {
 			fd.totalTasks = int(fd.TotalSize)
 		}
 		eachSize := fd.TotalSize / int64(fd.totalTasks)
-
 		for i := 0; i < fd.totalTasks; i++ {
+			start := eachSize * int64(i)
+			end := eachSize*int64(i+1) - 1
+			if i == fd.totalTasks-1 {
+				end = fd.TotalSize - 1
+			}
 			fd.DownloadTaskList = append(fd.DownloadTaskList, &DownloadTask{
-				taskID:         i,
-				rangeStart:     eachSize * int64(i),
-				rangeEnd:       eachSize*int64(i+1) - 1,
-				downloadedSize: 0,
-				isCompleted:    false,
+				taskID:     i,
+				rangeStart: start,
+				rangeEnd:   end,
 			})
 		}
-		fd.DownloadTaskList[len(fd.DownloadTaskList)-1].rangeEnd = fd.TotalSize - 1
-
 	} else {
-		fd.DownloadTaskList = append(fd.DownloadTaskList, &DownloadTask{
-			taskID:         0,
-			rangeStart:     0,
-			rangeEnd:       0,
-			downloadedSize: 0,
-			isCompleted:    false,
-		})
+		fd.DownloadTaskList = append(fd.DownloadTaskList, &DownloadTask{taskID: 0})
 	}
 }
 
 func (fd *FileDownloader) startDownload() {
-	waitGroup := &sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 	progressChan := make(chan int64)
+
 	for _, task := range fd.DownloadTaskList {
-		go fd.startDownloadTask(waitGroup, progressChan, task)
-		waitGroup.Add(1)
+		wg.Add(1)
+		go fd.startDownloadTask(wg, progressChan, task)
 	}
 	go func() {
-		waitGroup.Wait()
+		wg.Wait()
 		close(progressChan)
 	}()
 
 	if fd.progressCallback != nil {
 		totalDownloaded := int64(0)
-		for progress := range progressChan {
-			totalDownloaded += progress
-			fd.progressCallback(float64(totalDownloaded) * 100 / float64(fd.TotalSize))
+		for p := range progressChan {
+			totalDownloaded += p
+			fd.progressCallback(float64(totalDownloaded), float64(fd.TotalSize))
 		}
 	}
 }
 
-func (fd *FileDownloader) startDownloadTask(waitGroup *sync.WaitGroup, progressChan chan int64, task *DownloadTask) {
-	defer waitGroup.Done()
+func (fd *FileDownloader) startDownloadTask(wg *sync.WaitGroup, progressChan chan int64, task *DownloadTask) {
+	defer wg.Done()
 	request, err := http.NewRequest("GET", fd.Url, nil)
 	if err != nil {
 		globalLogger.Error().Stack().Err(err).Msgf("任务%d创建请求出错", task.taskID)
 		return
 	}
-
 	fd.setHeaders(request)
 
 	if fd.IsMultiPart {
-		request.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", task.rangeStart, task.rangeEnd))
+		rangeHeader := fmt.Sprintf("bytes=%d-%d", task.rangeStart, task.rangeEnd)
+		request.Header.Set("Range", rangeHeader)
 	}
 
-	resp, err := fd.buildClient().Do(request)
+	client := fd.buildClient()
+	resp, err := client.Do(request)
 	if err != nil {
 		log.Printf("任务%d发送下载请求出错！%s", task.taskID, err)
 		return
 	}
 	defer resp.Body.Close()
+
 	buf := make([]byte, 8192)
 	for {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
-			_, err := fd.File.WriteAt(buf[:n], task.rangeStart+task.downloadedSize)
-			if err != nil {
-				log.Printf("任务%d写入文件时出现错误！位置:%d, err: %s\n", task.taskID, task.rangeStart+task.downloadedSize, err)
+			remain := task.rangeEnd - (task.rangeStart + task.downloadedSize) + 1
+			n64 := int64(n)
+			if n64 > remain {
+				n = int(remain)
+			}
+			_, writeErr := fd.File.WriteAt(buf[:n], task.rangeStart+task.downloadedSize)
+			if writeErr != nil {
+				log.Printf("任务%d写入文件时出现错误！位置:%d, err: %s\n", task.taskID, task.rangeStart+task.downloadedSize, writeErr)
 				return
 			}
-			downSize := int64(n)
-			task.downloadedSize += downSize
-			progressChan <- downSize
+			task.downloadedSize += n64
+			progressChan <- n64
+
+			if task.rangeStart+task.downloadedSize-1 >= task.rangeEnd {
+				task.isCompleted = true
+				break
+			}
 		}
 		if err != nil {
 			if err == io.EOF {
 				task.isCompleted = true
-				break
 			}
-			log.Printf("任务%d读取响应错误！%s", task.taskID, err)
-			return
+			break
 		}
 	}
 }
 
 func (fd *FileDownloader) Start() error {
-	err := fd.init()
-	if err != nil {
+	if err := fd.init(); err != nil {
 		return err
 	}
 	fd.createDownloadTasks()

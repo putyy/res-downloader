@@ -7,6 +7,7 @@ import (
 
 type SystemSetup struct {
 	CertFile string
+	Password string
 }
 
 func initSystem() *SystemSetup {
@@ -32,4 +33,8 @@ func (s *SystemSetup) initCert() ([]byte, error) {
 	} else {
 		return nil, err
 	}
+}
+
+func (s *SystemSetup) SetPassword(password string) {
+	s.Password = password
 }

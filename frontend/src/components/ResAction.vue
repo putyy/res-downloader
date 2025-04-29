@@ -12,7 +12,7 @@
     <NButton v-if="row.DecodeKey" type="warning" :tertiary="true" size="small" @click="action('decode')">
       视频解密
     </NButton>
-    <NButton v-if="isDebug" type="info" :tertiary="true" size="small" @click="action('json')">
+    <NButton type="info" :tertiary="true" size="small" @click="action('json')">
       复制数据
     </NButton>
     <NButton type="error" :tertiary="true" size="small" @click="action('delete')">
@@ -22,16 +22,12 @@
 </template>
 
 <script setup lang="ts">
-import {inject} from "vue"
-
 const props = defineProps<{
   row: any,
   index: number,
 }>()
 
 const emits = defineEmits(["action"])
-
-const isDebug = inject('isDebug')
 
 const action = (type: string) => {
   emits('action', props.row, props.index, type)

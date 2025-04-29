@@ -57,4 +57,10 @@ export namespace appType {
         type: string
         event: any
     }
+
+    interface Res<T = any> {
+        code: number;
+        message: string;
+        data: T;  // T will be the specific type of your data
+    }
 }

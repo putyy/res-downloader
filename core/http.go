@@ -10,10 +10,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	sysRuntime "runtime"
 	"strings"
 )
+
+type respData map[string]interface{}
 
 type ResponseData struct {
 	Code    int         `json:"code"`
@@ -118,20 +122,54 @@ func (h *HttpServer) writeJson(w http.ResponseWriter, data ResponseData) {
 	}
 }
 
+func (h *HttpServer) error(w http.ResponseWriter, args ...interface{}) {
+	message := "ok"
+	var data interface{}
+
+	if len(args) > 0 {
+		message = args[0].(string)
+	}
+	if len(args) > 1 {
+		data = args[1]
+	}
+
+	h.writeJson(w, ResponseData{
+		Code:    0,
+		Message: message,
+		Data:    data,
+	})
+}
+
+func (h *HttpServer) success(w http.ResponseWriter, args ...interface{}) {
+	message := "ok"
+	var data interface{}
+
+	if len(args) > 0 {
+		data = args[0]
+	}
+
+	if len(args) > 1 {
+		message = args[1].(string)
+	}
+
+	h.writeJson(w, ResponseData{
+		Code:    1,
+		Message: message,
+		Data:    data,
+	})
+}
+
 func (h *HttpServer) openDirectoryDialog(w http.ResponseWriter, r *http.Request) {
 	folder, err := runtime.OpenDirectoryDialog(appOnce.ctx, runtime.OpenDialogOptions{
 		DefaultDirectory: "",
 		Title:            "Select a folder",
 	})
 	if err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]interface{}{
-			"folder": folder,
-		},
+	h.success(w, respData{
+		"folder": folder,
 	})
 }
 
@@ -146,14 +184,11 @@ func (h *HttpServer) openFileDialog(w http.ResponseWriter, r *http.Request) {
 		Title: "Select a file",
 	})
 	if err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]interface{}{
-			"file": filePath,
-		},
+	h.success(w, respData{
+		"file": filePath,
 	})
 }
 
@@ -208,47 +243,57 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 	h.writeJson(w, ResponseData{Code: 1})
 }
 
+func (h *HttpServer) setSystemPassword(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Password string `json:"password"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	systemOnce.SetPassword(data.Password)
+	h.success(w)
+}
+
 func (h *HttpServer) openSystemProxy(w http.ResponseWriter, r *http.Request) {
-	appOnce.OpenSystemProxy()
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]bool{
+	err := appOnce.OpenSystemProxy()
+	if err != nil {
+		h.error(w, err.Error(), respData{
 			"isProxy": appOnce.IsProxy,
-		},
+		})
+		return
+	}
+	h.success(w, respData{
+		"isProxy": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) unsetSystemProxy(w http.ResponseWriter, r *http.Request) {
-	appOnce.UnsetSystemProxy()
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]bool{
+	err := appOnce.UnsetSystemProxy()
+	if err != nil {
+		h.error(w, err.Error(), respData{
 			"isProxy": appOnce.IsProxy,
-		},
+		})
+		return
+	}
+	h.success(w, respData{
+		"isProxy": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) isProxy(w http.ResponseWriter, r *http.Request) {
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]interface{}{
-			"isProxy": appOnce.IsProxy,
-		},
+	h.success(w, respData{
+		"isProxy": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) appInfo(w http.ResponseWriter, r *http.Request) {
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: appOnce,
-	})
+	h.success(w, appOnce)
 }
 
 func (h *HttpServer) getConfig(w http.ResponseWriter, r *http.Request) {
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: globalConfig,
-	})
+	h.success(w, globalConfig)
 }
 
 func (h *HttpServer) setConfig(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +303,7 @@ func (h *HttpServer) setConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	globalConfig.setConfig(data)
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) setType(w http.ResponseWriter, r *http.Request) {
@@ -274,12 +319,12 @@ func (h *HttpServer) setType(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) clear(w http.ResponseWriter, r *http.Request) {
 	resourceOnce.clear()
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
@@ -290,7 +335,7 @@ func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
 	if err == nil && data.Sign != "" {
 		resourceOnce.delete(data.Sign)
 	}
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
@@ -303,7 +348,7 @@ func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resourceOnce.download(data.MediaInfo, data.DecodeStr)
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
@@ -313,18 +358,35 @@ func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 		DecodeStr string `json:"decodeStr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
 	savePath, err := resourceOnce.wxFileDecode(data.MediaInfo, data.Filename, data.DecodeStr)
 	if err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]string{
-			"save_path": savePath,
-		},
+	h.success(w, respData{
+		"save_path": savePath,
+	})
+}
+
+func (h *HttpServer) batchImport(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	fileName := filepath.Join(globalConfig.SaveDirectory, "res-downloader-"+GetCurrentDateTimeFormatted()+".txt")
+	// 0644 是文件权限：-rw-r--r--
+	err := os.WriteFile(fileName, []byte(data.Content), 0644)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	h.success(w, respData{
+		"file_name": fileName,
 	})
 }

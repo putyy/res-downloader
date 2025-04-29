@@ -147,8 +147,8 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		headers, _ := r.parseHeaders(mediaInfo)
 
 		downloader := NewFileDownloader(rawUrl, mediaInfo.SavePath, globalConfig.TaskNumber, headers)
-		downloader.progressCallback = func(totalDownloaded float64) {
-			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded))+"%", DownloadStatusRunning)
+		downloader.progressCallback = func(totalDownloaded, totalSize float64) {
+			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded*100/totalSize))+"%", DownloadStatusRunning)
 		}
 		err := downloader.Start()
 		if err != nil {

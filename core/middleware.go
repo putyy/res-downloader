@@ -26,6 +26,8 @@ func HandleApi(w http.ResponseWriter, r *http.Request) bool {
 		switch r.URL.Path {
 		case "/api/preview":
 			httpServerOnce.preview(w, r)
+		case "/api/set-system-password":
+			httpServerOnce.setSystemPassword(w, r)
 		case "/api/proxy-open":
 			httpServerOnce.openSystemProxy(w, r)
 		case "/api/proxy-unset":
@@ -54,6 +56,8 @@ func HandleApi(w http.ResponseWriter, r *http.Request) bool {
 			httpServerOnce.download(w, r)
 		case "/api/wx-file-decode":
 			httpServerOnce.wxFileDecode(w, r)
+		case "/api/batch-import":
+			httpServerOnce.batchImport(w, r)
 		}
 		return true
 	}

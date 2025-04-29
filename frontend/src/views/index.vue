@@ -1,13 +1,14 @@
 <template>
   <div class="flex flex-col px-5 py-5">
-    <div class="pb-2 z-40" @click="triggerEvent">
+    <div class="pb-2 z-40">
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">关闭代理</NButton>
         <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">开启代理</NButton>
-        <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">批量下载</NButton>
         <NButton tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">清空列表</NButton>
         <NSelect style="min-width: 100px;--wails-draggable:no-drag" placeholder="拦截类型" v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="options"></NSelect>
-        <NButton v-if="isDebug" tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">导入数据</NButton>
+        <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">批量下载</NButton>
+        <NButton tertiary type="info" @click.stop="batchImport" style="--wails-draggable:no-drag">批量导出</NButton>
+        <NButton tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">批量导入</NButton>
       </NSpace>
     </div>
     <div class="flex-1">
@@ -27,6 +28,7 @@
     <Preview v-model:showModal="showPreviewRow" :previewRow="previewRow"/>
     <ShowLoading :loadingText="loadingText" :isLoading="loading"/>
     <ImportJson v-model:showModal="showImport" @submit="handleImport"/>
+    <Password v-model:showModal="showPassword" @submit="handlePassword"/>
   </div>
 </template>
 
@@ -47,6 +49,7 @@ import ResAction from "@/components/ResAction.vue"
 import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
+import Password from "@/components/Password.vue"
 
 const eventStore = useEventStore()
 const isProxy = computed(() => {
@@ -219,12 +222,8 @@ const showPreviewRow = ref(false)
 const previewRow = ref<appType.MediaInfo>()
 const loading = ref(false)
 const loadingText = ref("")
-const isDebug = ref(false)
 const showImport = ref(false)
-let clickCount = 0
-let clickTimeout: any = null
-
-provide('isDebug', isDebug);
+const showPassword = ref(false)
 
 onMounted(() => {
   const temp = localStorage.getItem("resources-type")
@@ -361,6 +360,35 @@ const batchDown = async () => {
   }
 }
 
+const batchImport = ()=>{
+  if (checkedRowKeysValue.value.length <= 0) {
+    window?.$message?.error('请选择需要导出的数据')
+    return
+  }
+  if (!store.globalConfig.SaveDirectory) {
+    window?.$message?.error("请设置保存目录")
+    return
+  }
+  loadingText.value = "导出中"
+  loading.value = true
+  let jsonData = []
+  for (let i = 0; i < data.value.length; i++) {
+    jsonData.push(encodeURIComponent(JSON.stringify(data.value[i])))
+  }
+  appApi.batchImport({content: jsonData.join("\n")}).then((res: appType.Res) => {
+    loading.value = false
+    if (res.code === 0) {
+      window?.$message?.error(res.message)
+      return
+    }
+    window?.$message?.success("导出成功")
+    window?.$message?.info("文件路径：" + res.data?.file_name, {
+      duration: 5000
+    })
+  })
+
+}
+
 const uint8ArrayToBase64 = (bytes: any) => {
   let binary = '';
   const len = bytes.byteLength;
@@ -390,14 +418,14 @@ const download = (row: appType.MediaInfo, index: number) => {
   loading.value = true
   downIndex.value = index
   if (row.DecodeKey) {
-    appApi.download({...row, decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))}).then((res: any) => {
+    appApi.download({...row, decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))}).then((res: appType.Res) => {
       if (res.code === 0) {
         loading.value = false
         window?.$message?.error(res.message)
       }
     })
   } else {
-    appApi.download({...row, decodeStr: ""}).then((res: any) => {
+    appApi.download({...row, decodeStr: ""}).then((res: appType.Res) => {
       if (res.code === 0) {
         loading.value = false
         window?.$message?.error(res.message)
@@ -407,13 +435,25 @@ const download = (row: appType.MediaInfo, index: number) => {
 }
 
 const open = () => {
-  appApi.openSystemProxy().then((res: any) => {
+  appApi.openSystemProxy().then((res: appType.Res) => {
+    if (res.code === 0 ){
+      if (store.envInfo.platform === "darwin") {
+        showPassword.value = true
+        return
+      }
+      window?.$message?.error(res.message)
+      return
+    }
     store.updateProxyStatus(res.data)
   })
 }
 
 const close = () => {
-  appApi.unsetSystemProxy().then((res: any) => {
+  appApi.unsetSystemProxy().then((res: appType.Res) => {
+    if (res.code === 0 ){
+      window?.$message?.error(res.message)
+      return
+    }
     store.updateProxyStatus(res.data)
   })
 }
@@ -429,7 +469,7 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
     window?.$message?.error("无法解密")
     return
   }
-  appApi.openFileDialog().then((res: any) => {
+  appApi.openFileDialog().then((res: appType.Res) => {
     if (res.code === 0) {
       window?.$message?.error(res.message)
       return
@@ -441,7 +481,7 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
         ...row,
         filename: res.data.file,
         decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))
-      }).then((res: any) => {
+      }).then((res: appType.Res) => {
         loading.value = false
         if (res.code === 0) {
           window?.$message?.error(res.message)
@@ -454,24 +494,6 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
       })
     }
   })
-}
-
-
-const triggerEvent = ()=>{
-  if(isDebug.value) {
-    return
-  }
-  clickCount++
-  if (clickCount === 5) {
-    // 连续点击5次开启debug
-    isDebug.value = true
-    clickCount = 0
-  } else {
-    clearTimeout(clickTimeout);
-    clickTimeout = setTimeout(() => {
-      clickCount = 0
-    }, 1000)
-  }
 }
 
 const handleImport = (content: string)=>{
@@ -490,5 +512,15 @@ const handleImport = (content: string)=>{
   });
   localStorage.setItem("resources-data", JSON.stringify(data.value))
   showImport.value = false
+}
+
+const handlePassword = (password: string)=>{
+  appApi.setSystemPassword({password: password}).then((res: appType.Res)=>{
+    if (res.code === 0) {
+      window?.$message?.error(res.message)
+      return
+    }
+    open()
+  })
 }
 </script>
