@@ -133,7 +133,7 @@ func (a *App) Startup(ctx context.Context) {
 		if a.isInstall() {
 			return
 		}
-		err := os.MkdirAll(a.UserDir, os.ModePerm)
+		err := os.MkdirAll(a.UserDir, 0750)
 		if err != nil {
 			return
 		}
@@ -195,7 +195,7 @@ func (a *App) isInstall() bool {
 }
 
 func (a *App) lock() error {
-	err := os.WriteFile(a.LockFile, []byte("success"), 0777)
+	err := os.WriteFile(a.LockFile, []byte("success"), 0644)
 	if err != nil {
 		return err
 	}

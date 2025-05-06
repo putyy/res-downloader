@@ -28,9 +28,9 @@ type WxFileDecodeResult struct {
 }
 
 type Resource struct {
-	mediaMark sync.Map
-	resType   map[string]bool
-	resTypeMu sync.RWMutex
+	mediaMark  sync.Map
+	resType    map[string]bool
+	resTypeMux sync.RWMutex
 }
 
 func initResource() *Resource {
@@ -62,15 +62,15 @@ func (r *Resource) markMedia(key string) {
 }
 
 func (r *Resource) getResType(key string) (bool, bool) {
-	r.resTypeMu.RLock()
-	defer r.resTypeMu.RUnlock()
+	r.resTypeMux.RLock()
+	defer r.resTypeMux.RUnlock()
 	value, ok := r.resType[key]
 	return value, ok
 }
 
 func (r *Resource) setResType(n []string) {
-	r.resTypeMu.Lock()
-	defer r.resTypeMu.Unlock()
+	r.resTypeMux.Lock()
+	defer r.resTypeMux.Unlock()
 	r.resType = map[string]bool{
 		"all":   false,
 		"image": false,

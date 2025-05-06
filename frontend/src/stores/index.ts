@@ -28,6 +28,7 @@ export const useIndexStore = defineStore("index-store", () => {
         TaskNumber: 8,
         UserAgent: "",
         UseHeaders: "",
+        MimeMap: {}
     })
 
     const envInfo = ref({
@@ -63,7 +64,7 @@ export const useIndexStore = defineStore("index-store", () => {
         })
     }
 
-    const setConfig = (formValue: appType.Config) => {
+    const setConfig = (formValue: Object) => {
         globalConfig.value = Object.assign({}, globalConfig.value, formValue)
         appApi.setConfig(globalConfig.value)
     }

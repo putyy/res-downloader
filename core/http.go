@@ -380,7 +380,6 @@ func (h *HttpServer) batchImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fileName := filepath.Join(globalConfig.SaveDirectory, "res-downloader-"+GetCurrentDateTimeFormatted()+".txt")
-	// 0644 是文件权限：-rw-r--r--
 	err := os.WriteFile(fileName, []byte(data.Content), 0644)
 	if err != nil {
 		h.error(w, err.Error())

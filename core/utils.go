@@ -40,69 +40,17 @@ func FileExist(file string) bool {
 
 func CreateDirIfNotExist(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return os.MkdirAll(dir, 0777)
+		return os.MkdirAll(dir, 0750)
 	}
 	return nil
 }
 
 func TypeSuffix(mime string) (string, string) {
-	switch strings.ToLower(mime) {
-	case "image/png",
-		"image/webp",
-		"image/jpeg",
-		"image/jpg",
-		"image/gif",
-		"image/avif",
-		"image/bmp",
-		"image/tiff",
-		"image/heic",
-		"image/x-icon",
-		"image/svg+xml",
-		"image/vnd.adobe.photoshop":
-		return "image", ".png"
-	case "audio/mpeg",
-		"audio/wav",
-		"audio/aiff",
-		"audio/x-aiff",
-		"audio/aac",
-		"audio/ogg",
-		"audio/flac",
-		"audio/midi",
-		"audio/x-midi",
-		"audio/x-ms-wma",
-		"audio/opus",
-		"audio/webm",
-		"audio/mp4",
-		"audio/mp3":
-		return "audio", ".mp3"
-	case "video/mp4",
-		"video/webm",
-		"video/ogg",
-		"video/x-msvideo",
-		"video/mpeg",
-		"video/quicktime",
-		"video/x-ms-wmv",
-		"video/3gpp",
-		"video/x-matroska":
-		return "video", ".mp4"
-	case "audio/video",
-		"video/x-flv":
-		return "live", ".mp4"
-	case "application/vnd.apple.mpegurl",
-		"application/x-mpegurl":
-		return "m3u8", ".m3u8"
-	case "application/pdf":
-		return "pdf", ".pdf"
-	case "application/vnd.ms-powerpoint",
-		"application/vnd.openxmlformats-officedocument.presentationml.presentation":
-		return "ppt", ".ppt"
-	case "application/vnd.ms-excel",
-		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-		return "xls", ".xls"
-	case "application/msword",
-		"application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-		return "doc", ".doc"
-
+	mimeMux.RLock()
+	defer mimeMux.RUnlock()
+	mime = strings.ToLower(strings.Split(mime, ";")[0])
+	if v, ok := globalConfig.MimeMap[mime]; ok {
+		return v.Type, v.Suffix
 	}
 	return "", ""
 }

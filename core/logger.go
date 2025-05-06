@@ -45,7 +45,7 @@ func NewLogger(logFile bool, logPath string) *Logger {
 			logfile *os.File
 			err     error
 		)
-		logfile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		logfile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			panic(err)
 		}

@@ -5,7 +5,7 @@
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">关闭代理</NButton>
         <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">开启代理</NButton>
         <NButton tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">清空列表</NButton>
-        <NSelect style="min-width: 100px;--wails-draggable:no-drag" placeholder="拦截类型" v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="options"></NSelect>
+        <NSelect style="min-width: 100px;--wails-draggable:no-drag" placeholder="拦截类型" v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="classify"></NSelect>
         <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">批量下载</NButton>
         <NButton tertiary type="info" @click.stop="batchImport" style="--wails-draggable:no-drag">批量导出</NButton>
         <NButton tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">批量导入</NButton>
@@ -34,7 +34,7 @@
 
 <script lang="ts" setup>
 import {NButton, NImage, NTooltip} from "naive-ui"
-import {computed, h, onMounted, ref, watch, provide} from "vue"
+import {computed, h, onMounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
 
 import type {DataTableRowKey, ImageRenderToolbarProps} from "naive-ui"
@@ -61,37 +61,24 @@ const tableHeight = computed(() => {
   return store.tableHeight - 132
 })
 const resourcesType = ref<string[]>(["all"])
-const options = [
+const classifyAlias: {[key: string]: string} = {
+  image: "图片",
+  audio: "音频",
+  video: "视频",
+  m3u8: "m3u8",
+  live: "直播流",
+  xls: "表格",
+  doc: "文档",
+  pdf: "pdf",
+  font: "字体"
+}
+const classify = ref([
   {
     value: "all",
     label: "全部",
   },
-  {
-    value: "image",
-    label: "图片",
-  }, {
-    value: "audio",
-    label: "音频"
-  }, {
-    value: "video",
-    label: "视频"
-  }, {
-    value: "m3u8",
-    label: "m3u8"
-  }, {
-    value: "live",
-    label: "直播流"
-  }, {
-    value: "xls",
-    label: "表格"
-  }, {
-    value: "doc",
-    label: "文档"
-  }, {
-    value: "pdf",
-    label: "pdf"
-  }
-]
+])
+
 const columns = ref<any[]>([
   {
     type: "selection",
@@ -103,15 +90,15 @@ const columns = ref<any[]>([
   {
     title: "类型",
     key: "Classify",
-    filterOptions: Array.from(options).slice(1),
+    filterOptions: Array.from(classify.value).slice(1),
     filterMultiple: true,
     filter: (value: string, row: appType.MediaInfo) => {
       return !!~row.Classify.indexOf(String(value))
     },
     render: (row: appType.MediaInfo) => {
-      for (const key in options) {
-        if (options[key].value === row.Classify) {
-          return options[key].label;
+      for (const key in classify.value) {
+        if (classify.value[key].value === row.Classify) {
+          return classify.value[key].label;
         }
       }
       return row.Classify;
@@ -226,6 +213,8 @@ const showImport = ref(false)
 const showPassword = ref(false)
 
 onMounted(() => {
+  buildClassify()
+
   const temp = localStorage.getItem("resources-type")
   if (temp) {
     resourcesType.value = JSON.parse(temp).res
@@ -280,10 +269,34 @@ onMounted(() => {
   })
 })
 
+watch(()=>{
+  return store.globalConfig.MimeMap
+}, ()=>{
+  buildClassify()
+})
+
 watch(resourcesType, (n, o) => {
   localStorage.setItem("resources-type", JSON.stringify({res: resourcesType.value}))
   appApi.setType(resourcesType.value)
 })
+
+const buildClassify = ()=>{
+  const mimeMap = store.globalConfig.MimeMap ?? {}
+  const seen = new Set()
+  classify.value = [
+    {value: "all", label: "全部"},
+    ...Object.values(mimeMap)
+        .filter(({Type}) => {
+          if (seen.has(Type)) return false;
+          seen.add(Type);
+          return true;
+        })
+        .map(({Type}) => ({
+          value: Type,
+          label: classifyAlias[Type] ?? Type,
+        })),
+  ]
+}
 
 const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
   switch (type) {

@@ -6,6 +6,11 @@ export namespace appType {
         Copyright: string
     }
 
+    interface MimeMap {
+        Type: string
+        Suffix: string
+    }
+
     interface Config {
         Theme: string
         Host: string
@@ -22,6 +27,7 @@ export namespace appType {
         TaskNumber: number
         UserAgent: string
         UseHeaders: string
+        MimeMap:  {[key: string]: MimeMap}
     }
 
     interface MediaInfo {

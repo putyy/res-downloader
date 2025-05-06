@@ -25,7 +25,7 @@ func (s *SystemSetup) initCert() ([]byte, error) {
 		return content, nil
 	}
 	if os.IsNotExist(err) {
-		err = os.WriteFile(s.CertFile, appOnce.PublicCrt, 0777)
+		err = os.WriteFile(s.CertFile, appOnce.PublicCrt, 0750)
 		if err != nil {
 			return nil, err
 		}

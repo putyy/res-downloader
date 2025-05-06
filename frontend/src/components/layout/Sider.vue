@@ -135,10 +135,10 @@ const handleFooterUpdate = (key: string, item: MenuOption) => {
   }
   if (key === "theme") {
     if (globalConfig.value.Theme === "darkTheme") {
-      store.setConfig(Object.assign({}, globalConfig.value, {Theme: "lightTheme"}))
+      store.setConfig({Theme: "lightTheme"})
       return
     }
-    store.setConfig(Object.assign({}, globalConfig.value, {Theme: "darkTheme"}))
+    store.setConfig({Theme: "darkTheme"})
 
     return
   }
