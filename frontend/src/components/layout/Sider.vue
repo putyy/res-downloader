@@ -2,7 +2,7 @@
   <div class="flex pb-2 flex-col h-full min-w-[80px] border-r border-slate-100 dark:border-slate-900">
     <Screen v-if="envInfo.platform!=='darwin'"></Screen>
     <div class="w-full flex flex-row items-center justify-center pt-5 ml-[-5px]" :class="envInfo.platform==='darwin' ? 'pt-8' : 'pt-2'">
-      <img class="w-12 h-12 cursor-pointer" src="@/assets/image/logo.png"  alt="res-downloader logo"/>
+      <img class="w-12 h-12 cursor-pointer" src="@/assets/image/logo.png"  alt="res-downloader logo" @click="handleFooterUpdate('github')"/>
     </div>
     <main class="flex-1 flex-grow-1 mb-5 overflow-auto flex flex-col pt-1 items-center h-full">
       <NScrollbar :size="1">
@@ -119,11 +119,11 @@ const footerOptions = ref([
   },
 ])
 
-const handleUpdateValue = (key: string, item: MenuOption) => {
+const handleUpdateValue = (key: string, item?: MenuOption) => {
   menuValue.value = key
   return router.push({path: "/" + key})
 }
-const handleFooterUpdate = (key: string, item: MenuOption) => {
+const handleFooterUpdate = (key: string, item?: MenuOption) => {
   if (key === "about") {
     showAppInfo.value = true
     return

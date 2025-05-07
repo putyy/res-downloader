@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col px-5 py-5">
+  <div class="flex flex-col p-5">
     <div class="pb-2 z-40">
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">关闭代理</NButton>
