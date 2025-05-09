@@ -59,8 +59,8 @@ import {
 } from "@vicons/ionicons5"
 import {useIndexStore} from "@/stores"
 import Footer from "@/components/Footer.vue"
-import Screen from "@/components/Screen.vue";
-import {BrowserOpenURL} from "../../../wailsjs/runtime";
+import Screen from "@/components/Screen.vue"
+import {BrowserOpenURL} from "../../../wailsjs/runtime"
 
 const route = useRoute()
 const router = useRouter()
@@ -72,7 +72,7 @@ const store = useIndexStore()
 
 const envInfo = store.envInfo
 
-const globalConfig = computed(()=>{
+const globalConfig = computed(() => {
   return store.globalConfig
 })
 

@@ -7,8 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/elazarl/goproxy"
-	gonanoid "github.com/matoous/go-nanoid/v2"
 	"io"
 	"net"
 	"net/http"
@@ -17,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/elazarl/goproxy"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 type Proxy struct {
@@ -221,16 +222,16 @@ func (p *Proxy) handleWechatRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*ht
 }
 
 func (p *Proxy) buildEmptyResponse(r *http.Request) *http.Response {
-	body := "内容不存在"
+	body := "The content does not exist"
 	resp := &http.Response{
-		Status:        "200 OK",
+		Status:        http.StatusText(http.StatusOK),
 		StatusCode:    http.StatusOK,
 		Header:        make(http.Header),
 		Body:          io.NopCloser(strings.NewReader(body)),
 		ContentLength: int64(len(body)),
 		Request:       r,
 	}
-	resp.Header.Set("Content-Type", "text/plain")
+	resp.Header.Set("Content-Type", "text/plain; charset=utf-8")
 	return resp
 }
 

@@ -3,14 +3,12 @@ package core
 import (
 	"context"
 	"embed"
+	"fmt"
 	"github.com/vrischmann/userdir"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"os"
 	"path/filepath"
 	"regexp"
-	sysRuntime "runtime"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -109,6 +107,10 @@ ILKEQKmPPzKs7kp/7Nz+2cT3
 `),
 		}
 		appOnce.UserDir = filepath.Join(userdir.GetConfigHome(), appOnce.AppName)
+		err := os.MkdirAll(appOnce.UserDir, 0750)
+		if err != nil {
+			fmt.Println("Mkdir UserDir err: ", err.Error())
+		}
 		appOnce.LockFile = filepath.Join(appOnce.UserDir, "install.lock")
 		initLogger()
 		initConfig()
@@ -123,22 +125,6 @@ ILKEQKmPPzKs7kp/7Nz+2cT3
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	go httpServerOnce.run()
-	time.AfterFunc(200*time.Millisecond, func() {
-		if globalConfig.AutoProxy {
-			appOnce.OpenSystemProxy()
-		}
-	})
-
-	go func() {
-		if a.isInstall() {
-			return
-		}
-		err := os.MkdirAll(a.UserDir, 0750)
-		if err != nil {
-			return
-		}
-		a.installCert()
-	}()
 }
 
 func (a *App) OnExit() {
@@ -146,24 +132,17 @@ func (a *App) OnExit() {
 	globalLogger.Close()
 }
 
-func (a *App) installCert() {
-	if res, err := systemOnce.installCert(); err != nil {
-		if sysRuntime.GOOS == "darwin" {
-			_ = runtime.ClipboardSetText(appOnce.ctx, `echo "输入本地登录密码" && sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "`+systemOnce.CertFile+`" && touch `+a.LockFile+` && echo "安装完成"`)
-			DialogErr("证书安装失败，请打开终端执行安装(命令已复制到剪切板),err:" + err.Error() + ", " + res)
-		} else if sysRuntime.GOOS == "windows" && strings.Contains(err.Error(), "Access is denied.") {
-			DialogErr("首次启用本软件，请使用鼠标右键选择以管理员身份运行")
-		} else if sysRuntime.GOOS == "linux" && strings.Contains(err.Error(), "Access is denied.") {
-			DialogErr("证书路径: " + systemOnce.CertFile + ", 请手动安装，安装完成后请执行: touch" + a.LockFile + " err:" + err.Error() + ", " + res)
-		} else {
-			globalLogger.Esg(err, res)
-			DialogErr("err:" + err.Error() + ", " + res)
-		}
+func (a *App) installCert() (string, error) {
+	out, err := systemOnce.installCert()
+	if err != nil {
+		globalLogger.Esg(err, out)
+		return out, err
 	} else {
 		if err := a.lock(); err != nil {
-			globalLogger.err(err)
+			globalLogger.Err(err)
 		}
 	}
+	return out, nil
 }
 
 func (a *App) OpenSystemProxy() error {

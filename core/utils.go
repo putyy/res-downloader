@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-func Empty(data interface{}) {
-}
-
 func DialogErr(message string) {
 	_, _ = runtime.MessageDialog(appOnce.ctx, runtime.MessageDialogOptions{
 		Type:          runtime.ErrorDialog,
@@ -28,14 +25,11 @@ func IsDevelopment() bool {
 }
 
 func FileExist(file string) bool {
-	_, err := os.Stat(file)
+	info, err := os.Stat(file)
 	if err != nil {
 		return false
 	}
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
+	return !info.IsDir()
 }
 
 func CreateDirIfNotExist(dir string) error {
@@ -53,14 +47,6 @@ func TypeSuffix(mime string) (string, string) {
 		return v.Type, v.Suffix
 	}
 	return "", ""
-}
-
-func BuildReferer(rawURL string) string {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	return u.Scheme + "://" + u.Host + "/"
 }
 
 func Md5(data string) string {

@@ -61,7 +61,7 @@ const tableHeight = computed(() => {
   return store.tableHeight - 132
 })
 const resourcesType = ref<string[]>(["all"])
-const classifyAlias: {[key: string]: string} = {
+const classifyAlias: { [key: string]: string } = {
   image: "图片",
   audio: "音频",
   video: "视频",
@@ -269,9 +269,9 @@ onMounted(() => {
   })
 })
 
-watch(()=>{
+watch(() => {
   return store.globalConfig.MimeMap
-}, ()=>{
+}, () => {
   buildClassify()
 })
 
@@ -280,7 +280,7 @@ watch(resourcesType, (n, o) => {
   appApi.setType(resourcesType.value)
 })
 
-const buildClassify = ()=>{
+const buildClassify = () => {
   const mimeMap = store.globalConfig.MimeMap ?? {}
   const seen = new Set()
   classify.value = [
@@ -373,7 +373,7 @@ const batchDown = async () => {
   }
 }
 
-const batchImport = ()=>{
+const batchImport = () => {
   if (checkedRowKeysValue.value.length <= 0) {
     window?.$message?.error('请选择需要导出的数据')
     return
@@ -431,7 +431,10 @@ const download = (row: appType.MediaInfo, index: number) => {
   loading.value = true
   downIndex.value = index
   if (row.DecodeKey) {
-    appApi.download({...row, decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))}).then((res: appType.Res) => {
+    appApi.download({
+      ...row,
+      decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))
+    }).then((res: appType.Res) => {
       if (res.code === 0) {
         loading.value = false
         window?.$message?.error(res.message)
@@ -448,27 +451,18 @@ const download = (row: appType.MediaInfo, index: number) => {
 }
 
 const open = () => {
-  appApi.openSystemProxy().then((res: appType.Res) => {
-    if (res.code === 0 ){
-      if (store.envInfo.platform === "darwin") {
-        showPassword.value = true
-        return
-      }
-      window?.$message?.error(res.message)
+  store.openProxy().then((res: appType.Res) => {
+    if (res.code === 1) {
       return
     }
-    store.updateProxyStatus(res.data)
+    if (store.envInfo.platform === "darwin" || store.envInfo.platform === "linux") {
+      showPassword.value = true
+    }
   })
 }
 
 const close = () => {
-  appApi.unsetSystemProxy().then((res: appType.Res) => {
-    if (res.code === 0 ){
-      window?.$message?.error(res.message)
-      return
-    }
-    store.updateProxyStatus(res.data)
-  })
+  store.unsetProxy()
 }
 
 const clear = () => {
@@ -509,7 +503,7 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
   })
 }
 
-const handleImport = (content: string)=>{
+const handleImport = (content: string) => {
   content.split("\n").forEach((line, index) => {
     try {
       let res = JSON.parse(decodeURIComponent(line))
@@ -519,7 +513,7 @@ const handleImport = (content: string)=>{
         res.Status = "ready"
         data.value.unshift(res)
       }
-    }catch (e) {
+    } catch (e) {
       console.log(e)
     }
   });
@@ -527,13 +521,14 @@ const handleImport = (content: string)=>{
   showImport.value = false
 }
 
-const handlePassword = (password: string)=>{
-  appApi.setSystemPassword({password: password}).then((res: appType.Res)=>{
+const handlePassword = (password: string, isCache: boolean) => {
+  appApi.setSystemPassword({password: password, isCache: isCache}).then((res: appType.Res) => {
     if (res.code === 0) {
       window?.$message?.error(res.message)
       return
     }
-    open()
+    showPassword.value = false
+    store.openProxy()
   })
 }
 </script>

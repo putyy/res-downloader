@@ -24,7 +24,7 @@ func (l *Logger) Close() {
 	_ = l.logFile.Close()
 }
 
-func (l *Logger) err(err error) {
+func (l *Logger) Err(err error) {
 	l.Error().Stack().Err(err)
 }
 

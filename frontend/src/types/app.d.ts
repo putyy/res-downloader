@@ -27,7 +27,7 @@ export namespace appType {
         TaskNumber: number
         UserAgent: string
         UseHeaders: string
-        MimeMap:  {[key: string]: MimeMap}
+        MimeMap: { [key: string]: MimeMap }
     }
 
     interface MediaInfo {
@@ -44,7 +44,7 @@ export namespace appType {
         DecodeKey: string
         Description: string
         ContentType: string
-        OtherData: {[key: string]: string}
+        OtherData: { [key: string]: string }
     }
 
     interface DownloadProgress {

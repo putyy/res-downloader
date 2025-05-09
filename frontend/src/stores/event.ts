@@ -6,7 +6,7 @@ import {appType} from "@/types/app"
 export const useEventStore = defineStore('ws-store', () => {
     const handles = ref<any>({})
 
-    const init = ()=>{
+    const init = () => {
         EventsOn("event", (res: any) => {
             const data = JSON.parse(res)
             if (handles.value.hasOwnProperty(data.type)) {

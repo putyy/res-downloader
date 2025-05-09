@@ -1,6 +1,12 @@
 import request from '@/api/request'
 
 export default {
+    install() {
+        return request({
+            url: '/api/install',
+            method: 'post'
+        })
+    },
     setSystemPassword(data: object) {
         return request({
             url: 'api/set-system-password',

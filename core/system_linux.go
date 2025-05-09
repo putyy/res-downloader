@@ -3,9 +3,27 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 )
+
+func (s *SystemSetup) runCommand(args []string) ([]byte, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("no command provided")
+	}
+
+	var cmd *exec.Cmd
+	if s.Password != "" {
+		cmd = exec.Command("sudo", append([]string{"-S"}, args...)...)
+		cmd.Stdin = bytes.NewReader([]byte(s.Password + "\n"))
+	} else {
+		cmd = exec.Command(args[0], args[1:]...)
+	}
+
+	output, err := cmd.CombinedOutput()
+	return output, err
+}
 
 func (s *SystemSetup) setProxy() error {
 	commands := [][]string{
@@ -16,8 +34,10 @@ func (s *SystemSetup) setProxy() error {
 		{"gsettings", "set", "org.gnome.system.proxy.https", "port", globalConfig.Port},
 	}
 	is := false
+	errs := ""
 	for _, cmd := range commands {
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+		if output, err := s.runCommand(cmd); err != nil {
+			errs = errs + "output:" + string(output) + " err:" + err.Error() + "\n"
 			fmt.Println(err)
 		} else {
 			is = true
@@ -26,12 +46,14 @@ func (s *SystemSetup) setProxy() error {
 	if is {
 		return nil
 	}
-	return fmt.Errorf("Failed to activate proxy")
+
+	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs)
 }
 
 func (s *SystemSetup) unsetProxy() error {
 	cmd := []string{"gsettings", "set", "org.gnome.system.proxy", "mode", "none"}
-	return exec.Command(cmd[0], cmd[1:]...).Run()
+	output, err := s.runCommand(cmd)
+	return fmt.Errorf("failed to unset proxy for any active network service, errs output:" + string(output) + " err:" + err.Error())
 }
 
 func (s *SystemSetup) installCert() (string, error) {
@@ -41,34 +63,34 @@ func (s *SystemSetup) installCert() (string, error) {
 	}
 
 	actions := [][]string{
-		{"/usr/local/share/ca-certificates/", "update-ca-certificates"},
-		{"/usr/share/ca-certificates/trust-source/anchors/", "update-ca-trust"},
-		{"/usr/share/ca-certificates/trust-source/anchors/", "trust extract-compat"},
-		{"/etc/pki/ca-trust/source/anchors/", "update-ca-trust"},
-		{"/etc/ssl/ca-certificates/", "update-ca-certificates"},
+		{"cp", "-f", s.CertFile, "/usr/local/share/ca-certificates/" + appOnce.AppName + ".crt"},
+		{"update-ca-certificates"},
+		{"cp", "-f", s.CertFile, "/usr/share/ca-certificates/trust-source/anchors/" + appOnce.AppName + ".crt"},
+		{"update-ca-trust"},
+		{"trust", "extract-compat"},
+		{"cp", "-f", s.CertFile, "/etc/pki/ca-trust/source/anchors/" + appOnce.AppName + ".crt"},
+		{"update-ca-trust"},
+		{"cp", "-f", s.CertFile, "/etc/ssl/ca-certificates/" + appOnce.AppName + ".crt"},
+		{"update-ca-certificates"},
 	}
 
 	is := false
-
+	outs := ""
+	errs := ""
 	for _, action := range actions {
-		dir := action[0]
-		if err := exec.Command("sudo", "cp", "-f", s.CertFile, dir+appOnce.AppName+".crt").Run(); err != nil {
-			fmt.Printf("Failed to copy to %s: %v\n", dir, err)
-			continue
-		}
-
-		cmd := action[1]
-		if err := exec.Command("sudo", cmd).Run(); err != nil {
-			fmt.Printf("Failed to refresh certificates using %s: %v\n", cmd, err)
+		if output, err1 := s.runCommand(action); err1 != nil {
+			outs += string(output) + "\n"
+			errs += err1.Error() + "\n"
+			fmt.Printf("Failed to execute %v: %v\n", action, err1)
 			continue
 		}
 
 		is = true
 	}
 
-	if !is {
-		return "", fmt.Errorf("Certificate installation failed")
+	if is {
+		return "", nil
 	}
 
-	return "", nil
+	return outs, fmt.Errorf("Certificate installation failed, errs:%s", errs)
 }

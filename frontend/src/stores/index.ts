@@ -49,11 +49,7 @@ export const useIndexStore = defineStore("index-store", () => {
         await appApi.getConfig().then((res) => {
             globalConfig.value = Object.assign({}, globalConfig.value, res.data)
         })
-        setTimeout(() => {
-            appApi.isProxy().then((res: any) => {
-                isProxy.value = res.data.isProxy
-            })
-        }, 150)
+
         window.addEventListener("resize", handleResize);
         handleResize()
     }
@@ -73,9 +69,32 @@ export const useIndexStore = defineStore("index-store", () => {
         tableHeight.value = document.documentElement.clientHeight || window.innerHeight
     }
 
-    const updateProxyStatus = (res: any) => {
-        isProxy.value = res.isProxy
+    const openProxy = async () => {
+        return appApi.openSystemProxy().then(handleProxy)
     }
 
-    return {appInfo, globalConfig, tableHeight, isProxy, envInfo, init, getAppInfo, setConfig, updateProxyStatus}
+    const unsetProxy = async () => {
+        return appApi.unsetSystemProxy().then(handleProxy)
+    }
+
+    const handleProxy = (res: appType.Res) => {
+        isProxy.value = res.data.value
+        if (res.code === 0) {
+            window?.$message?.error(res.message)
+        }
+        return res
+    }
+
+    return {
+        appInfo,
+        globalConfig,
+        tableHeight,
+        isProxy,
+        envInfo,
+        init,
+        getAppInfo,
+        setConfig,
+        openProxy,
+        unsetProxy
+    }
 })

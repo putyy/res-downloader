@@ -73,7 +73,7 @@ func (s *SystemSetup) setProxy() error {
 		}
 		for _, args := range cmds {
 			if output, err := s.runCommand(args); err != nil {
-				errs = errs + "\n output：" + string(output) + "err:" + err.Error()
+				errs = errs + "output:" + string(output) + " err:" + err.Error() + "\n"
 				fmt.Println("setProxy:", output, " err:", err.Error())
 			} else {
 				is = true
@@ -85,7 +85,7 @@ func (s *SystemSetup) setProxy() error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to set proxy for any active network service, errs: %s", errs)
+	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs)
 }
 
 func (s *SystemSetup) unsetProxy() error {
@@ -103,7 +103,7 @@ func (s *SystemSetup) unsetProxy() error {
 		}
 		for _, args := range cmds {
 			if output, err := s.runCommand(args); err != nil {
-				errs = errs + "\n output：" + string(output) + "err:" + err.Error()
+				errs = errs + "output:" + string(output) + " err:" + err.Error() + "\n"
 				fmt.Println("unsetProxy:", output, " err:", err.Error())
 			} else {
 				is = true
@@ -115,7 +115,7 @@ func (s *SystemSetup) unsetProxy() error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to unset proxy for any active network service, errs: %s", errs)
+	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs)
 }
 
 func (s *SystemSetup) installCert() (string, error) {
@@ -123,19 +123,7 @@ func (s *SystemSetup) installCert() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	getPasswordCmd := exec.Command("osascript", "-e", `tell app "System Events" to display dialog "请输入你的电脑密码，用于安装证书文件:" default answer "" with hidden answer`, "-e", `text returned of result`)
-	passwordOutput, err := getPasswordCmd.Output()
-	if err != nil {
-		return string(passwordOutput), err
-	}
-
-	password := strings.TrimSpace(string(passwordOutput))
-	s.SetPassword(password)
-
-	cmd := exec.Command("sudo", "-S", "security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", s.CertFile)
-	cmd.Stdin = bytes.NewReader([]byte(password + "\n"))
-	output, err := cmd.CombinedOutput()
+	output, err := s.runCommand([]string{"sudo", "-S", "security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", s.CertFile})
 	if err != nil {
 		return string(output), err
 	}

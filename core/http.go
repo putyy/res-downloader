@@ -37,10 +37,11 @@ func initHttpServer() *HttpServer {
 func (h *HttpServer) run() {
 	listener, err := net.Listen("tcp", globalConfig.Host+":"+globalConfig.Port)
 	if err != nil {
-		log.Fatalf("无法启动监听: %v", err)
+		globalLogger.Err(err)
+		log.Fatalf("Service cannot start: %v", err)
 	}
-	fmt.Println("服务已启动，监听 http://" + globalConfig.Host + ":" + globalConfig.Port)
-	if err := http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Service started, listening http://" + globalConfig.Host + ":" + globalConfig.Port)
+	if err1 := http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Host == "127.0.0.1:"+globalConfig.Port && strings.Contains(r.URL.Path, "/cert") {
 			w.Header().Set("Content-Type", "application/x-x509-ca-data")
 			w.Header().Set("Content-Disposition", "attachment;filename=res-downloader-public.crt")
@@ -51,8 +52,9 @@ func (h *HttpServer) run() {
 		} else {
 			proxyOnce.Proxy.ServeHTTP(w, r) // 代理
 		}
-	})); err != nil {
-		fmt.Printf("服务器异常: %v", err)
+	})); err1 != nil {
+		globalLogger.Err(err1)
+		fmt.Printf("Service startup exception: %v", err1)
 	}
 }
 
@@ -118,7 +120,7 @@ func (h *HttpServer) writeJson(w http.ResponseWriter, data ResponseData) {
 	w.WriteHeader(200)
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		globalLogger.err(err)
+		globalLogger.Err(err)
 	}
 }
 
@@ -206,14 +208,10 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 
 	switch sysRuntime.GOOS {
 	case "darwin":
-		// macOS
 		cmd = exec.Command("open", "-R", filePath)
 	case "windows":
-		// Windows
 		cmd = exec.Command("explorer", "/select,", filePath)
 	case "linux":
-		// linux
-		// 尝试使用不同的文件管理器
 		cmd = exec.Command("nautilus", filePath)
 		if err := cmd.Start(); err != nil {
 			cmd = exec.Command("thunar", filePath)
@@ -222,7 +220,7 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 				if err := cmd.Start(); err != nil {
 					cmd = exec.Command("pcmanfm", filePath)
 					if err := cmd.Start(); err != nil {
-						globalLogger.err(err)
+						globalLogger.Err(err)
 						h.error(w, err.Error())
 						return
 					}
@@ -236,23 +234,45 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 
 	err = cmd.Start()
 	if err != nil {
-		globalLogger.err(err)
+		globalLogger.Err(err)
 		h.error(w, err.Error())
 		return
 	}
 	h.success(w)
 }
 
+func (h *HttpServer) install(w http.ResponseWriter, r *http.Request) {
+	if appOnce.isInstall() {
+		h.success(w, respData{
+			"isPass": systemOnce.Password == "",
+		})
+		return
+	}
+
+	out, err := appOnce.installCert()
+	if err != nil {
+		h.error(w, err.Error()+"\n"+out, respData{
+			"isPass": systemOnce.Password == "",
+		})
+		return
+	}
+
+	h.success(w, respData{
+		"isPass": systemOnce.Password == "",
+	})
+}
+
 func (h *HttpServer) setSystemPassword(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		Password string `json:"password"`
+		IsCache  bool   `json:"isCache"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		h.error(w, err.Error())
 		return
 	}
-	systemOnce.SetPassword(data.Password)
+	systemOnce.SetPassword(data.Password, data.IsCache)
 	h.success(w)
 }
 
@@ -260,12 +280,12 @@ func (h *HttpServer) openSystemProxy(w http.ResponseWriter, r *http.Request) {
 	err := appOnce.OpenSystemProxy()
 	if err != nil {
 		h.error(w, err.Error(), respData{
-			"isProxy": appOnce.IsProxy,
+			"value": appOnce.IsProxy,
 		})
 		return
 	}
 	h.success(w, respData{
-		"isProxy": appOnce.IsProxy,
+		"value": appOnce.IsProxy,
 	})
 }
 
@@ -273,18 +293,18 @@ func (h *HttpServer) unsetSystemProxy(w http.ResponseWriter, r *http.Request) {
 	err := appOnce.UnsetSystemProxy()
 	if err != nil {
 		h.error(w, err.Error(), respData{
-			"isProxy": appOnce.IsProxy,
+			"value": appOnce.IsProxy,
 		})
 		return
 	}
 	h.success(w, respData{
-		"isProxy": appOnce.IsProxy,
+		"value": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) isProxy(w http.ResponseWriter, r *http.Request) {
 	h.success(w, respData{
-		"isProxy": appOnce.IsProxy,
+		"value": appOnce.IsProxy,
 	})
 }
 

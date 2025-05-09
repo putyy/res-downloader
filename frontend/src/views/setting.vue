@@ -176,7 +176,7 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          拦截规则JSON配置，不清楚请勿改动
+          拦截规则，json格式，不清楚请勿改动
         </NTooltip>
       </NFormItem>
     </NForm>
