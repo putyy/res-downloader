@@ -13,6 +13,7 @@ require (
 	golang.org/x/sys v0.30.0
 )
 
+
 require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

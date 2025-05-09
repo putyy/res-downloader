@@ -7,7 +7,7 @@
         label-width="auto"
         require-mark-placement="right-hanging"
         style="--wails-draggable:no-drag"
-        class="w-[700px]"
+        class="w-[500px]"
     >
       <NFormItem label="Host" path="Host">
         <NInput v-model:value="formValue.Host" placeholder="127.0.0.1"/>
@@ -46,19 +46,7 @@
         </NTooltip>
       </NFormItem>
 
-      <div class="grid grid-cols-3 gap-4">
-        <NFormItem label="下载代理" path="DownloadProxy">
-          <NSwitch v-model:value="formValue.DownloadProxy"/>
-          <NTooltip trigger="hover">
-            <template #trigger>
-              <NIcon size="18" class="ml-1 text-gray-500">
-                <HelpCircleOutline/>
-              </NIcon>
-            </template>
-            进行下载时使用代理请求
-          </NTooltip>
-        </NFormItem>
-
+      <div class="grid grid-cols-2 gap-4">
         <NFormItem label="自动拦截" path="AutoProxy">
           <NSwitch v-model:value="formValue.AutoProxy"/>
           <NTooltip trigger="hover">
@@ -85,6 +73,33 @@
       </div>
 
       <div class="grid grid-cols-2 gap-4">
+        <NFormItem label="下载代理" path="DownloadProxy">
+          <NSwitch v-model:value="formValue.DownloadProxy"/>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NIcon size="18" class="ml-1 text-gray-500">
+                <HelpCircleOutline/>
+              </NIcon>
+            </template>
+            进行下载时使用代理请求
+          </NTooltip>
+        </NFormItem>
+
+        <NFormItem label="连接数量" path="TaskNumber">
+          <NInputNumber v-model:value="formValue.TaskNumber" :min="2" :max="64"/>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NIcon size="18" class="ml-1 text-gray-500">
+                <HelpCircleOutline/>
+              </NIcon>
+            </template>
+            如不清楚请保持默认，通常CPU核心数*2，用于分片下载
+          </NTooltip>
+        </NFormItem>
+
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
         <NFormItem label="保存位置" path="SaveDirectory">
           <NInput :value="formValue.SaveDirectory" placeholder="保存位置"/>
           <NButton strong secondary type="primary" @click="selectDir" class="ml-1">选择</NButton>
@@ -103,7 +118,7 @@
         </NFormItem>
       </div>
 
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-2 gap-4">
         <NFormItem label="主题" path="theme">
           <NRadioGroup v-model:value="formValue.Theme" name="theme">
             <NRadio value="lightTheme">浅色</NRadio>
@@ -120,18 +135,6 @@
               </NIcon>
             </template>
             视频号有效
-          </NTooltip>
-        </NFormItem>
-
-        <NFormItem label="连接数" path="TaskNumber">
-          <NInputNumber v-model:value="formValue.TaskNumber" :min="2" :max="64"/>
-          <NTooltip trigger="hover">
-            <template #trigger>
-              <NIcon size="18" class="ml-1 text-gray-500">
-                <HelpCircleOutline/>
-              </NIcon>
-            </template>
-            如不清楚请保持默认，通常CPU核心数*2，用于分片下载
           </NTooltip>
         </NFormItem>
       </div>
