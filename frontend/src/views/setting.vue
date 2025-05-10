@@ -46,6 +46,38 @@
         </NTooltip>
       </NFormItem>
 
+      <NFormItem label="保存位置" path="SaveDirectory">
+        <NInput :value="formValue.SaveDirectory" placeholder="保存位置"/>
+        <NButton strong secondary type="primary" @click="selectDir" class="ml-1">选择</NButton>
+      </NFormItem>
+
+      <div class="grid grid-cols-2">
+        <NFormItem label="文件命名" path="FilenameLen">
+          <NInputNumber v-model:value="formValue.FilenameLen" :min="0" :max="9999" placeholder="0"/>
+          <NSwitch v-model:value="formValue.FilenameTime" class="ml-1"></NSwitch>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NIcon size="18" class="ml-1 text-gray-500">
+                <HelpCircleOutline/>
+              </NIcon>
+            </template>
+            输入框控制文件命名的长度(不含时间、0为无效)，开关控制文件末尾是否添加时间标识
+          </NTooltip>
+        </NFormItem>
+
+        <NFormItem label="清晰度" path="Quality">
+          <NSelect v-model:value="formValue.Quality" :options="options"/>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NIcon size="18" class="ml-1 text-gray-500">
+                <HelpCircleOutline/>
+              </NIcon>
+            </template>
+            视频号有效
+          </NTooltip>
+        </NFormItem>
+      </div>
+
       <div class="grid grid-cols-2 gap-4">
         <NFormItem label="自动拦截" path="AutoProxy">
           <NSwitch v-model:value="formValue.AutoProxy"/>
@@ -97,46 +129,6 @@
           </NTooltip>
         </NFormItem>
 
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="保存位置" path="SaveDirectory">
-          <NInput :value="formValue.SaveDirectory" placeholder="保存位置"/>
-          <NButton strong secondary type="primary" @click="selectDir" class="ml-1">选择</NButton>
-        </NFormItem>
-        <NFormItem label="文件命名" path="FilenameLen">
-          <NInputNumber v-model:value="formValue.FilenameLen" :min="0" :max="9999" placeholder="0"/>
-          <NSwitch v-model:value="formValue.FilenameTime" class="ml-1"></NSwitch>
-          <NTooltip trigger="hover">
-            <template #trigger>
-              <NIcon size="18" class="ml-1 text-gray-500">
-                <HelpCircleOutline/>
-              </NIcon>
-            </template>
-            输入框控制文件命名的长度(不含时间、0为无效)，开关控制文件末尾是否添加时间标识
-          </NTooltip>
-        </NFormItem>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="主题" path="theme">
-          <NRadioGroup v-model:value="formValue.Theme" name="theme">
-            <NRadio value="lightTheme">浅色</NRadio>
-            <NRadio value="darkTheme">深色</NRadio>
-          </NRadioGroup>
-        </NFormItem>
-
-        <NFormItem label="清晰度" path="Quality">
-          <NSelect v-model:value="formValue.Quality" :options="options"/>
-          <NTooltip trigger="hover">
-            <template #trigger>
-              <NIcon size="18" class="ml-1 text-gray-500">
-                <HelpCircleOutline/>
-              </NIcon>
-            </template>
-            视频号有效
-          </NTooltip>
-        </NFormItem>
       </div>
 
       <NFormItem label="UserAgent" path="UserAgent">

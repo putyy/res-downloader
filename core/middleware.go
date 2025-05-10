@@ -60,6 +60,8 @@ func HandleApi(w http.ResponseWriter, r *http.Request) bool {
 			httpServerOnce.wxFileDecode(w, r)
 		case "/api/batch-import":
 			httpServerOnce.batchImport(w, r)
+		case "/api/cert":
+			httpServerOnce.downCert(w, r)
 		}
 		return true
 	}

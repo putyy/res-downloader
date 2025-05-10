@@ -7,7 +7,6 @@
       title="管理员授权"
       content=""
       :show-icon="false"
-      :closable="false"
       :mask-closable="false"
       :close-on-esc="false"
       class="rounded-lg"

@@ -6,7 +6,21 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strings"
 )
+
+func (s *SystemSetup) getLinuxDistro() (string, error) {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "ID=") {
+			return strings.Trim(strings.TrimPrefix(line, "ID="), "\""), nil
+		}
+	}
+	return "", fmt.Errorf("could not determine linux distribution")
+}
 
 func (s *SystemSetup) runCommand(args []string) ([]byte, error) {
 	if len(args) == 0 {
@@ -33,27 +47,32 @@ func (s *SystemSetup) setProxy() error {
 		{"gsettings", "set", "org.gnome.system.proxy.https", "host", "127.0.0.1"},
 		{"gsettings", "set", "org.gnome.system.proxy.https", "port", globalConfig.Port},
 	}
-	is := false
-	errs := ""
+
+	isSuccess := false
+	var errs strings.Builder
+
 	for _, cmd := range commands {
 		if output, err := s.runCommand(cmd); err != nil {
-			errs = errs + "output:" + string(output) + " err:" + err.Error() + "\n"
-			fmt.Println(err)
+			errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
 		} else {
-			is = true
+			isSuccess = true
 		}
 	}
-	if is {
+
+	if isSuccess {
 		return nil
 	}
 
-	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs)
+	return fmt.Errorf("failed to set proxy:\n%s", errs.String())
 }
 
 func (s *SystemSetup) unsetProxy() error {
 	cmd := []string{"gsettings", "set", "org.gnome.system.proxy", "mode", "none"}
 	output, err := s.runCommand(cmd)
-	return fmt.Errorf("failed to unset proxy for any active network service, errs output:" + string(output) + " err:" + err.Error())
+	if err != nil {
+		return fmt.Errorf("failed to unset proxy: %s\noutput: %s", err.Error(), string(output))
+	}
+	return nil
 }
 
 func (s *SystemSetup) installCert() (string, error) {
@@ -62,35 +81,56 @@ func (s *SystemSetup) installCert() (string, error) {
 		return "", err
 	}
 
-	actions := [][]string{
-		{"cp", "-f", s.CertFile, "/usr/local/share/ca-certificates/" + appOnce.AppName + ".crt"},
-		{"update-ca-certificates"},
-		{"cp", "-f", s.CertFile, "/usr/share/ca-certificates/trust-source/anchors/" + appOnce.AppName + ".crt"},
-		{"update-ca-trust"},
-		{"trust", "extract-compat"},
-		{"cp", "-f", s.CertFile, "/etc/pki/ca-trust/source/anchors/" + appOnce.AppName + ".crt"},
-		{"update-ca-trust"},
-		{"cp", "-f", s.CertFile, "/etc/ssl/ca-certificates/" + appOnce.AppName + ".crt"},
-		{"update-ca-certificates"},
+	distro, err := getLinuxDistro()
+	if err != nil {
+		return "", fmt.Errorf("detect distro failed: %w", err)
 	}
 
-	is := false
-	outs := ""
-	errs := ""
-	for _, action := range actions {
-		if output, err1 := s.runCommand(action); err1 != nil {
-			outs += string(output) + "\n"
-			errs += err1.Error() + "\n"
-			fmt.Printf("Failed to execute %v: %v\n", action, err1)
-			continue
+	certName := appOnce.AppName + ".crt"
+
+	var certPath string
+	if distro == "deepin" {
+		certDir := "/usr/share/ca-certificates/" + appOnce.AppName
+		certPath = certDir + "/" + certName
+		s.runCommand([]string{"mkdir", "-p", certDir})
+	} else {
+		certPath = "/usr/local/share/ca-certificates/" + certName
+	}
+
+	var outs, errs strings.Builder
+	isSuccess := false
+
+	if output, err := s.runCommand([]string{"cp", "-f", s.CertFile, certPath}); err != nil {
+		errs.WriteString(fmt.Sprintf("copy cert failed: %s\n%s\n", err.Error(), output))
+	} else {
+		isSuccess = true
+		outs.Write(output)
+	}
+
+	if distro == "deepin" {
+		confPath := "/etc/ca-certificates.conf"
+		checkCmd := []string{"grep", "-qxF", certName, confPath}
+		if _, err := s.runCommand(checkCmd); err != nil {
+			echoCmd := []string{"bash", "-c", fmt.Sprintf("echo '%s' >> %s", certName, confPath)}
+			if output, err := s.runCommand(echoCmd); err != nil {
+				errs.WriteString(fmt.Sprintf("append conf failed: %s\n%s\n", err.Error(), output))
+			} else {
+				isSuccess = true
+				outs.Write(output)
+			}
 		}
-
-		is = true
 	}
 
-	if is {
+	if output, err := s.runCommand([]string{"update-ca-certificates"}); err != nil {
+		errs.WriteString(fmt.Sprintf("update failed: %s\n%s\n", err.Error(), output))
+	} else {
+		isSuccess = true
+		outs.Write(output)
+	}
+
+	if isSuccess {
 		return "", nil
 	}
 
-	return outs, fmt.Errorf("Certificate installation failed, errs:%s", errs)
+	return outs.String(), fmt.Errorf("certificate installation failed:\n%s", errs.String())
 }

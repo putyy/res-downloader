@@ -29,6 +29,7 @@ var wailsJson string
 func main() {
 	// Create an instance of the app structure
 	app := core.GetApp(assets, wailsJson)
+	bind := core.NewBind()
 	isMac := runtime.GOOS == "darwin"
 	// menu
 	appMenu := menu.NewMenu()
@@ -68,7 +69,9 @@ func main() {
 		OnShutdown: func(ctx context.Context) {
 			app.OnExit()
 		},
-		Bind: []interface{}{},
+		Bind: []interface{}{
+			bind,
+		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{

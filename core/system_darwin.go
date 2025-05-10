@@ -64,24 +64,23 @@ func (s *SystemSetup) setProxy() error {
 		return err
 	}
 
-	is := false
-	errs := ""
+	isSuccess := false
+	var errs strings.Builder
 	for _, serviceName := range services {
-		cmds := [][]string{
+		commands := [][]string{
 			{"networksetup", "-setwebproxy", serviceName, "127.0.0.1", globalConfig.Port},
 			{"networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", globalConfig.Port},
 		}
-		for _, args := range cmds {
-			if output, err := s.runCommand(args); err != nil {
-				errs = errs + "output:" + string(output) + " err:" + err.Error() + "\n"
-				fmt.Println("setProxy:", output, " err:", err.Error())
+		for _, cmd := range commands {
+			if output, err := s.runCommand(cmd); err != nil {
+				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
 			} else {
-				is = true
+				isSuccess = true
 			}
 		}
 	}
 
-	if is {
+	if isSuccess {
 		return nil
 	}
 
@@ -94,24 +93,23 @@ func (s *SystemSetup) unsetProxy() error {
 		return err
 	}
 
-	is := false
-	errs := ""
+	isSuccess := false
+	var errs strings.Builder
 	for _, serviceName := range services {
-		cmds := [][]string{
+		commands := [][]string{
 			{"networksetup", "-setwebproxystate", serviceName, "off"},
 			{"networksetup", "-setsecurewebproxystate", serviceName, "off"},
 		}
-		for _, args := range cmds {
-			if output, err := s.runCommand(args); err != nil {
-				errs = errs + "output:" + string(output) + " err:" + err.Error() + "\n"
-				fmt.Println("unsetProxy:", output, " err:", err.Error())
+		for _, cmd := range commands {
+			if output, err := s.runCommand(cmd); err != nil {
+				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
 			} else {
-				is = true
+				isSuccess = true
 			}
 		}
 	}
 
-	if is {
+	if isSuccess {
 		return nil
 	}
 

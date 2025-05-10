@@ -42,13 +42,8 @@ func (h *HttpServer) run() {
 	}
 	fmt.Println("Service started, listening http://" + globalConfig.Host + ":" + globalConfig.Port)
 	if err1 := http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host == "127.0.0.1:"+globalConfig.Port && strings.Contains(r.URL.Path, "/cert") {
-			w.Header().Set("Content-Type", "application/x-x509-ca-data")
-			w.Header().Set("Content-Disposition", "attachment;filename=res-downloader-public.crt")
-			w.Header().Set("Content-Transfer-Encoding", "binary")
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(appOnce.PublicCrt)))
-			w.WriteHeader(http.StatusOK)
-			_, err = io.Copy(w, io.NopCloser(bytes.NewReader(appOnce.PublicCrt)))
+		if r.Host == "127.0.0.1:"+globalConfig.Port && HandleApi(w, r) {
+
 		} else {
 			proxyOnce.Proxy.ServeHTTP(w, r) // 代理
 		}
@@ -56,6 +51,15 @@ func (h *HttpServer) run() {
 		globalLogger.Err(err1)
 		fmt.Printf("Service startup exception: %v", err1)
 	}
+}
+
+func (h *HttpServer) downCert(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/x-x509-ca-data")
+	w.Header().Set("Content-Disposition", "attachment;filename=res-downloader-public.crt")
+	w.Header().Set("Content-Transfer-Encoding", "binary")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(appOnce.PublicCrt)))
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, io.NopCloser(bytes.NewReader(appOnce.PublicCrt)))
 }
 
 func (h *HttpServer) preview(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +119,7 @@ func (h *HttpServer) send(t string, data interface{}) {
 	runtime.EventsEmit(appOnce.ctx, "event", string(jsonData))
 }
 
-func (h *HttpServer) writeJson(w http.ResponseWriter, data ResponseData) {
+func (h *HttpServer) writeJson(w http.ResponseWriter, data *ResponseData) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	err := json.NewEncoder(w).Encode(data)
@@ -134,12 +138,7 @@ func (h *HttpServer) error(w http.ResponseWriter, args ...interface{}) {
 	if len(args) > 1 {
 		data = args[1]
 	}
-
-	h.writeJson(w, ResponseData{
-		Code:    0,
-		Message: message,
-		Data:    data,
-	})
+	h.writeJson(w, h.buildResp(0, message, data))
 }
 
 func (h *HttpServer) success(w http.ResponseWriter, args ...interface{}) {
@@ -153,12 +152,15 @@ func (h *HttpServer) success(w http.ResponseWriter, args ...interface{}) {
 	if len(args) > 1 {
 		message = args[1].(string)
 	}
+	h.writeJson(w, h.buildResp(1, message, data))
+}
 
-	h.writeJson(w, ResponseData{
-		Code:    1,
+func (h *HttpServer) buildResp(code int, message string, data interface{}) *ResponseData {
+	return &ResponseData{
+		Code:    code,
 		Message: message,
 		Data:    data,
-	})
+	}
 }
 
 func (h *HttpServer) openDirectoryDialog(w http.ResponseWriter, r *http.Request) {

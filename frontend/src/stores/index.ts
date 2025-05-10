@@ -3,6 +3,8 @@ import {ref} from "vue"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import {Environment} from "../../wailsjs/runtime"
+import * as bind from "../../wailsjs/go/core/Bind"
+import {core} from "../../wailsjs/go/models"
 
 export const useIndexStore = defineStore("index-store", () => {
     const appInfo = ref<appType.App>({
@@ -40,24 +42,26 @@ export const useIndexStore = defineStore("index-store", () => {
     const tableHeight = ref(800)
 
     const isProxy = ref(false)
+    const baseUrl = ref("")
 
     const init = async () => {
         Environment().then((res) => {
             envInfo.value = res
         })
-        await getAppInfo()
-        await appApi.getConfig().then((res) => {
+
+        await bind.AppInfo().then((res: core.ResponseData)=>{
+            appInfo.value = Object.assign({}, appInfo.value, res.data)
+            isProxy.value = res.data.IsProxy
+        })
+
+        await bind.Config().then((res: core.ResponseData)=>{
             globalConfig.value = Object.assign({}, globalConfig.value, res.data)
         })
 
+        baseUrl.value = "http://"+globalConfig.value.Host + ":" +globalConfig.value.Port
+        window.$baseUrl = baseUrl.value
         window.addEventListener("resize", handleResize);
         handleResize()
-    }
-
-    const getAppInfo = async () => {
-        await appApi.appInfo().then((res) => {
-            appInfo.value = Object.assign({}, appInfo.value, res.data)
-        })
     }
 
     const setConfig = (formValue: Object) => {
@@ -91,8 +95,8 @@ export const useIndexStore = defineStore("index-store", () => {
         tableHeight,
         isProxy,
         envInfo,
+        baseUrl,
         init,
-        getAppInfo,
         setConfig,
         openProxy,
         unsetProxy

@@ -23,7 +23,7 @@ type App struct {
 	LockFile    string `json:"-"`
 	PublicCrt   []byte `json:"-"`
 	PrivateKey  []byte `json:"-"`
-	IsProxy     bool   `json:"-"`
+	IsProxy     bool   `json:"IsProxy"`
 }
 
 var (
