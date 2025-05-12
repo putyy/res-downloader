@@ -4,7 +4,7 @@
       :on-update:show="changeShow"
       style="--wails-draggable:no-drag"
       preset="dialog"
-      title="管理员授权"
+      :title="t('components.password_title')"
       content=""
       :show-icon="false"
       :mask-closable="false"
@@ -13,23 +13,23 @@
   >
     <div>
       <div class="text-red-500 text-base">
-        本次输入的密码仅在本次运行期间有效，用于安装证书或设置系统代理！
+        {{ t("components.password_tip") }}
       </div>
       <div class="mt-3">
         <n-input
             v-model:value="formValue.password"
             type="password"
-            placeholder="请输入你的电脑密码"
+            :placeholder="t('components.password_placeholder')"
             class="w-full"
         />
       </div>
       <div class="mt-3 text-base">
-        <label>是否缓存</label>
-        <NSwitch class="pl-1" v-model:value="formValue.cache" aria-placeholder="是否缓存"/>
+        <label>{{ t("components.password_cache") }}</label>
+        <NSwitch class="pl-1" v-model:value="formValue.cache" :aria-placeholder="t('components.password_cache')"/>
       </div>
     </div>
     <template #action>
-      <n-button type="primary" @click="submit">确认</n-button>
+      <n-button type="primary" @click="submit">{{ t("common.submit") }}</n-button>
     </template>
   </n-modal>
 </template>
@@ -37,6 +37,9 @@
 <script setup lang="ts">
 import {reactive} from 'vue'
 import {NButton, NInput, NModal} from 'naive-ui'
+import {useI18n} from 'vue-i18n'
+
+const {t} = useI18n()
 
 defineProps({
   showModal: Boolean,
@@ -52,7 +55,7 @@ const changeShow = (value: boolean) => emits("update:showModal", value)
 
 const submit = () => {
   if (!formValue.password) {
-    window.$message?.error("密码不能为空")
+    window.$message?.error(t("components.password_empty"))
     return
   }
   emits('submit', formValue.password, formValue.cache)

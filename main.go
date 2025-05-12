@@ -42,10 +42,10 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:                    app.AppName,
-		Width:                    1024,
+		Width:                    1280,
 		MinWidth:                 960,
-		Height:                   768,
-		MinHeight:                640,
+		Height:                   800,
+		MinHeight:                600,
 		Frameless:                !isMac,
 		Menu:                     appMenu,
 		EnableDefaultContextMenu: true,

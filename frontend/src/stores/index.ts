@@ -16,6 +16,7 @@ export const useIndexStore = defineStore("index-store", () => {
 
     const globalConfig = ref<appType.Config>({
         Theme: "lightTheme",
+        Locale: "zh",
         Host: "0.0.0.0",
         Port: "8899",
         Quality: 0,

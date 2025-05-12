@@ -1,5 +1,5 @@
 <template>
-  <NConfigProvider class="h-full" :theme="theme" :locale="zhCN">
+  <NConfigProvider class="h-full" :theme="theme" :locale="uiLocale">
     <NaiveProvider>
       <RouterView/>
       <ShowLoading :isLoading="loading"/>
@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import NaiveProvider from '@/components/NaiveProvider.vue'
-import {darkTheme, lightTheme, zhCN} from 'naive-ui'
+import {darkTheme, lightTheme, zhCN, enUS} from 'naive-ui'
 import {useIndexStore} from "@/stores"
 import {computed, onMounted, ref} from "vue"
 import {useEventStore} from "@/stores/event"
@@ -20,11 +20,13 @@ import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import ShowLoading from "@/components/ShowLoading.vue"
 import Password from "@/components/Password.vue"
+import {useI18n} from 'vue-i18n'
 
 const store = useIndexStore()
 const eventStore = useEventStore()
 const loading = ref(false)
 const showPassword = ref(false)
+const {t, locale} = useI18n()
 
 const theme = computed(() => {
   if (store.globalConfig.Theme === "darkTheme") {
@@ -33,6 +35,14 @@ const theme = computed(() => {
   }
   document.documentElement.classList.remove('dark');
   return lightTheme
+})
+
+const uiLocale = computed(() => {
+  locale.value = store.globalConfig.Locale
+  if (store.globalConfig.Locale === "zh") {
+    return zhCN
+  }
+  return enUS
 })
 
 onMounted(async () => {
@@ -89,6 +99,3 @@ const handlePassword = async (password: string, isCache: boolean) => {
   })
 }
 </script>
-
-<style scoped>
-</style>

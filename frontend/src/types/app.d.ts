@@ -13,6 +13,7 @@ export namespace appType {
 
     interface Config {
         Theme: string
+        Locale: string
         Host: string
         Port: string
         Quality: number

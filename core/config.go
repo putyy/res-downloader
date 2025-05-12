@@ -17,6 +17,7 @@ type MimeInfo struct {
 type Config struct {
 	storage       *Storage
 	Theme         string              `json:"Theme"`
+	Locale        string              `json:"Locale"`
 	Host          string              `json:"Host"`
 	Port          string              `json:"Port"`
 	Quality       int                 `json:"Quality"`
@@ -152,6 +153,7 @@ func (c *Config) setConfig(config Config) {
 	c.Host = config.Host
 	c.Port = config.Port
 	c.Theme = config.Theme
+	c.Locale = config.Locale
 	c.Quality = config.Quality
 	c.SaveDirectory = config.SaveDirectory
 	c.FilenameLen = config.FilenameLen

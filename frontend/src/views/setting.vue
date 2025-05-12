@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full relative p-5 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+  <div class="h-full relative p-5 overflow-y-auto [&::-webkit-scrollbar]:hidden" :key="renderKey">
     <NForm
         :model="formValue"
         size="medium"
@@ -7,7 +7,7 @@
         label-width="auto"
         require-mark-placement="right-hanging"
         style="--wails-draggable:no-drag"
-        class="w-[500px]"
+        class="w-[700px]"
     >
       <NFormItem label="Host" path="Host">
         <NInput v-model:value="formValue.Host" placeholder="127.0.0.1"/>
@@ -17,7 +17,7 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          如果不清楚请保持默认，修改后请重启软件
+          {{ t("setting.restart_tip") }}
         </NTooltip>
       </NFormItem>
 
@@ -29,12 +29,12 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          如果不清楚保持默认，修改后请重启软件
+          {{ t("setting.restart_tip") }}
         </NTooltip>
       </NFormItem>
 
-      <NFormItem label="上游代理" path="UpstreamProxy">
-        <NInput v-model:value="formValue.UpstreamProxy" placeholder="例如: http://127.0.0.1:7890"/>
+      <NFormItem :label="t('setting.upstream_proxy')" path="UpstreamProxy">
+        <NInput v-model:value="formValue.UpstreamProxy" placeholder="http://127.0.0.1:7890"/>
         <NSwitch v-model:value="formValue.OpenProxy" class="ml-1"/>
         <NTooltip trigger="hover">
           <template #trigger>
@@ -42,17 +42,17 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          可结合其他代理工具，用于访问国外网站、以及正常网络无法访问的资源
+          {{ t("setting.upstream_proxy_tip") }}
         </NTooltip>
       </NFormItem>
 
-      <NFormItem label="保存位置" path="SaveDirectory">
-        <NInput :value="formValue.SaveDirectory" placeholder="保存位置"/>
-        <NButton strong secondary type="primary" @click="selectDir" class="ml-1">选择</NButton>
+      <NFormItem :label="t('setting.save_dir')" path="SaveDirectory">
+        <NInput :value="formValue.SaveDirectory" :placeholder="t('setting.save_dir')"/>
+        <NButton strong secondary type="primary" @click="selectDir" class="ml-1">{{ t('common.select') }}</NButton>
       </NFormItem>
 
       <div class="grid grid-cols-2">
-        <NFormItem label="文件命名" path="FilenameLen">
+        <NFormItem :label="t('setting.filename_rules')" path="FilenameLen">
           <NInputNumber v-model:value="formValue.FilenameLen" :min="0" :max="9999" placeholder="0"/>
           <NSwitch v-model:value="formValue.FilenameTime" class="ml-1"></NSwitch>
           <NTooltip trigger="hover">
@@ -61,11 +61,11 @@
                 <HelpCircleOutline/>
               </NIcon>
             </template>
-            输入框控制文件命名的长度(不含时间、0为无效)，开关控制文件末尾是否添加时间标识
+            {{ t("setting.filename_rules_tip") }}
           </NTooltip>
         </NFormItem>
 
-        <NFormItem label="清晰度" path="Quality">
+        <NFormItem :label="t('setting.quality')" path="Quality">
           <NSelect v-model:value="formValue.Quality" :options="options"/>
           <NTooltip trigger="hover">
             <template #trigger>
@@ -73,13 +73,13 @@
                 <HelpCircleOutline/>
               </NIcon>
             </template>
-            视频号有效
+            {{ t("setting.quality_tip") }}
           </NTooltip>
         </NFormItem>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="自动拦截" path="AutoProxy">
+        <NFormItem :label="t('setting.auto_proxy')" path="AutoProxy">
           <NSwitch v-model:value="formValue.AutoProxy"/>
           <NTooltip trigger="hover">
             <template #trigger>
@@ -87,11 +87,11 @@
                 <HelpCircleOutline/>
               </NIcon>
             </template>
-            打开软件时自动启用拦截
+            {{ t("setting.auto_proxy_tip") }}
           </NTooltip>
         </NFormItem>
 
-        <NFormItem label="全量拦截" path="WxAction">
+        <NFormItem :label="t('setting.full_intercept')" path="WxAction">
           <NSwitch v-model:value="formValue.WxAction"/>
           <NTooltip trigger="hover">
             <template #trigger>
@@ -99,13 +99,13 @@
                 <HelpCircleOutline/>
               </NIcon>
             </template>
-            微信视频号是否全量拦截，否：只拦截视频详情
+            {{ t("setting.full_intercept_tip") }}
           </NTooltip>
         </NFormItem>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="下载代理" path="DownloadProxy">
+        <NFormItem :label="t('setting.download_proxy')" path="DownloadProxy">
           <NSwitch v-model:value="formValue.DownloadProxy"/>
           <NTooltip trigger="hover">
             <template #trigger>
@@ -113,11 +113,11 @@
                 <HelpCircleOutline/>
               </NIcon>
             </template>
-            进行下载时使用代理请求
+            {{ t("setting.download_proxy_tip") }}
           </NTooltip>
         </NFormItem>
 
-        <NFormItem label="连接数量" path="TaskNumber">
+        <NFormItem :label="t('setting.connections')" path="TaskNumber">
           <NInputNumber v-model:value="formValue.TaskNumber" :min="2" :max="64"/>
           <NTooltip trigger="hover">
             <template #trigger>
@@ -125,10 +125,9 @@
                 <HelpCircleOutline/>
               </NIcon>
             </template>
-            如不清楚请保持默认，通常CPU核心数*2，用于分片下载
+            {{ t("setting.connections_tip") }}
           </NTooltip>
         </NFormItem>
-
       </div>
 
       <NFormItem label="UserAgent" path="UserAgent">
@@ -139,7 +138,7 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          如不清楚请保持默认
+          {{ t("setting.user_agent_tip") }}
         </NTooltip>
       </NFormItem>
 
@@ -151,16 +150,16 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          定义下载时可使用的header参数，逗号分割
+          {{ t("setting.use_headers_tip") }}
         </NTooltip>
       </NFormItem>
 
-      <NFormItem label="拦截规则" path="MimeMap">
+      <NFormItem :label="t('setting.mime_map')" path="MimeMap">
         <NInput
             v-model:value="MimeMap"
             type="textarea"
             rows="11"
-            placeholder='{"content-type": { "Type": "分类名称","Suffix": "后缀"}}'
+            placeholder='{"video/mp4": { "Type": "video","Suffix": ".mp4"}}'
         />
         <NTooltip trigger="hover">
           <template #trigger>
@@ -168,7 +167,7 @@
               <HelpCircleOutline/>
             </NIcon>
           </template>
-          拦截规则，json格式，不清楚请勿改动
+          {{ t("setting.mime_map_tip") }}
         </NTooltip>
       </NFormItem>
     </NForm>
@@ -181,31 +180,22 @@ import {ref, watch} from "vue"
 import {useIndexStore} from "@/stores"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
+import {computed} from "vue"
+import {useI18n} from 'vue-i18n'
 
+const {t} = useI18n()
 const store = useIndexStore()
 
-const options = [
-  {
-    value: 0,
-    label: "默认(推荐)"
-  }, {
-    value: 1,
-    label: "超清"
-  }, {
-    value: 2,
-    label: "高画质"
-  }, {
-    value: 3,
-    label: "中画质"
-  }, {
-    value: 4,
-    label: "低画质"
-  }
-]
+const options = computed(() =>
+    t("setting.quality_value")
+        .split(",")
+        .map((value, index) => ({ value: index, label: value }))
+)
 
 const formValue = ref<appType.Config>(Object.assign({}, store.globalConfig))
 
 const MimeMap = ref(formValue.value.MimeMap ? JSON.stringify(formValue.value.MimeMap, null, 2) : "")
+const renderKey = ref(999)
 
 watch(formValue.value, () => {
   store.setConfig(formValue.value)
@@ -221,6 +211,11 @@ watch(() => {
   return store.globalConfig.Theme
 }, () => {
   formValue.value.Theme = store.globalConfig.Theme
+})
+
+watch(() => store.globalConfig.Locale, () => {
+  formValue.value.Locale = store.globalConfig.Locale
+  renderKey.value++
 })
 
 const selectDir = () => {

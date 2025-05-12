@@ -1,14 +1,27 @@
 <template>
-  <div class="flex flex-col p-5">
+  <div class="h-full flex flex-col p-5 overflow-y-auto [&::-webkit-scrollbar]:hidden">
     <div class="pb-2 z-40">
       <NSpace>
-        <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">关闭代理</NButton>
-        <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">开启代理</NButton>
-        <NButton tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">清空列表</NButton>
-        <NSelect style="min-width: 100px;--wails-draggable:no-drag" placeholder="拦截类型" v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="classify"></NSelect>
-        <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">批量下载</NButton>
-        <NButton tertiary type="info" @click.stop="batchImport" style="--wails-draggable:no-drag">批量导出</NButton>
-        <NButton tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">批量导入</NButton>
+        <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">
+          {{ t("index.close_grab") }}
+        </NButton>
+        <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">
+          {{ t("index.open_grab") }}
+        </NButton>
+        <NButton tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">
+          {{ t("index.clear_list") }}
+        </NButton>
+        <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')"
+                 v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="classify"></NSelect>
+        <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">
+          {{ t("index.batch_download") }}
+        </NButton>
+        <NButton tertiary type="info" @click.stop="batchImport" style="--wails-draggable:no-drag">
+          {{ t("index.batch_export") }}
+        </NButton>
+        <NButton tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">
+          {{ t("index.batch_import") }}
+        </NButton>
       </NSpace>
     </div>
     <div class="flex-1">
@@ -23,6 +36,7 @@
           :height-for-row="()=> 48"
           :checked-row-keys="checkedRowKeysValue"
           @update:checked-row-keys="handleCheck"
+          style="--wails-draggable:no-drag"
       />
     </div>
     <Preview v-model:showModal="showPreviewRow" :previewRow="previewRow"/>
@@ -34,7 +48,7 @@
 
 <script lang="ts" setup>
 import {NButton, NImage, NTooltip} from "naive-ui"
-import {computed, h, onMounted, ref, watch} from "vue"
+import {computed, h, onMounted, ref, reactive, watch} from "vue"
 import type {appType} from "@/types/app"
 
 import type {DataTableRowKey, ImageRenderToolbarProps} from "naive-ui"
@@ -44,13 +58,14 @@ import ShowLoading from "@/components/ShowLoading.vue"
 import {getDecryptionArray} from '@/assets/js/decrypt.js'
 import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
-import {DwStatus} from "@/const"
 import ResAction from "@/components/ResAction.vue"
 import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 import Password from "@/components/Password.vue"
+import {useI18n} from 'vue-i18n'
 
+const {t} = useI18n()
 const eventStore = useEventStore()
 const isProxy = computed(() => {
   return store.isProxy
@@ -58,24 +73,36 @@ const isProxy = computed(() => {
 const data = ref<any[]>([])
 const store = useIndexStore()
 const tableHeight = computed(() => {
-  return store.tableHeight - 132
+  return store.globalConfig.Locale === "zh" ? store.tableHeight - 130 : store.tableHeight - 151
 })
 const resourcesType = ref<string[]>(["all"])
-const classifyAlias: { [key: string]: string } = {
-  image: "图片",
-  audio: "音频",
-  video: "视频",
-  m3u8: "m3u8",
-  live: "直播流",
-  xls: "表格",
-  doc: "文档",
-  pdf: "pdf",
-  font: "字体"
+
+const classifyAlias: { [key: string]: any } = {
+  image: computed(() => t("index.image")),
+  audio: computed(() => t("index.audio")),
+  video: computed(() => t("index.video")),
+  m3u8: computed(() => t("index.m3u8")),
+  live: computed(() => t("index.live")),
+  xls: computed(() => t("index.xls")),
+  doc: computed(() => t("index.pdf")),
+  pdf: computed(() => t("index.pdf")),
+  font: computed(() => t("index.font"))
 }
+
+const dwStatus = computed<any>(() => {
+  return {
+    ready: t("common.ready"),
+    running: t("common.running"),
+    error: t("common.error"),
+    done: t("common.done"),
+    handle: t("common.handle")
+  }
+})
+
 const classify = ref([
   {
     value: "all",
-    label: "全部",
+    label: computed(() => t("index.all")),
   },
 ])
 
@@ -84,13 +111,13 @@ const columns = ref<any[]>([
     type: "selection",
   },
   {
-    title: "域",
+    title: computed(() => t("index.domain")),
     key: "Domain",
   },
   {
-    title: "类型",
+    title: computed(() => t("index.type")),
     key: "Classify",
-    filterOptions: Array.from(classify.value).slice(1),
+    filterOptions: computed(() => Array.from(classify.value).slice(1)),
     filterMultiple: true,
     filter: (value: string, row: appType.MediaInfo) => {
       return !!~row.Classify.indexOf(String(value))
@@ -105,7 +132,7 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: "预览",
+    title: computed(() => t("index.preview")),
     key: "Url",
     width: 120,
     render: (row: appType.MediaInfo) => {
@@ -138,9 +165,9 @@ const columns = ref<any[]>([
             {
               default: () => {
                 if (row.Classify === "audio" || row.Classify === "video" || row.Classify === "m3u8" || row.Classify === "live") {
-                  return "预览"
+                  return t("index.preview")
                 }
-                return "暂不支持预览"
+                return t("index.preview_tip")
               }
             }
         ),
@@ -148,14 +175,14 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: "状态",
+    title: computed(() => t("index.status")),
     key: "Status",
     render: (row: appType.MediaInfo) => {
-      return DwStatus[row.Status as keyof typeof DwStatus]
+      return dwStatus[row.Status as keyof typeof dwStatus]
     }
   },
   {
-    title: "描述",
+    title: computed(() => t("index.description")),
     key: "Description",
     width: 150,
     render: (row: appType.MediaInfo, index: number) => {
@@ -172,11 +199,11 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: "资源大小",
+    title: computed(() => t("index.resource_size")),
     key: "Size"
   },
   {
-    title: "保存路径",
+    title: computed(() => t("index.save_path")),
     key: "SavePath",
     render(row: appType.MediaInfo, index: number) {
       return h("a",
@@ -196,7 +223,7 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: "操作",
+    title: computed(() => t("index.operation")),
     key: "actions",
     render(row: appType.MediaInfo, index: number) {
       return h(ResAction, {key: index, row: row, index: index, onAction: dataAction})
@@ -258,7 +285,7 @@ onMounted(() => {
             }
           }
           localStorage.setItem("resources-data", JSON.stringify(data.value))
-          window?.$message?.success("下载成功")
+          window?.$message?.success(t("index.download_success"))
           break;
         case "error":
           loading.value = false
@@ -284,7 +311,7 @@ const buildClassify = () => {
   const mimeMap = store.globalConfig.MimeMap ?? {}
   const seen = new Set()
   classify.value = [
-    {value: "all", label: "全部"},
+    {value: "all", label: computed(() => t("index.all"))},
     ...Object.values(mimeMap)
         .filter(({Type}) => {
           if (seen.has(Type)) return false;
@@ -306,18 +333,18 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
     case "copy":
       ClipboardSetText(row.Url).then((is: boolean) => {
         if (is) {
-          window?.$message?.success("复制成功")
+          window?.$message?.success(t("common.copy_success"))
         } else {
-          window?.$message?.error("复制失败")
+          window?.$message?.error(t("common.copy_fail"))
         }
       })
       break
     case "json":
       ClipboardSetText(encodeURIComponent(JSON.stringify(row))).then((is: boolean) => {
         if (is) {
-          window?.$message?.success("复制成功")
+          window?.$message?.success(t("common.copy_success"))
         } else {
-          window?.$message?.error("复制失败")
+          window?.$message?.error(t("common.copy_fail"))
         }
       })
       break
@@ -362,7 +389,7 @@ const batchDown = async () => {
     return
   }
   if (!store.globalConfig.SaveDirectory) {
-    window?.$message?.error("请设置保存位置")
+    window?.$message?.error(t("index.save_path_empty"))
     return
   }
   for (let i = 0; i < data.value.length; i++) {
@@ -375,14 +402,14 @@ const batchDown = async () => {
 
 const batchImport = () => {
   if (checkedRowKeysValue.value.length <= 0) {
-    window?.$message?.error('请选择需要导出的数据')
+    window?.$message?.error(t("index.use_data"))
     return
   }
   if (!store.globalConfig.SaveDirectory) {
-    window?.$message?.error("请设置保存目录")
+    window?.$message?.error(t("index.save_path_empty"))
     return
   }
-  loadingText.value = "导出中"
+  loadingText.value = t("common.loading")
   loading.value = true
   let jsonData = []
   for (let i = 0; i < data.value.length; i++) {
@@ -394,8 +421,8 @@ const batchImport = () => {
       window?.$message?.error(res.message)
       return
     }
-    window?.$message?.success("导出成功")
-    window?.$message?.info("文件路径：" + res.data?.file_name, {
+    window?.$message?.success(t("index.import_success"))
+    window?.$message?.info(t("index.save_path") + "：" + res.data?.file_name, {
       duration: 5000
     })
   })
@@ -424,7 +451,7 @@ async function checkVariable() {
 
 const download = (row: appType.MediaInfo, index: number) => {
   if (!store.globalConfig.SaveDirectory) {
-    window?.$message?.error("请设置保存位置")
+    window?.$message?.error(t("index.save_path_empty"))
     return
   }
   loadingText.value = "ready"
@@ -473,7 +500,7 @@ const clear = () => {
 
 const decodeWxFile = (row: appType.MediaInfo, index: number) => {
   if (!row.DecodeKey) {
-    window?.$message?.error("无法解密")
+    window?.$message?.error(t("index.video_decode_no"))
     return
   }
   appApi.openFileDialog().then((res: appType.Res) => {
@@ -482,7 +509,7 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
       return
     }
     if (res.data.file) {
-      loadingText.value = "解密中"
+      loadingText.value = t("index.video_decode_loading")
       loading.value = true
       appApi.wxFileDecode({
         ...row,
@@ -497,13 +524,17 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
         data.value[index].SavePath = res.data.save_path
         data.value[index].Status = "done"
         localStorage.setItem("resources-data", JSON.stringify(data.value))
-        window?.$message?.success("解密成功")
+        window?.$message?.success(t("index.video_decode_success"))
       })
     }
   })
 }
 
 const handleImport = (content: string) => {
+  if (!content) {
+    // window?.$message?.error(t("view_index.import_empty"))
+    return
+  }
   content.split("\n").forEach((line, index) => {
     try {
       let res = JSON.parse(decodeURIComponent(line))
