@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"res-downloader/core/shared"
 	"strconv"
 	"time"
 )
@@ -170,7 +171,7 @@ func (a *App) UnsetSystemProxy() error {
 }
 
 func (a *App) isInstall() bool {
-	return FileExist(a.LockFile)
+	return shared.FileExist(a.LockFile)
 }
 
 func (a *App) lock() error {

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"res-downloader/core/shared"
 	sysRuntime "runtime"
 	"strings"
 )
@@ -401,7 +402,7 @@ func (h *HttpServer) batchImport(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
-	fileName := filepath.Join(globalConfig.SaveDirectory, "res-downloader-"+GetCurrentDateTimeFormatted()+".txt")
+	fileName := filepath.Join(globalConfig.SaveDirectory, "res-downloader-"+shared.GetCurrentDateTimeFormatted()+".txt")
 	err := os.WriteFile(fileName, []byte(data.Content), 0644)
 	if err != nil {
 		h.error(w, err.Error())

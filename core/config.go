@@ -179,3 +179,54 @@ func (c *Config) setConfig(config Config) {
 		_ = globalConfig.storage.Store(jsonData)
 	}
 }
+
+func (c *Config) getConfig(key string) interface{} {
+	switch key {
+	case "Host":
+		return c.Host
+	case "Port":
+		return c.Port
+	case "Theme":
+		return c.Theme
+	case "Locale":
+		return c.Locale
+	case "Quality":
+		return c.Quality
+	case "SaveDirectory":
+		return c.SaveDirectory
+	case "FilenameLen":
+		return c.FilenameLen
+	case "FilenameTime":
+		return c.FilenameTime
+	case "UpstreamProxy":
+		return c.UpstreamProxy
+	case "UserAgent":
+		return c.UserAgent
+	case "OpenProxy":
+		return c.OpenProxy
+	case "DownloadProxy":
+		return c.DownloadProxy
+	case "AutoProxy":
+		return c.AutoProxy
+	case "TaskNumber":
+		return c.TaskNumber
+	case "WxAction":
+		return c.WxAction
+	case "UseHeaders":
+		return c.UseHeaders
+	case "MimeMap":
+		return c.MimeMap
+	default:
+		return nil
+	}
+}
+
+func (c *Config) TypeSuffix(mime string) (string, string) {
+	mimeMux.RLock()
+	defer mimeMux.RUnlock()
+	mime = strings.ToLower(strings.Split(mime, ";")[0])
+	if v, ok := c.MimeMap[mime]; ok {
+		return v.Type, v.Suffix
+	}
+	return "", ""
+}

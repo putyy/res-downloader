@@ -5,6 +5,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -81,7 +82,7 @@ func (s *SystemSetup) installCert() (string, error) {
 		return "", err
 	}
 
-	distro, err := getLinuxDistro()
+	distro, err := s.getLinuxDistro()
 	if err != nil {
 		return "", fmt.Errorf("detect distro failed: %w", err)
 	}
