@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path"
+	"res-downloader/core/shared"
 )
 
 type Storage struct {
@@ -18,8 +19,8 @@ func NewStorage(filename string, def []byte) *Storage {
 }
 
 func (l *Storage) Load() ([]byte, error) {
-	if !FileExist(l.fileName) {
-		err := os.WriteFile(l.fileName, l.def, 0777)
+	if !shared.FileExist(l.fileName) {
+		err := os.WriteFile(l.fileName, l.def, 0644)
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +34,7 @@ func (l *Storage) Load() ([]byte, error) {
 }
 
 func (l *Storage) Store(data []byte) error {
-	if err := os.WriteFile(l.fileName, data, 0777); err != nil {
+	if err := os.WriteFile(l.fileName, data, 0644); err != nil {
 		return err
 	}
 	return nil

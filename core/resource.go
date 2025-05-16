@@ -9,17 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"res-downloader/core/shared"
 	"strconv"
 	"strings"
 	"sync"
-)
-
-const (
-	DownloadStatusReady   string = "ready" // task create but not start
-	DownloadStatusRunning string = "running"
-	DownloadStatusError   string = "error"
-	DownloadStatusDone    string = "done"
-	DownloadStatusHandle  string = "handle"
 )
 
 type WxFileDecodeResult struct {
@@ -28,9 +21,9 @@ type WxFileDecodeResult struct {
 }
 
 type Resource struct {
-	mediaMark sync.Map
-	resType   map[string]bool
-	resTypeMu sync.RWMutex
+	mediaMark  sync.Map
+	resType    map[string]bool
+	resTypeMux sync.RWMutex
 }
 
 func initResource() *Resource {
@@ -62,15 +55,15 @@ func (r *Resource) markMedia(key string) {
 }
 
 func (r *Resource) getResType(key string) (bool, bool) {
-	r.resTypeMu.RLock()
-	defer r.resTypeMu.RUnlock()
+	r.resTypeMux.RLock()
+	defer r.resTypeMux.RUnlock()
 	value, ok := r.resType[key]
 	return value, ok
 }
 
 func (r *Resource) setResType(n []string) {
-	r.resTypeMu.Lock()
-	defer r.resTypeMu.Unlock()
+	r.resTypeMux.Lock()
+	defer r.resTypeMux.Unlock()
 	r.resType = map[string]bool{
 		"all":   false,
 		"image": false,
@@ -102,7 +95,7 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 	}
 	go func(mediaInfo MediaInfo) {
 		rawUrl := mediaInfo.Url
-		fileName := Md5(rawUrl)
+		fileName := shared.Md5(rawUrl)
 		if mediaInfo.Description != "" {
 			fileName = regexp.MustCompile(`[^\w\p{Han}]`).ReplaceAllString(mediaInfo.Description, "")
 			fileLen := globalConfig.FilenameLen
@@ -117,7 +110,7 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		}
 
 		if globalConfig.FilenameTime {
-			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+GetCurrentDateTimeFormatted()+mediaInfo.Suffix)
+			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+shared.GetCurrentDateTimeFormatted()+mediaInfo.Suffix)
 		} else {
 			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+mediaInfo.Suffix)
 		}
@@ -147,8 +140,8 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		headers, _ := r.parseHeaders(mediaInfo)
 
 		downloader := NewFileDownloader(rawUrl, mediaInfo.SavePath, globalConfig.TaskNumber, headers)
-		downloader.progressCallback = func(totalDownloaded float64) {
-			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded))+"%", DownloadStatusRunning)
+		downloader.progressCallback = func(totalDownloaded, totalSize float64, taskID int, taskProgress float64) {
+			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded*100/totalSize))+"%", shared.DownloadStatusRunning)
 		}
 		err := downloader.Start()
 		if err != nil {
@@ -156,23 +149,21 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 			return
 		}
 		if decodeStr != "" {
-			r.progressEventsEmit(mediaInfo, "解密中", DownloadStatusRunning)
+			r.progressEventsEmit(mediaInfo, "decrypting in progress", shared.DownloadStatusRunning)
 			if err := r.decodeWxFile(mediaInfo.SavePath, decodeStr); err != nil {
-				r.progressEventsEmit(mediaInfo, "解密出错"+err.Error())
+				r.progressEventsEmit(mediaInfo, "decryption error: "+err.Error())
 				return
 			}
 		}
-		r.progressEventsEmit(mediaInfo, "完成", DownloadStatusDone)
+		r.progressEventsEmit(mediaInfo, "complete", shared.DownloadStatusDone)
 	}(mediaInfo)
 }
 
-// 解析并组装 headers
 func (r *Resource) parseHeaders(mediaInfo MediaInfo) (map[string]string, error) {
 	headers := make(map[string]string)
 
 	if hh, ok := mediaInfo.OtherData["headers"]; ok {
 		var tempHeaders map[string][]string
-		// 解析 JSON 字符串为 map[string][]string
 		if err := json.Unmarshal([]byte(hh), &tempHeaders); err != nil {
 			return headers, fmt.Errorf("parse headers JSON err: %v", err)
 		}
@@ -193,7 +184,7 @@ func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string)
 		return "", err
 	}
 	defer sourceFile.Close()
-	mediaInfo.SavePath = strings.ReplaceAll(fileName, ".mp4", "_解密.mp4")
+	mediaInfo.SavePath = strings.ReplaceAll(fileName, ".mp4", "_decrypt.mp4")
 
 	destinationFile, err := os.Create(mediaInfo.SavePath)
 	if err != nil {
@@ -213,7 +204,7 @@ func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string)
 }
 
 func (r *Resource) progressEventsEmit(mediaInfo MediaInfo, args ...string) {
-	Status := DownloadStatusError
+	Status := shared.DownloadStatusError
 	Message := "ok"
 
 	if len(args) > 0 {

@@ -8,7 +8,7 @@ body:
     attributes:
       label: "Title \\ 标题"
       description: "A brief summary of your feature request. \\ 对您功能建议的简要总结。"
-      placeholder: "Enter the feature title here. \\ 在此输入功能标题。"
+      placeholder: "Enter the feature title here. \\ 在此输入功能标题。 "
     validations:
       required: true
 

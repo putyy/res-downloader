@@ -10,10 +10,15 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"res-downloader/core/shared"
 	sysRuntime "runtime"
 	"strings"
 )
+
+type respData map[string]interface{}
 
 type ResponseData struct {
 	Code    int         `json:"code"`
@@ -33,23 +38,29 @@ func initHttpServer() *HttpServer {
 func (h *HttpServer) run() {
 	listener, err := net.Listen("tcp", globalConfig.Host+":"+globalConfig.Port)
 	if err != nil {
-		log.Fatalf("无法启动监听: %v", err)
+		globalLogger.Err(err)
+		log.Fatalf("Service cannot start: %v", err)
 	}
-	fmt.Println("服务已启动，监听 http://" + globalConfig.Host + ":" + globalConfig.Port)
-	if err := http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host == "127.0.0.1:"+globalConfig.Port && strings.Contains(r.URL.Path, "/cert") {
-			w.Header().Set("Content-Type", "application/x-x509-ca-data")
-			w.Header().Set("Content-Disposition", "attachment;filename=res-downloader-public.crt")
-			w.Header().Set("Content-Transfer-Encoding", "binary")
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(appOnce.PublicCrt)))
-			w.WriteHeader(http.StatusOK)
-			_, err = io.Copy(w, io.NopCloser(bytes.NewReader(appOnce.PublicCrt)))
+	fmt.Println("Service started, listening http://" + globalConfig.Host + ":" + globalConfig.Port)
+	if err1 := http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host == "127.0.0.1:"+globalConfig.Port && HandleApi(w, r) {
+
 		} else {
 			proxyOnce.Proxy.ServeHTTP(w, r) // 代理
 		}
-	})); err != nil {
-		fmt.Printf("服务器异常: %v", err)
+	})); err1 != nil {
+		globalLogger.Err(err1)
+		fmt.Printf("Service startup exception: %v", err1)
 	}
+}
+
+func (h *HttpServer) downCert(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/x-x509-ca-data")
+	w.Header().Set("Content-Disposition", "attachment;filename=res-downloader-public.crt")
+	w.Header().Set("Content-Transfer-Encoding", "binary")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(appOnce.PublicCrt)))
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, io.NopCloser(bytes.NewReader(appOnce.PublicCrt)))
 }
 
 func (h *HttpServer) preview(w http.ResponseWriter, r *http.Request) {
@@ -109,12 +120,47 @@ func (h *HttpServer) send(t string, data interface{}) {
 	runtime.EventsEmit(appOnce.ctx, "event", string(jsonData))
 }
 
-func (h *HttpServer) writeJson(w http.ResponseWriter, data ResponseData) {
+func (h *HttpServer) writeJson(w http.ResponseWriter, data *ResponseData) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		globalLogger.err(err)
+		globalLogger.Err(err)
+	}
+}
+
+func (h *HttpServer) error(w http.ResponseWriter, args ...interface{}) {
+	message := "ok"
+	var data interface{}
+
+	if len(args) > 0 {
+		message = args[0].(string)
+	}
+	if len(args) > 1 {
+		data = args[1]
+	}
+	h.writeJson(w, h.buildResp(0, message, data))
+}
+
+func (h *HttpServer) success(w http.ResponseWriter, args ...interface{}) {
+	message := "ok"
+	var data interface{}
+
+	if len(args) > 0 {
+		data = args[0]
+	}
+
+	if len(args) > 1 {
+		message = args[1].(string)
+	}
+	h.writeJson(w, h.buildResp(1, message, data))
+}
+
+func (h *HttpServer) buildResp(code int, message string, data interface{}) *ResponseData {
+	return &ResponseData{
+		Code:    code,
+		Message: message,
+		Data:    data,
 	}
 }
 
@@ -124,14 +170,11 @@ func (h *HttpServer) openDirectoryDialog(w http.ResponseWriter, r *http.Request)
 		Title:            "Select a folder",
 	})
 	if err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]interface{}{
-			"folder": folder,
-		},
+	h.success(w, respData{
+		"folder": folder,
 	})
 }
 
@@ -146,14 +189,11 @@ func (h *HttpServer) openFileDialog(w http.ResponseWriter, r *http.Request) {
 		Title: "Select a file",
 	})
 	if err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]interface{}{
-			"file": filePath,
-		},
+	h.success(w, respData{
+		"file": filePath,
 	})
 }
 
@@ -171,14 +211,10 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 
 	switch sysRuntime.GOOS {
 	case "darwin":
-		// macOS
 		cmd = exec.Command("open", "-R", filePath)
 	case "windows":
-		// Windows
 		cmd = exec.Command("explorer", "/select,", filePath)
 	case "linux":
-		// linux
-		// 尝试使用不同的文件管理器
 		cmd = exec.Command("nautilus", filePath)
 		if err := cmd.Start(); err != nil {
 			cmd = exec.Command("thunar", filePath)
@@ -187,78 +223,110 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 				if err := cmd.Start(); err != nil {
 					cmd = exec.Command("pcmanfm", filePath)
 					if err := cmd.Start(); err != nil {
-						globalLogger.err(err)
-						h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+						globalLogger.Err(err)
+						h.error(w, err.Error())
 						return
 					}
 				}
 			}
 		}
 	default:
-		h.writeJson(w, ResponseData{Code: 0, Message: "unsupported platform"})
+		h.error(w, "unsupported platform")
 		return
 	}
 
 	err = cmd.Start()
 	if err != nil {
-		globalLogger.err(err)
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		globalLogger.Err(err)
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
+}
+
+func (h *HttpServer) install(w http.ResponseWriter, r *http.Request) {
+	if appOnce.isInstall() {
+		h.success(w, respData{
+			"isPass": systemOnce.Password == "",
+		})
+		return
+	}
+
+	out, err := appOnce.installCert()
+	if err != nil {
+		h.error(w, err.Error()+"\n"+out, respData{
+			"isPass": systemOnce.Password == "",
+		})
+		return
+	}
+
+	h.success(w, respData{
+		"isPass": systemOnce.Password == "",
+	})
+}
+
+func (h *HttpServer) setSystemPassword(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Password string `json:"password"`
+		IsCache  bool   `json:"isCache"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	systemOnce.SetPassword(data.Password, data.IsCache)
+	h.success(w)
 }
 
 func (h *HttpServer) openSystemProxy(w http.ResponseWriter, r *http.Request) {
-	appOnce.OpenSystemProxy()
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]bool{
-			"isProxy": appOnce.IsProxy,
-		},
+	err := appOnce.OpenSystemProxy()
+	if err != nil {
+		h.error(w, err.Error(), respData{
+			"value": appOnce.IsProxy,
+		})
+		return
+	}
+	h.success(w, respData{
+		"value": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) unsetSystemProxy(w http.ResponseWriter, r *http.Request) {
-	appOnce.UnsetSystemProxy()
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]bool{
-			"isProxy": appOnce.IsProxy,
-		},
+	err := appOnce.UnsetSystemProxy()
+	if err != nil {
+		h.error(w, err.Error(), respData{
+			"value": appOnce.IsProxy,
+		})
+		return
+	}
+	h.success(w, respData{
+		"value": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) isProxy(w http.ResponseWriter, r *http.Request) {
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]interface{}{
-			"isProxy": appOnce.IsProxy,
-		},
+	h.success(w, respData{
+		"value": appOnce.IsProxy,
 	})
 }
 
 func (h *HttpServer) appInfo(w http.ResponseWriter, r *http.Request) {
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: appOnce,
-	})
+	h.success(w, appOnce)
 }
 
 func (h *HttpServer) getConfig(w http.ResponseWriter, r *http.Request) {
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: globalConfig,
-	})
+	h.success(w, globalConfig)
 }
 
 func (h *HttpServer) setConfig(w http.ResponseWriter, r *http.Request) {
 	var data Config
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
 	globalConfig.setConfig(data)
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) setType(w http.ResponseWriter, r *http.Request) {
@@ -274,12 +342,12 @@ func (h *HttpServer) setType(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) clear(w http.ResponseWriter, r *http.Request) {
 	resourceOnce.clear()
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
@@ -290,7 +358,7 @@ func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
 	if err == nil && data.Sign != "" {
 		resourceOnce.delete(data.Sign)
 	}
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
@@ -299,11 +367,11 @@ func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 		DecodeStr string `json:"decodeStr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
 	resourceOnce.download(data.MediaInfo, data.DecodeStr)
-	h.writeJson(w, ResponseData{Code: 1})
+	h.success(w)
 }
 
 func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
@@ -313,18 +381,34 @@ func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 		DecodeStr string `json:"decodeStr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
 	savePath, err := resourceOnce.wxFileDecode(data.MediaInfo, data.Filename, data.DecodeStr)
 	if err != nil {
-		h.writeJson(w, ResponseData{Code: 0, Message: err.Error()})
+		h.error(w, err.Error())
 		return
 	}
-	h.writeJson(w, ResponseData{
-		Code: 1,
-		Data: map[string]string{
-			"save_path": savePath,
-		},
+	h.success(w, respData{
+		"save_path": savePath,
+	})
+}
+
+func (h *HttpServer) batchImport(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	fileName := filepath.Join(globalConfig.SaveDirectory, "res-downloader-"+shared.GetCurrentDateTimeFormatted()+".txt")
+	err := os.WriteFile(fileName, []byte(data.Content), 0644)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	h.success(w, respData{
+		"file_name": fileName,
 	})
 }

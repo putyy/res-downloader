@@ -26,7 +26,7 @@
 import {ref} from "vue"
 import {Quit, WindowFullscreen, WindowMinimise, WindowUnfullscreen} from "../../wailsjs/runtime"
 
-const isMaximized = ref(false);
+const isMaximized = ref(false)
 
 const closeWindow = () => {
   Quit()
