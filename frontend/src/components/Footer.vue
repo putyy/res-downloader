@@ -11,8 +11,8 @@
       <div class="flex flex-col">
         <div class="flex flex-row">
           <div>
-            <div class="flex flex-row items-center">
-              <div class="text-4xl font-bold">{{ store.appInfo.AppName.charAt(0).toUpperCase() + store.appInfo.AppName.slice(1) }}</div>
+            <div class="flex flex-row items-end">
+              <div class="text-4xl font-bold">{{ store.appInfo.AppName }}</div>
               <div class="text-xs pl-5 text-slate-400">
                 Version {{ store.appInfo.Version }}
               </div>

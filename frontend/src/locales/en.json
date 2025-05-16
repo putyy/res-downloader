@@ -15,7 +15,11 @@
     "password_tip": "The password entered this time is only valid during this session, used for installing certificates or setting system proxy!",
     "password_placeholder": "Please enter your computer password",
     "password_cache": "Cache Password",
-    "password_empty": "Password cannot be empty"
+    "password_empty": "Password cannot be empty",
+    "screen_minimize": "Minimize",
+    "screen_restore": "Restore",
+    "screen_maximize": "Maximize",
+    "screen_close": "Close"
   },
   "menu": {
     "index": "Intercept",

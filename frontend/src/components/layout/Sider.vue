@@ -93,12 +93,11 @@ watch(() => route.path, (newPath, oldPath) => {
 })
 
 onMounted(()=>{
-  let collapsedTemp = localStorage.getItem("collapsed");
-  console.log("collapsedTemp:", collapsedTemp)
-  if (collapsedTemp) {
-    collapsed.value = JSON.parse(collapsedTemp).collapsed
-    is.value = true
+  const collapsedCache = localStorage.getItem("collapsed");
+  if (collapsedCache) {
+    collapsed.value = JSON.parse(collapsedCache).collapsed
   }
+  is.value = true
 })
 
 const renderIcon = (icon: any) => {

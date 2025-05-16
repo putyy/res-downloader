@@ -15,7 +15,11 @@
     "password_tip": "本次输入的密码仅在本次运行期间有效，用于安装证书或设置系统代理！",
     "password_placeholder": "请输入你的电脑密码",
     "password_cache": "是否缓存",
-    "password_empty": "密码不能为空"
+    "password_empty": "密码不能为空",
+    "screen_minimize": "最小化",
+    "screen_restore": "还原",
+    "screen_maximize": "最大化",
+    "screen_close": "关闭"
   },
   "menu": {
     "index": "获取资源",
