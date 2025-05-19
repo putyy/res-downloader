@@ -121,7 +121,7 @@ func (s *SystemSetup) installCert() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	output, err := s.runCommand([]string{"sudo", "-S", "security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", s.CertFile})
+	output, err := s.runCommand([]string{"security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", s.CertFile})
 	if err != nil {
 		return string(output), err
 	}

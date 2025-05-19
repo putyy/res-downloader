@@ -23,13 +23,13 @@ func (s *SystemSetup) getLinuxDistro() (string, error) {
 	return "", fmt.Errorf("could not determine linux distribution")
 }
 
-func (s *SystemSetup) runCommand(args []string) ([]byte, error) {
+func (s *SystemSetup) runCommand(args []string, sudo bool) ([]byte, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("no command provided")
 	}
 
 	var cmd *exec.Cmd
-	if s.Password != "" {
+	if s.Password != "" && sudo {
 		cmd = exec.Command("sudo", append([]string{"-S"}, args...)...)
 		cmd.Stdin = bytes.NewReader([]byte(s.Password + "\n"))
 	} else {
@@ -53,7 +53,7 @@ func (s *SystemSetup) setProxy() error {
 	var errs strings.Builder
 
 	for _, cmd := range commands {
-		if output, err := s.runCommand(cmd); err != nil {
+		if output, err := s.runCommand(cmd, false); err != nil {
 			errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
 		} else {
 			isSuccess = true
@@ -69,7 +69,7 @@ func (s *SystemSetup) setProxy() error {
 
 func (s *SystemSetup) unsetProxy() error {
 	cmd := []string{"gsettings", "set", "org.gnome.system.proxy", "mode", "none"}
-	output, err := s.runCommand(cmd)
+	output, err := s.runCommand(cmd, false)
 	if err != nil {
 		return fmt.Errorf("failed to unset proxy: %s\noutput: %s", err.Error(), string(output))
 	}
@@ -93,7 +93,7 @@ func (s *SystemSetup) installCert() (string, error) {
 	if distro == "deepin" {
 		certDir := "/usr/share/ca-certificates/" + appOnce.AppName
 		certPath = certDir + "/" + certName
-		s.runCommand([]string{"mkdir", "-p", certDir})
+		s.runCommand([]string{"mkdir", "-p", certDir}, true)
 	} else {
 		certPath = "/usr/local/share/ca-certificates/" + certName
 	}
@@ -101,7 +101,7 @@ func (s *SystemSetup) installCert() (string, error) {
 	var outs, errs strings.Builder
 	isSuccess := false
 
-	if output, err := s.runCommand([]string{"cp", "-f", s.CertFile, certPath}); err != nil {
+	if output, err := s.runCommand([]string{"cp", "-f", s.CertFile, certPath}, true); err != nil {
 		errs.WriteString(fmt.Sprintf("copy cert failed: %s\n%s\n", err.Error(), output))
 	} else {
 		isSuccess = true
@@ -111,9 +111,9 @@ func (s *SystemSetup) installCert() (string, error) {
 	if distro == "deepin" {
 		confPath := "/etc/ca-certificates.conf"
 		checkCmd := []string{"grep", "-qxF", certName, confPath}
-		if _, err := s.runCommand(checkCmd); err != nil {
+		if _, err := s.runCommand(checkCmd, true); err != nil {
 			echoCmd := []string{"bash", "-c", fmt.Sprintf("echo '%s' >> %s", certName, confPath)}
-			if output, err := s.runCommand(echoCmd); err != nil {
+			if output, err := s.runCommand(echoCmd, true); err != nil {
 				errs.WriteString(fmt.Sprintf("append conf failed: %s\n%s\n", err.Error(), output))
 			} else {
 				isSuccess = true
@@ -122,7 +122,7 @@ func (s *SystemSetup) installCert() (string, error) {
 		}
 	}
 
-	if output, err := s.runCommand([]string{"update-ca-certificates"}); err != nil {
+	if output, err := s.runCommand([]string{"update-ca-certificates"}, true); err != nil {
 		errs.WriteString(fmt.Sprintf("update failed: %s\n%s\n", err.Error(), output))
 	} else {
 		isSuccess = true
