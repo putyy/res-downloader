@@ -46,6 +46,7 @@ func initConfig() *Config {
   "Host": "127.0.0.1",
   "Port": "8899",
   "Theme": "lightTheme",
+  "Locale": "zh",
   "Quality": 0,
   "SaveDirectory": "",
   "FilenameLen": 0,
@@ -53,7 +54,7 @@ func initConfig() *Config {
   "UpstreamProxy": "",
   "OpenProxy": false,
   "DownloadProxy": false,
-  "AutoProxy": true,
+  "AutoProxy": false,
   "WxAction": true,
   "TaskNumber": __TaskNumber__,
   "UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
@@ -215,13 +216,15 @@ func (c *Config) getConfig(key string) interface{} {
 	case "UseHeaders":
 		return c.UseHeaders
 	case "MimeMap":
+		mimeMux.RLock()
+		defer mimeMux.RUnlock()
 		return c.MimeMap
 	default:
 		return nil
 	}
 }
 
-func (c *Config) TypeSuffix(mime string) (string, string) {
+func (c *Config) typeSuffix(mime string) (string, string) {
 	mimeMux.RLock()
 	defer mimeMux.RUnlock()
 	mime = strings.ToLower(strings.Split(mime, ";")[0])

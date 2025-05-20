@@ -37,7 +37,7 @@ func (p *QqPlugin) OnRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Requ
 		}
 	}
 
-	return r, nil
+	return nil, nil
 }
 
 func (p *QqPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {

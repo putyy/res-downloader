@@ -13,30 +13,19 @@ import (
 	"time"
 )
 
-// 定义常量
 const (
 	MaxRetries  = 3               // 最大重试次数
 	RetryDelay  = 3 * time.Second // 重试延迟
 	MinPartSize = 1 * 1024 * 1024 // 最小分片大小（1MB）
 )
 
-// 错误定义
-var (
-	ErrInvalidFileSize    = errors.New("invalid file size")
-	ErrTaskFailed         = errors.New("download task failed")
-	ErrIncompleteDownload = errors.New("incomplete download")
-)
-
-// 进度回调函数
 type ProgressCallback func(totalDownloaded float64, totalSize float64, taskID int, taskProgress float64)
 
-// 进度通道
 type ProgressChan struct {
 	taskID int
 	bytes  int64
 }
 
-// 下载任务
 type DownloadTask struct {
 	taskID         int
 	rangeStart     int64
@@ -143,7 +132,7 @@ func (fd *FileDownloader) init() error {
 
 	fd.TotalSize = resp.ContentLength
 	if fd.TotalSize <= 0 {
-		return ErrInvalidFileSize
+		return errors.New("invalid file size")
 	}
 
 	if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > MinPartSize {

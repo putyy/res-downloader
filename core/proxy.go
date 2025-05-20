@@ -54,7 +54,7 @@ func init() {
 			return resourceOnce.getResType(key)
 		},
 		TypeSuffix: func(mine string) (string, string) {
-			return globalConfig.TypeSuffix(mine)
+			return globalConfig.typeSuffix(mine)
 		},
 		MediaIsMarked: func(key string) bool {
 			return resourceOnce.mediaIsMarked(key)
@@ -145,21 +145,22 @@ func (p *Proxy) matchPlugin(host string) shared.Plugin {
 	if plugin, ok := pluginRegistry[domain]; ok {
 		return plugin
 	}
-
-	return pluginRegistry["default"]
+	return nil
 }
 
 func (p *Proxy) httpRequestEvent(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-	newReq, newResp := p.matchPlugin(r.Host).OnRequest(r, ctx)
-	if newResp != nil {
-		return newReq, newResp
-	}
+	plugin := p.matchPlugin(r.Host)
+	if plugin != nil {
+		newReq, newResp := plugin.OnRequest(r, ctx)
+		if newResp != nil {
+			return newReq, newResp
+		}
 
-	if newReq != nil {
-		return newReq, nil
+		if newReq != nil {
+			return newReq, nil
+		}
 	}
-
-	return r, nil
+	return pluginRegistry["default"].OnRequest(r, ctx)
 }
 
 func (p *Proxy) httpResponseEvent(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
@@ -167,10 +168,13 @@ func (p *Proxy) httpResponseEvent(resp *http.Response, ctx *goproxy.ProxyCtx) *h
 		return resp
 	}
 
-	newResp := p.matchPlugin(resp.Request.Host).OnResponse(resp, ctx)
-	if newResp != nil {
-		return newResp
+	plugin := p.matchPlugin(resp.Request.Host)
+	if plugin != nil {
+		newResp := plugin.OnResponse(resp, ctx)
+		if newResp != nil {
+			return newResp
+		}
 	}
 
-	return resp
+	return pluginRegistry["default"].OnResponse(resp, ctx)
 }

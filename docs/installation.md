@@ -10,8 +10,11 @@
 - 双击下载好的dmg文件，将res-downloader拖入应用即可，如图:  
 ![installation-mac-1.png](images/installation-mac-1.png ':size=50%')
 
-## Linux安装过程
-- 执行文件运行方式举例
+## Linux安装过程(自行替换掉对应的安装文件目录)
+- ubuntu安装deb文件
+> sudo apt install res-downloader_3.0.2_linux_x64.deb
+
+- 执行文件运行方式
 > chmod +x ./res-downloader_3.0.2_linux_x64
 > sudo ./res-downloader_3.0.2_linux_x64
 

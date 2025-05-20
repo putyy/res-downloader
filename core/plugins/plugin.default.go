@@ -22,17 +22,17 @@ func (p *DefaultPlugin) Domains() []string {
 }
 
 func (p *DefaultPlugin) OnRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-	return nil, nil
+	return r, nil
 }
 
 func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
 	if resp == nil || resp.Request == nil || (resp.StatusCode != 200 && resp.StatusCode != 206) {
-		return nil
+		return resp
 	}
 
 	classify, suffix := p.bridge.TypeSuffix(resp.Header.Get("Content-Type"))
 	if classify == "" {
-		return nil
+		return resp
 	}
 
 	rawUrl := resp.Request.URL.String()
@@ -74,5 +74,5 @@ func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *
 		}(res)
 	}
 
-	return nil
+	return resp
 }
