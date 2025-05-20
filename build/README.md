@@ -32,11 +32,20 @@ cp build/bin/res-downloader build/linux/AppImage/usr/bin/
 
 # 复制WebKit相关文件
 pushd build/linux/AppImage
-find /usr/lib* -name WebKitNetworkProcess -exec mkdir -p $(dirname '{}') \; -exec cp --parents '{}' "." \; || true
-find /usr/lib* -name WebKitWebProcess -exec mkdir -p $(dirname '{}') \; -exec cp --parents '{}' "." \; || true
-find /usr/lib* -name libwebkit2gtkinjectedbundle.so -exec mkdir -p $(dirname '{}') \; -exec cp --parents '{}' "." \; || true
+
+for f in WebKitNetworkProcess WebKitWebProcess libwebkit2gtkinjectedbundle.so; do
+    path=$(find /usr/lib* -name "$f" 2>/dev/null | head -n 1)
+    if [ -n "$path" ]; then
+        mkdir -p ./$(dirname "$path")
+        cp --parents "$path" .
+    else
+        echo "⚠️ $f not found, you may need to install libwebkit2gtk"
+    fi
+done
+
 popd
 
+# 下载appimagetool
 wget -O ./build/bin/appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage 
 chmod +x ./build/bin/appimagetool-x86_64.AppImage
 ./build/bin/appimagetool-x86_64.AppImage build/linux/AppImage build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64.AppImage
