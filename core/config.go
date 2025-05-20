@@ -151,6 +151,7 @@ func initConfig() *Config {
 
 func (c *Config) setConfig(config Config) {
 	oldProxy := c.UpstreamProxy
+	openProxy := c.OpenProxy
 	c.Host = config.Host
 	c.Port = config.Port
 	c.Theme = config.Theme
@@ -167,7 +168,7 @@ func (c *Config) setConfig(config Config) {
 	c.TaskNumber = config.TaskNumber
 	c.WxAction = config.WxAction
 	c.UseHeaders = config.UseHeaders
-	if oldProxy != c.UpstreamProxy {
+	if oldProxy != c.UpstreamProxy || openProxy != c.OpenProxy {
 		proxyOnce.setTransport()
 	}
 
