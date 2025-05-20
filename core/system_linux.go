@@ -3,9 +3,42 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 )
+
+func (s *SystemSetup) getLinuxDistro() (string, error) {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "ID=") {
+			return strings.Trim(strings.TrimPrefix(line, "ID="), "\""), nil
+		}
+	}
+	return "", fmt.Errorf("could not determine linux distribution")
+}
+
+func (s *SystemSetup) runCommand(args []string, sudo bool) ([]byte, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("no command provided")
+	}
+
+	var cmd *exec.Cmd
+	if s.Password != "" && sudo {
+		cmd = exec.Command("sudo", append([]string{"-S"}, args...)...)
+		cmd.Stdin = bytes.NewReader([]byte(s.Password + "\n"))
+	} else {
+		cmd = exec.Command(args[0], args[1:]...)
+	}
+
+	output, err := cmd.CombinedOutput()
+	return output, err
+}
 
 func (s *SystemSetup) setProxy() error {
 	commands := [][]string{
@@ -15,23 +48,32 @@ func (s *SystemSetup) setProxy() error {
 		{"gsettings", "set", "org.gnome.system.proxy.https", "host", "127.0.0.1"},
 		{"gsettings", "set", "org.gnome.system.proxy.https", "port", globalConfig.Port},
 	}
-	is := false
+
+	isSuccess := false
+	var errs strings.Builder
+
 	for _, cmd := range commands {
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
-			fmt.Println(err)
+		if output, err := s.runCommand(cmd, false); err != nil {
+			errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
 		} else {
-			is = true
+			isSuccess = true
 		}
 	}
-	if is {
+
+	if isSuccess {
 		return nil
 	}
-	return fmt.Errorf("Failed to activate proxy")
+
+	return fmt.Errorf("failed to set proxy:\n%s", errs.String())
 }
 
 func (s *SystemSetup) unsetProxy() error {
 	cmd := []string{"gsettings", "set", "org.gnome.system.proxy", "mode", "none"}
-	return exec.Command(cmd[0], cmd[1:]...).Run()
+	output, err := s.runCommand(cmd, false)
+	if err != nil {
+		return fmt.Errorf("failed to unset proxy: %s\noutput: %s", err.Error(), string(output))
+	}
+	return nil
 }
 
 func (s *SystemSetup) installCert() (string, error) {
@@ -40,35 +82,56 @@ func (s *SystemSetup) installCert() (string, error) {
 		return "", err
 	}
 
-	actions := [][]string{
-		{"/usr/local/share/ca-certificates/", "update-ca-certificates"},
-		{"/usr/share/ca-certificates/trust-source/anchors/", "update-ca-trust"},
-		{"/usr/share/ca-certificates/trust-source/anchors/", "trust extract-compat"},
-		{"/etc/pki/ca-trust/source/anchors/", "update-ca-trust"},
-		{"/etc/ssl/ca-certificates/", "update-ca-certificates"},
+	distro, err := s.getLinuxDistro()
+	if err != nil {
+		return "", fmt.Errorf("detect distro failed: %w", err)
 	}
 
-	is := false
+	certName := appOnce.AppName + ".crt"
 
-	for _, action := range actions {
-		dir := action[0]
-		if err := exec.Command("sudo", "cp", "-f", s.CertFile, dir+appOnce.AppName+".crt").Run(); err != nil {
-			fmt.Printf("Failed to copy to %s: %v\n", dir, err)
-			continue
+	var certPath string
+	if distro == "deepin" {
+		certDir := "/usr/share/ca-certificates/" + appOnce.AppName
+		certPath = certDir + "/" + certName
+		s.runCommand([]string{"mkdir", "-p", certDir}, true)
+	} else {
+		certPath = "/usr/local/share/ca-certificates/" + certName
+	}
+
+	var outs, errs strings.Builder
+	isSuccess := false
+
+	if output, err := s.runCommand([]string{"cp", "-f", s.CertFile, certPath}, true); err != nil {
+		errs.WriteString(fmt.Sprintf("copy cert failed: %s\n%s\n", err.Error(), output))
+	} else {
+		isSuccess = true
+		outs.Write(output)
+	}
+
+	if distro == "deepin" {
+		confPath := "/etc/ca-certificates.conf"
+		checkCmd := []string{"grep", "-qxF", certName, confPath}
+		if _, err := s.runCommand(checkCmd, true); err != nil {
+			echoCmd := []string{"bash", "-c", fmt.Sprintf("echo '%s' >> %s", certName, confPath)}
+			if output, err := s.runCommand(echoCmd, true); err != nil {
+				errs.WriteString(fmt.Sprintf("append conf failed: %s\n%s\n", err.Error(), output))
+			} else {
+				isSuccess = true
+				outs.Write(output)
+			}
 		}
-
-		cmd := action[1]
-		if err := exec.Command("sudo", cmd).Run(); err != nil {
-			fmt.Printf("Failed to refresh certificates using %s: %v\n", cmd, err)
-			continue
-		}
-
-		is = true
 	}
 
-	if !is {
-		return "", fmt.Errorf("Certificate installation failed")
+	if output, err := s.runCommand([]string{"update-ca-certificates"}, true); err != nil {
+		errs.WriteString(fmt.Sprintf("update failed: %s\n%s\n", err.Error(), output))
+	} else {
+		isSuccess = true
+		outs.Write(output)
 	}
 
-	return "", nil
+	if isSuccess {
+		return "", nil
+	}
+
+	return outs.String(), fmt.Errorf("certificate installation failed:\n%s", errs.String())
 }

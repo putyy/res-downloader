@@ -16,7 +16,7 @@ const routes = [
       {
         path: "/setting",
         name: "setting",
-        meta: {keepAlive: true},
+        meta: {keepAlive: false},
         component: () => import("@/views/setting.vue"),
       },
     ]

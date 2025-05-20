@@ -3,14 +3,13 @@ package core
 import (
 	"context"
 	"embed"
+	"fmt"
 	"github.com/vrischmann/userdir"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"os"
 	"path/filepath"
 	"regexp"
-	sysRuntime "runtime"
+	"res-downloader/core/shared"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -25,7 +24,7 @@ type App struct {
 	LockFile    string `json:"-"`
 	PublicCrt   []byte `json:"-"`
 	PrivateKey  []byte `json:"-"`
-	IsProxy     bool   `json:"-"`
+	IsProxy     bool   `json:"IsProxy"`
 }
 
 var (
@@ -52,8 +51,7 @@ func GetApp(assets embed.FS, wjs string) *App {
 			Version:     version,
 			Description: "res-downloader是一款集网络资源嗅探 + 高速下载功能于一体的软件，高颜值、高性能和多样化，提供个人用户下载自己上传到各大平台的网络资源功能！",
 			Copyright:   "Copyright © 2023~" + strconv.Itoa(time.Now().Year()),
-			PublicCrt: []byte(`
------BEGIN CERTIFICATE-----
+			PublicCrt: []byte(`-----BEGIN CERTIFICATE-----
 MIIDwzCCAqugAwIBAgIUFAnC6268dp/z1DR9E1UepiWgWzkwDQYJKoZIhvcNAQEL
 BQAwcDELMAkGA1UEBhMCQ04xEjAQBgNVBAgMCUNob25ncWluZzESMBAGA1UEBwwJ
 Q2hvbmdxaW5nMQ4wDAYDVQQKDAVnb3dhczEWMBQGA1UECwwNSVQgRGVwYXJ0bWVu
@@ -77,8 +75,7 @@ e3oowvgwikqm6XR6BEcRpPkztqcKST7jPFGHiXWsAqiibc+/plMW9qebhfMXEGhQ
 D8HixYbEDg==
 -----END CERTIFICATE-----
 `),
-			PrivateKey: []byte(`
------BEGIN PRIVATE KEY-----
+			PrivateKey: []byte(`-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDcDt23t6ioBoHG
 /Y2mOjxntWQa9dP3eNl+mAC6425DlEtyc6czNAIKuuM9wt+wAwDQAgrd5RaxdcpJ
 H1JlMkEtBFkIkdn0Ag98D7nwlVA9ON3xQi5Bkl+sN/oWOE8lOwvNyNNT6ZPu3qUS
@@ -109,6 +106,10 @@ ILKEQKmPPzKs7kp/7Nz+2cT3
 `),
 		}
 		appOnce.UserDir = filepath.Join(userdir.GetConfigHome(), appOnce.AppName)
+		err := os.MkdirAll(appOnce.UserDir, 0750)
+		if err != nil {
+			fmt.Println("Mkdir UserDir err: ", err.Error())
+		}
 		appOnce.LockFile = filepath.Join(appOnce.UserDir, "install.lock")
 		initLogger()
 		initConfig()
@@ -123,22 +124,6 @@ ILKEQKmPPzKs7kp/7Nz+2cT3
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	go httpServerOnce.run()
-	time.AfterFunc(200*time.Millisecond, func() {
-		if globalConfig.AutoProxy {
-			appOnce.OpenSystemProxy()
-		}
-	})
-
-	go func() {
-		if a.isInstall() {
-			return
-		}
-		err := os.MkdirAll(a.UserDir, os.ModePerm)
-		if err != nil {
-			return
-		}
-		a.installCert()
-	}()
 }
 
 func (a *App) OnExit() {
@@ -146,58 +131,49 @@ func (a *App) OnExit() {
 	globalLogger.Close()
 }
 
-func (a *App) installCert() {
-	if res, err := systemOnce.installCert(); err != nil {
-		if sysRuntime.GOOS == "darwin" {
-			_ = runtime.ClipboardSetText(appOnce.ctx, `echo "输入本地登录密码" && sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "`+systemOnce.CertFile+`" && touch `+a.LockFile+` && echo "安装完成"`)
-			DialogErr("证书安装失败，请打开终端执行安装(命令已复制到剪切板),err:" + err.Error() + ", " + res)
-		} else if sysRuntime.GOOS == "windows" && strings.Contains(err.Error(), "Access is denied.") {
-			DialogErr("首次启用本软件，请使用鼠标右键选择以管理员身份运行")
-		} else if sysRuntime.GOOS == "linux" && strings.Contains(err.Error(), "Access is denied.") {
-			DialogErr("证书路径: " + systemOnce.CertFile + ", 请手动安装，安装完成后请执行: touch" + a.LockFile + " err:" + err.Error() + ", " + res)
-		} else {
-			globalLogger.Esg(err, res)
-			DialogErr("err:" + err.Error() + ", " + res)
-		}
+func (a *App) installCert() (string, error) {
+	out, err := systemOnce.installCert()
+	if err != nil {
+		globalLogger.Esg(err, out)
+		return out, err
 	} else {
 		if err := a.lock(); err != nil {
-			globalLogger.err(err)
+			globalLogger.Err(err)
 		}
 	}
+	return out, nil
 }
 
-func (a *App) OpenSystemProxy() bool {
+func (a *App) OpenSystemProxy() error {
 	if a.IsProxy {
-		return true
+		return nil
 	}
 	err := systemOnce.setProxy()
 	if err == nil {
 		a.IsProxy = true
-		return true
+		return nil
 	}
-	DialogErr("设置失败:" + err.Error())
-	return false
+	return err
 }
 
-func (a *App) UnsetSystemProxy() bool {
+func (a *App) UnsetSystemProxy() error {
 	if !a.IsProxy {
-		return true
+		return nil
 	}
 	err := systemOnce.unsetProxy()
 	if err == nil {
 		a.IsProxy = false
-		return true
+		return nil
 	}
-	DialogErr("设置失败:" + err.Error())
-	return false
+	return err
 }
 
 func (a *App) isInstall() bool {
-	return FileExist(a.LockFile)
+	return shared.FileExist(a.LockFile)
 }
 
 func (a *App) lock() error {
-	err := os.WriteFile(a.LockFile, []byte("success"), 0777)
+	err := os.WriteFile(a.LockFile, []byte("success"), 0644)
 	if err != nil {
 		return err
 	}

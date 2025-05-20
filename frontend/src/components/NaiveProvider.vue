@@ -19,7 +19,6 @@ import {
   useNotification,
 } from "naive-ui"
 
-
 function registerNaiveTools() {
   window.$loadingBar = useLoadingBar()
   window.$dialog = useDialog()

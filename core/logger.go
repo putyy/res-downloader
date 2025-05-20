@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"res-downloader/core/shared"
 )
 
 type Logger struct {
@@ -15,7 +16,7 @@ type Logger struct {
 
 func initLogger() *Logger {
 	if globalLogger == nil {
-		globalLogger = NewLogger(!IsDevelopment(), filepath.Join(appOnce.UserDir, "logs", "app.log"))
+		globalLogger = NewLogger(!shared.IsDevelopment(), filepath.Join(appOnce.UserDir, "logs", "app.log"))
 	}
 	return globalLogger
 }
@@ -24,7 +25,7 @@ func (l *Logger) Close() {
 	_ = l.logFile.Close()
 }
 
-func (l *Logger) err(err error) {
+func (l *Logger) Err(err error) {
 	l.Error().Stack().Err(err)
 }
 
@@ -38,14 +39,14 @@ func NewLogger(logFile bool, logPath string) *Logger {
 	if logFile {
 		// log to file
 		logDir := filepath.Dir(logPath)
-		if err := CreateDirIfNotExist(logDir); err != nil {
+		if err := shared.CreateDirIfNotExist(logDir); err != nil {
 			panic(err)
 		}
 		var (
 			logfile *os.File
 			err     error
 		)
-		logfile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		logfile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			panic(err)
 		}

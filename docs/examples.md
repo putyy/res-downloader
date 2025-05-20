@@ -3,7 +3,7 @@
 ![](images/examples-1.png ':size=50%')
 
 ## 拦截资源
-### 视频号
+### 视频号  
 - 打开视频号即可看到本软件中拦截到的资源   
 ![](images/examples-2.webp ':size=50%')
 

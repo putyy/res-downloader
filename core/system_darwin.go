@@ -9,15 +9,30 @@ import (
 	"strings"
 )
 
+func (s *SystemSetup) runCommand(args []string) ([]byte, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("no command provided")
+	}
+
+	var cmd *exec.Cmd
+	if s.Password != "" {
+		cmd = exec.Command("sudo", append([]string{"-S"}, args...)...)
+		cmd.Stdin = bytes.NewReader([]byte(s.Password + "\n"))
+	} else {
+		cmd = exec.Command(args[0], args[1:]...)
+	}
+
+	output, err := cmd.CombinedOutput()
+	return output, err
+}
+
 func (s *SystemSetup) getNetworkServices() ([]string, error) {
-	cmd := exec.Command("networksetup", "-listallnetworkservices")
-	output, err := cmd.Output()
+	output, err := s.runCommand([]string{"networksetup", "-listallnetworkservices"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command: %v", err)
 	}
 
 	services := strings.Split(string(output), "\n")
-
 	var activeServices []string
 	for _, service := range services {
 		service = strings.TrimSpace(service)
@@ -25,15 +40,12 @@ func (s *SystemSetup) getNetworkServices() ([]string, error) {
 			continue
 		}
 
-		// 检查服务是否活动
-		infoCmd := exec.Command("networksetup", "-getinfo", service)
-		infoOutput, err := infoCmd.Output()
+		infoOutput, err := s.runCommand([]string{"networksetup", "-getinfo", service})
 		if err != nil {
 			fmt.Printf("failed to get info for service %s: %v\n", service, err)
 			continue
 		}
 
-		// 如果输出中包含 "IP address:"，说明服务是活动的
 		if strings.Contains(string(infoOutput), "IP address:") {
 			activeServices = append(activeServices, service)
 		}
@@ -52,25 +64,27 @@ func (s *SystemSetup) setProxy() error {
 		return err
 	}
 
-	is := false
+	isSuccess := false
+	var errs strings.Builder
 	for _, serviceName := range services {
-		if err := exec.Command("networksetup", "-setwebproxy", serviceName, "127.0.0.1", globalConfig.Port).Run(); err != nil {
-			fmt.Println(err)
-		} else {
-			is = true
+		commands := [][]string{
+			{"networksetup", "-setwebproxy", serviceName, "127.0.0.1", globalConfig.Port},
+			{"networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", globalConfig.Port},
 		}
-		if err := exec.Command("networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", globalConfig.Port).Run(); err != nil {
-			fmt.Println(err)
-		} else {
-			is = true
+		for _, cmd := range commands {
+			if output, err := s.runCommand(cmd); err != nil {
+				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
+			} else {
+				isSuccess = true
+			}
 		}
 	}
 
-	if is {
+	if isSuccess {
 		return nil
 	}
 
-	return fmt.Errorf("failed to set proxy for any active network service")
+	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs)
 }
 
 func (s *SystemSetup) unsetProxy() error {
@@ -79,25 +93,27 @@ func (s *SystemSetup) unsetProxy() error {
 		return err
 	}
 
-	is := false
+	isSuccess := false
+	var errs strings.Builder
 	for _, serviceName := range services {
-		if err := exec.Command("networksetup", "-setwebproxystate", serviceName, "off").Run(); err != nil {
-			fmt.Println(err)
-		} else {
-			is = true
+		commands := [][]string{
+			{"networksetup", "-setwebproxystate", serviceName, "off"},
+			{"networksetup", "-setsecurewebproxystate", serviceName, "off"},
 		}
-		if err := exec.Command("networksetup", "-setsecurewebproxystate", serviceName, "off").Run(); err != nil {
-			fmt.Println(err)
-		} else {
-			is = true
+		for _, cmd := range commands {
+			if output, err := s.runCommand(cmd); err != nil {
+				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
+			} else {
+				isSuccess = true
+			}
 		}
 	}
 
-	if is {
+	if isSuccess {
 		return nil
 	}
 
-	return fmt.Errorf("failed to set proxy for any active network service")
+	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs)
 }
 
 func (s *SystemSetup) installCert() (string, error) {
@@ -105,18 +121,7 @@ func (s *SystemSetup) installCert() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	getPasswordCmd := exec.Command("osascript", "-e", `tell app "System Events" to display dialog "请输入你的电脑密码，用于安装证书文件:" default answer "" with hidden answer`, "-e", `text returned of result`)
-	passwordOutput, err := getPasswordCmd.Output()
-	if err != nil {
-		return string(passwordOutput), err
-	}
-
-	password := bytes.TrimSpace(passwordOutput)
-	cmd := exec.Command("sudo", "-S", "security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", s.CertFile)
-
-	cmd.Stdin = bytes.NewReader(append(password, '\n'))
-	output, err := cmd.CombinedOutput()
+	output, err := s.runCommand([]string{"security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", s.CertFile})
 	if err != nil {
 		return string(output), err
 	}
