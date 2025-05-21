@@ -12,6 +12,7 @@ interface RequestOptions {
 
 const instance = axios.create({
     baseURL: "/",
+    timeout: 180000
 })
 
 instance.interceptors.request.use(

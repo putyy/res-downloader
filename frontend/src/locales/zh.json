@@ -74,7 +74,8 @@
     "video_decode_success": "解密成功",
     "use_data": "请选择需要的数据",
     "import_placeholder": "添加多个时，请确保每行只有一个(每个链接回车换行)",
-    "import_empty": "请输入需要导入的数据"
+    "import_empty": "请输入需要导入的数据",
+    "win_install_tip": "首次启用本软件，请使用鼠标右键选择以管理员身份运行"
   },
   "setting": {
     "restart_tip": "如果不清楚保持默认就行，修改后请重启软件",

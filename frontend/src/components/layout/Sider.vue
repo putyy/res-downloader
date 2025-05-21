@@ -15,7 +15,7 @@
               :on-after-leave="() => { showAppName = false }"
               :collapsed-width="70"
               :collapsed="collapsed"
-              :width="140"
+              :width="envInfo.platform==='linux' ? 160 : 140"
               :native-scrollbar="false"
               :inverted="inverted"
               :on-update:collapsed="collapsedChange"
