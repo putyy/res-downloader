@@ -230,7 +230,6 @@ const columns = ref<any[]>([
     }
   }
 ])
-const downIndex = ref(0)
 const checkedRowKeysValue = ref<DataTableRowKey[]>([])
 const showPreviewRow = ref(false)
 const previewRow = ref<appType.MediaInfo>()
@@ -238,8 +237,19 @@ const loading = ref(false)
 const loadingText = ref("")
 const showImport = ref(false)
 const showPassword = ref(false)
+let isOpenProxy = false
+let downIndex = 0
 
 onMounted(() => {
+  try {
+    loading.value = true
+    handleInstall().then((is: boolean) => {
+      loading.value = false
+    })
+  }catch (e) {
+    window.$message?.error(JSON.stringify(e), {duration: 5000})
+  }
+
   buildClassify()
 
   const temp = localStorage.getItem("resources-type")
@@ -269,12 +279,14 @@ onMounted(() => {
         case "running":
           loading.value = true
           loadingText.value = res.Message
-          break;
+          break
         case "done":
-          loading.value = false
-          if (data.value[downIndex.value]?.Id === res.Id) {
-            data.value[downIndex.value].SavePath = res.SavePath
-            data.value[downIndex.value].Status = "done"
+          setTimeout(()=>{
+            loading.value = false
+          }, 100)
+          if (data.value[downIndex]?.Id === res.Id) {
+            data.value[downIndex].SavePath = res.SavePath
+            data.value[downIndex].Status = "done"
           } else {
             for (const i in data.value) {
               if (data.value[i].Id === res.Id) {
@@ -286,11 +298,13 @@ onMounted(() => {
           }
           localStorage.setItem("resources-data", JSON.stringify(data.value))
           window?.$message?.success(t("index.download_success"))
-          break;
+          break
         case "error":
-          loading.value = false
+          setTimeout(()=>{
+            loading.value = false
+          }, 100)
           window?.$message?.error(res.Message)
-          break;
+          break
       }
     }
   })
@@ -456,7 +470,7 @@ const download = (row: appType.MediaInfo, index: number) => {
   }
   loadingText.value = "ready"
   loading.value = true
-  downIndex.value = index
+  downIndex = index
   if (row.DecodeKey) {
     appApi.download({
       ...row,
@@ -478,12 +492,16 @@ const download = (row: appType.MediaInfo, index: number) => {
 }
 
 const open = () => {
+  isOpenProxy = true
   store.openProxy().then((res: appType.Res) => {
     if (res.code === 1) {
       return
     }
-    if (store.envInfo.platform === "darwin" || store.envInfo.platform === "linux") {
+
+    if (["darwin", "linux"].includes(store.envInfo.platform)) {
       showPassword.value = true
+    } else {
+      window.$message?.error(res.message)
     }
   })
 }
@@ -552,14 +570,41 @@ const handleImport = (content: string) => {
   showImport.value = false
 }
 
-const handlePassword = (password: string, isCache: boolean) => {
-  appApi.setSystemPassword({password: password, isCache: isCache}).then((res: appType.Res) => {
-    if (res.code === 0) {
-      window?.$message?.error(res.message)
-      return
-    }
+const handlePassword = async (password: string, isCache: boolean) => {
+  const res = await appApi.setSystemPassword({password, isCache})
+  if (res.code === 0) {
+    window.$message?.error(res.message)
+    return
+  }
+
+  if (isOpenProxy) {
     showPassword.value = false
     store.openProxy()
+    return
+  }
+
+  handleInstall().then((is: boolean) => {
+    if (is) {
+      showPassword.value = false
+    }
   })
+}
+
+const handleInstall = async () => {
+  isOpenProxy = false
+  const res = await appApi.install()
+  if (res.code === 1) {
+    store.globalConfig.AutoProxy && store.openProxy()
+    return true
+  }
+
+  window.$message?.error(res.message, {duration: 5000})
+
+  if (store.envInfo.platform === "windows" && res.message.includes("Access is denied")) {
+    window.$message?.error(t("index.win_install_tip"))
+  } else if (["darwin", "linux"].includes(store.envInfo.platform)) {
+    showPassword.value = true
+  }
+  return false
 }
 </script>
