@@ -105,7 +105,6 @@ func (p *Proxy) Startup() {
 func (p *Proxy) setCa() error {
 	ca, err := tls.X509KeyPair(appOnce.PublicCrt, appOnce.PrivateKey)
 	if err != nil {
-		DialogErr("Failed to start proxy service 1")
 		return err
 	}
 	if ca.Leaf, err = x509.ParseCertificate(ca.Certificate[0]); err != nil {

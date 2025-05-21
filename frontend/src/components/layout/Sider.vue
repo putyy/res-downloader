@@ -179,7 +179,6 @@ const handleFooterUpdate = (key: string, item?: MenuOption) => {
 }
 
 const collapsedChange = (value: boolean)=>{
-  console.log("collapsedChange",value)
   collapsed.value = value
   localStorage.setItem("collapsed", JSON.stringify({collapsed: value}))
 }
