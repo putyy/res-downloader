@@ -550,7 +550,7 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
 
 const handleImport = (content: string) => {
   if (!content) {
-    // window?.$message?.error(t("view_index.import_empty"))
+    window?.$message?.error(t("view.import_empty"))
     return
   }
   content.split("\n").forEach((line, index) => {
