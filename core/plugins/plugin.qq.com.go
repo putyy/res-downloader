@@ -14,6 +14,9 @@ import (
 	"strings"
 )
 
+var qqMediaRegex = regexp.MustCompile(`get\s*media\(\)\{`)
+var qqCommentRegex = regexp.MustCompile(`async\s*finderGetCommentDetail\((\w+)\)\s*\{return(.*?)\s*}\s*async`)
+
 type QqPlugin struct {
 	bridge *shared.Bridge
 }
@@ -72,7 +75,7 @@ func (p *QqPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.
 				return respTemp
 			}
 			bodyStr := string(body)
-			newBody := regexp.MustCompile(`get\s*media\(\)\{`).
+			newBody := qqMediaRegex.
 				ReplaceAllString(bodyStr, `
 							get media(){
 								if(this.objectDesc){
@@ -85,7 +88,7 @@ func (p *QqPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.
 			
 			`)
 
-			newBody = regexp.MustCompile(`async\s*finderGetCommentDetail\((\w+)\)\s*\{return(.*?)\s*}\s*async`).
+			newBody = qqCommentRegex.
 				ReplaceAllString(newBody, `
 							async finderGetCommentDetail($1) {
 								var res = await$2;

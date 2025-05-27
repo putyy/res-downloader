@@ -84,7 +84,7 @@ const classifyAlias: { [key: string]: any } = {
   m3u8: computed(() => t("index.m3u8")),
   live: computed(() => t("index.live")),
   xls: computed(() => t("index.xls")),
-  doc: computed(() => t("index.pdf")),
+  doc: computed(() => t("index.doc")),
   pdf: computed(() => t("index.pdf")),
   font: computed(() => t("index.font"))
 }

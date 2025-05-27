@@ -28,21 +28,24 @@ type Resource struct {
 
 func initResource() *Resource {
 	if resourceOnce == nil {
-		resourceOnce = &Resource{
-			resType: map[string]bool{
-				"all":   true,
-				"image": true,
-				"audio": true,
-				"video": true,
-				"m3u8":  true,
-				"live":  true,
-				"xls":   true,
-				"doc":   true,
-				"pdf":   true,
-			},
-		}
+		resourceOnce = &Resource{}
+		resourceOnce.resType = resourceOnce.buildResType(globalConfig.MimeMap)
 	}
 	return resourceOnce
+}
+
+func (r *Resource) buildResType(mime map[string]MimeInfo) map[string]bool {
+	t := map[string]bool{
+		"all": true,
+	}
+
+	for _, item := range mime {
+		if _, ok := t[item.Type]; !ok {
+			t[item.Type] = true
+		}
+	}
+
+	return t
 }
 
 func (r *Resource) mediaIsMarked(key string) bool {
@@ -63,22 +66,16 @@ func (r *Resource) getResType(key string) (bool, bool) {
 
 func (r *Resource) setResType(n []string) {
 	r.resTypeMux.Lock()
-	defer r.resTypeMux.Unlock()
-	r.resType = map[string]bool{
-		"all":   false,
-		"image": false,
-		"audio": false,
-		"video": false,
-		"m3u8":  false,
-		"live":  false,
-		"xls":   false,
-		"doc":   false,
-		"pdf":   false,
+	for key := range r.resType {
+		r.resType[key] = false
 	}
 
 	for _, value := range n {
-		r.resType[value] = true
+		if _, ok := r.resType[value]; ok {
+			r.resType[value] = true
+		}
 	}
+	r.resTypeMux.Unlock()
 }
 
 func (r *Resource) clear() {
