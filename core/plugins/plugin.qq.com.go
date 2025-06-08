@@ -122,13 +122,6 @@ func (p *QqPlugin) handleWechatRequest(r *http.Request, ctx *goproxy.ProxyCtx) (
 		return r, p.buildEmptyResponse(r)
 	}
 
-	isAll, _ := p.bridge.GetResType("all")
-	isClassify, _ := p.bridge.GetResType("video")
-
-	if !isAll && !isClassify {
-		return r, p.buildEmptyResponse(r)
-	}
-
 	go p.handleMedia(body)
 
 	return r, p.buildEmptyResponse(r)
@@ -186,6 +179,17 @@ func (p *QqPlugin) handleMedia(body []byte) {
 		res.Classify = "image"
 		res.Suffix = ".png"
 		res.ContentType = "image/png"
+	}
+
+	isAll, _ := p.bridge.GetResType("all")
+	isImage, _ := p.bridge.GetResType("image")
+	if res.Classify == "image" && !isImage && !isAll {
+		return
+	}
+
+	isVideo, _ := p.bridge.GetResType("video")
+	if res.Classify == "video" && !isVideo && !isAll {
+		return
 	}
 
 	if urlToken, ok := firstMedia["urlToken"].(string); ok {
