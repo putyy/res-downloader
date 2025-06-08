@@ -59,8 +59,8 @@ func (r *Resource) markMedia(key string) {
 
 func (r *Resource) getResType(key string) (bool, bool) {
 	r.resTypeMux.RLock()
-	defer r.resTypeMux.RUnlock()
 	value, ok := r.resType[key]
+	r.resTypeMux.RUnlock()
 	return value, ok
 }
 
@@ -233,10 +233,15 @@ func (r *Resource) decodeWxFile(fileName, decodeStr string) error {
 
 	byteCount := len(decodedBytes)
 	fileBytes := make([]byte, byteCount)
-	_, err = file.Read(fileBytes)
+	n, err := file.Read(fileBytes)
 	if err != nil && err != io.EOF {
 		return err
 	}
+
+	if n < byteCount {
+		byteCount = n
+	}
+
 	xorResult := make([]byte, byteCount)
 	for i := 0; i < byteCount; i++ {
 		xorResult[i] = decodedBytes[i] ^ fileBytes[i]
