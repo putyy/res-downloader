@@ -45,6 +45,8 @@ Clean UI, easy to use, and supports a wide range of resource sniffing and downlo
 
 ![Preview](docs/images/show.webp)
 
+[![Powered by DartNode]( https://dartnode.com/branding/DN-Open-Source-sm.png)]( https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
+
 ## 🚀 How to Use
 
 > Follow these steps to use the software correctly:

@@ -98,7 +98,7 @@
     "connections_tip": "Keep default if unsure, usually CPU cores * 2, for faster downloads",
     "use_headers_tip": "Define headers for downloads, comma separated",
     "mime_map": "Intercept Rules",
-    "mime_map_tip": "JSON format, keep default if unsure"
+    "mime_map_tip": "JSON format, keep default if unsure, please restart software after modification"
   },
   "footer": {
     "title": "About Us",
