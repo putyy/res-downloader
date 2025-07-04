@@ -38,7 +38,7 @@
         <div>{{ store.appInfo.Copyright }}</div>
         <div class="flex">
           <button class="pl-4" @click="toWebsite('https://s.gowas.cn/d/4089')">{{ t('footer.forum') }}</button>
-          <button class="pl-4" @click="toWebsite(certUrl)">{{ t('footer.cert') }}</button>
+          <button class="pl-4" @click="toWebsite(certUrl)">{{ t('footer.cert_download') }}</button>
           <button class="pl-4" @click="toWebsite('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</button>
           <button class="pl-4" @click="toWebsite('https://github.com/putyy/res-downloader/issues')">{{ t('footer.help') }}</button>
           <button class="pl-4" @click="toWebsite('https://github.com/putyy/res-downloader/releases')">{{ t('footer.update_log') }}</button>

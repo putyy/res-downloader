@@ -8,26 +8,55 @@
         <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">
           {{ t("index.open_grab") }}
         </NButton>
-        <NButton tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">
-          {{ t("index.clear_list") }}
-        </NButton>
-        <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')"
-                 v-model:value="resourcesType" multiple clearable :max-tag-count="3" :options="classify"></NSelect>
-        <NButton tertiary type="info" @click.stop="batchDown" style="--wails-draggable:no-drag">
-          {{ t("index.batch_download") }}
-        </NButton>
-        <NButton tertiary type="info" @click.stop="batchImport" style="--wails-draggable:no-drag">
-          {{ t("index.batch_export") }}
-        </NButton>
-        <NButton tertiary type="info" @click.stop="showImport=true" style="--wails-draggable:no-drag">
-          {{ t("index.batch_import") }}
-        </NButton>
+        <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')" v-model:value="resourcesType" multiple clearable
+                 :max-tag-count="3" :options="classify"></NSelect>
+        <n-popconfirm
+            @positive-click="clear"
+        >
+          <template #trigger>
+            <NButton tertiary type="error" style="--wails-draggable:no-drag">
+              <template #icon>
+                <n-icon>
+                  <TrashOutline/>
+                </n-icon>
+              </template>
+              {{ t("index.clear_list") }}
+            </NButton>
+          </template>
+          {{ t("index.clear_list_tip") }}
+        </n-popconfirm>
+        <NButtonGroup style="--wails-draggable:no-drag">
+          <NButton tertiary type="primary" @click.stop="batchDown">
+            <template #icon>
+              <n-icon>
+                <DownloadOutline/>
+              </n-icon>
+            </template>
+            {{ t('index.batch_download') }}
+          </NButton>
+          <NButton tertiary type="warning" @click.stop="batchExport">
+            <template #icon>
+              <n-icon>
+                <ArrowRedoCircleOutline/>
+              </n-icon>
+            </template>
+            {{ t('index.batch_export') }}
+          </NButton>
+          <NButton tertiary type="info" @click.stop="showImport=true">
+            <template #icon>
+              <n-icon>
+                <ServerOutline/>
+              </n-icon>
+            </template>
+            {{ t('index.batch_import') }}
+          </NButton>
+        </NButtonGroup>
       </NSpace>
     </div>
     <div class="flex-1">
       <NDataTable
           :columns="columns"
-          :data="data"
+          :data="filteredData"
           :bordered="false"
           :max-height="tableHeight"
           :row-key="rowKey"
@@ -47,10 +76,9 @@
 </template>
 
 <script lang="ts" setup>
-import {NButton, NImage, NTooltip} from "naive-ui"
-import {computed, h, onMounted, ref, reactive, watch} from "vue"
+import {NButton, NIcon, NImage, NInput, NSpace, NTooltip} from "naive-ui"
+import {computed, h, onMounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
-
 import type {DataTableRowKey, ImageRenderToolbarProps} from "naive-ui"
 import Preview from "@/components/Preview.vue"
 import ShowLoading from "@/components/ShowLoading.vue"
@@ -58,12 +86,21 @@ import ShowLoading from "@/components/ShowLoading.vue"
 import {getDecryptionArray} from '@/assets/js/decrypt.js'
 import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
-import ResAction from "@/components/ResAction.vue"
+import Action from "@/components/Action.vue"
+import ActionDesc from "@/components/ActionDesc.vue"
 import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 import Password from "@/components/Password.vue"
 import {useI18n} from 'vue-i18n'
+import {
+  DownloadOutline,
+  ArrowRedoCircleOutline,
+  ServerOutline,
+  HelpCircleOutline,
+  SearchOutline,
+  TrashOutline
+} from "@vicons/ionicons5"
 
 const {t} = useI18n()
 const eventStore = useEventStore()
@@ -71,6 +108,21 @@ const isProxy = computed(() => {
   return store.isProxy
 })
 const data = ref<any[]>([])
+
+const filteredData = computed(() => {
+  let result = data.value
+
+  if (resourcesType.value.length > 0 && !resourcesType.value.includes("all")) {
+    result = result.filter(item => resourcesType.value.includes(item.Classify))
+  }
+
+  if (descriptionSearchValue.value) {
+    result = result.filter(item => item.Description?.toLowerCase().includes(descriptionSearchValue.value.toLowerCase()))
+  }
+
+  return result
+})
+
 const store = useIndexStore()
 const tableHeight = computed(() => {
   return store.globalConfig.Locale === "zh" ? store.tableHeight - 130 : store.tableHeight - 151
@@ -91,12 +143,16 @@ const classifyAlias: { [key: string]: any } = {
 
 const dwStatus = computed<any>(() => {
   return {
-    ready: t("common.ready"),
-    running: t("common.running"),
-    error: t("common.error"),
-    done: t("common.done"),
-    handle: t("common.handle")
+    ready: t("index.ready"),
+    running: t("index.running"),
+    error: t("index.error"),
+    done: t("index.done"),
+    handle: t("index.handle")
   }
+})
+
+const maxConcurrentDownloads = computed(() => {
+  return store.globalConfig.DownNumber
 })
 
 const classify = ref([
@@ -106,6 +162,8 @@ const classify = ref([
   },
 ])
 
+const descriptionSearchValue = ref("")
+
 const columns = ref<any[]>([
   {
     type: "selection",
@@ -113,10 +171,12 @@ const columns = ref<any[]>([
   {
     title: computed(() => t("index.domain")),
     key: "Domain",
+    width: 80,
   },
   {
     title: computed(() => t("index.type")),
     key: "Classify",
+    width: 80,
     filterOptions: computed(() => Array.from(classify.value).slice(1)),
     filterMultiple: true,
     filter: (value: string, row: appType.MediaInfo) => {
@@ -125,16 +185,16 @@ const columns = ref<any[]>([
     render: (row: appType.MediaInfo) => {
       for (const key in classify.value) {
         if (classify.value[key].value === row.Classify) {
-          return classify.value[key].label;
+          return classify.value[key].label
         }
       }
-      return row.Classify;
+      return row.Classify
     }
   },
   {
     title: computed(() => t("index.preview")),
     key: "Url",
-    width: 120,
+    width: 80,
     render: (row: appType.MediaInfo) => {
       if (row.Classify === "image") {
         return h(NImage, {
@@ -177,12 +237,58 @@ const columns = ref<any[]>([
   {
     title: computed(() => t("index.status")),
     key: "Status",
-    render: (row: appType.MediaInfo) => {
-      return dwStatus[row.Status as keyof typeof dwStatus]
+    width: 80,
+    render: (row: appType.MediaInfo, index: number) => {
+      return h(
+          NButton,
+          {
+            tertiary: true,
+            type: row.Status === "done" ? "success" : "info",
+            size: "small",
+            style: {
+              margin: "2px"
+            },
+            onClick: () => {
+              if (row.SavePath && row.Status === "done") {
+                appApi.openFolder({filePath: row.SavePath})
+              } else if (row.Status === "ready") {
+                download(row, index)
+              }
+            }
+          },
+          {
+            default: () => {
+              return row.Status === "running" ? row.SavePath : dwStatus.value[row.Status as keyof typeof dwStatus]
+            }
+          }
+      )
     }
   },
   {
-    title: computed(() => t("index.description")),
+    title: () => h('div', { class: 'flex items-center' }, [
+      t('index.description'),
+      h(NTooltip, {
+        trigger: 'click',
+        placement: 'bottom',
+        showArrow: false,
+      }, {
+        trigger: () => h(NIcon, {
+          size: "18",
+          class: "ml-1 text-gray-500 cursor-pointer",
+          onClick: (e: MouseEvent) => e.stopPropagation()
+        }, h(SearchOutline)),
+        default: () => h('div', { class: 'p-2 w-64' }, [
+          h(NInput, {
+            value: descriptionSearchValue.value,
+            'onUpdate:value': (val: string) => descriptionSearchValue.value = val,
+            placeholder: t('index.search_description'),
+            clearable: true
+          }, {
+            prefix: () => h(NIcon, { component: SearchOutline })
+          })
+        ])
+      })
+    ]),
     key: "Description",
     width: 150,
     render: (row: appType.MediaInfo, index: number) => {
@@ -195,12 +301,13 @@ const columns = ref<any[]>([
             "word-wrap": "break-word"
           }
         }, row.Description)
-      });
+      })
     }
   },
   {
     title: computed(() => t("index.resource_size")),
-    key: "Size"
+    key: "Size",
+    width: 120,
   },
   {
     title: computed(() => t("index.save_path")),
@@ -218,18 +325,22 @@ const columns = ref<any[]>([
               }
             }
           },
-          row.SavePath
+          row.Status === "running" ? "" : row.SavePath
       )
     }
   },
   {
-    title: computed(() => t("index.operation")),
     key: "actions",
+    width: 210,
     render(row: appType.MediaInfo, index: number) {
-      return h(ResAction, {key: index, row: row, index: index, onAction: dataAction})
+      return h(Action, {key: index, row: row, index: index, onAction: dataAction})
+    },
+    title() {
+      return h(ActionDesc)
     }
   }
 ])
+
 const checkedRowKeysValue = ref<DataTableRowKey[]>([])
 const showPreviewRow = ref(false)
 const previewRow = ref<appType.MediaInfo>()
@@ -237,8 +348,9 @@ const loading = ref(false)
 const loadingText = ref("")
 const showImport = ref(false)
 const showPassword = ref(false)
+const downloadQueue = ref<appType.MediaInfo[]>([])
+let activeDownloads = 0
 let isOpenProxy = false
-let downIndex = 0
 
 onMounted(() => {
   try {
@@ -246,7 +358,7 @@ onMounted(() => {
     handleInstall().then((is: boolean) => {
       loading.value = false
     })
-  }catch (e) {
+  } catch (e) {
     window.$message?.error(JSON.stringify(e), {duration: 5000})
   }
 
@@ -277,33 +389,35 @@ onMounted(() => {
     event: (res: { Id: string, SavePath: string, Status: string, Message: string }) => {
       switch (res.Status) {
         case "running":
-          loading.value = true
-          loadingText.value = res.Message
+          for (const i in data.value) {
+            if (data.value[i].Id === res.Id) {
+              data.value[i].SavePath = res.Message
+              data.value[i].Status = "running"
+              break
+            }
+          }
           break
         case "done":
-          setTimeout(()=>{
-            loading.value = false
-          }, 100)
-          if (data.value[downIndex]?.Id === res.Id) {
-            data.value[downIndex].SavePath = res.SavePath
-            data.value[downIndex].Status = "done"
-          } else {
-            for (const i in data.value) {
-              if (data.value[i].Id === res.Id) {
-                data.value[i].SavePath = res.SavePath
-                data.value[i].Status = "done"
-                break
-              }
+          for (const i in data.value) {
+            if (data.value[i].Id === res.Id) {
+              data.value[i].SavePath = res.SavePath
+              data.value[i].Status = "done"
+              break
             }
           }
           localStorage.setItem("resources-data", JSON.stringify(data.value))
-          window?.$message?.success(t("index.download_success"))
+          checkQueue()
           break
         case "error":
-          setTimeout(()=>{
-            loading.value = false
-          }, 100)
-          window?.$message?.error(res.Message)
+          for (const i in data.value) {
+            if (data.value[i].Id === res.Id) {
+              data.value[i].SavePath = res.Message
+              data.value[i].Status = "error"
+              break
+            }
+          }
+          localStorage.setItem("resources-data", JSON.stringify(data.value))
+          checkQueue()
           break
       }
     }
@@ -328,9 +442,9 @@ const buildClassify = () => {
     {value: "all", label: computed(() => t("index.all"))},
     ...Object.values(mimeMap)
         .filter(({Type}) => {
-          if (seen.has(Type)) return false;
-          seen.add(Type);
-          return true;
+          if (seen.has(Type)) return false
+          seen.add(Type)
+          return true
         })
         .map(({Type}) => ({
           value: Type,
@@ -342,8 +456,8 @@ const buildClassify = () => {
 const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
   switch (type) {
     case "down":
-      download(row, index);
-      break;
+      download(row, index)
+      break
     case "copy":
       ClipboardSetText(row.Url).then((is: boolean) => {
         if (is) {
@@ -364,14 +478,14 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       break
     case "open":
       BrowserOpenURL(row.Url)
-      break;
+      break
     case "decode":
       decodeWxFile(row, index)
-      break;
+      break
     case "delete":
       appApi.delete({sign: row.UrlSign}).then(() => {
         let arr = data.value
-        arr.splice(index, 1);
+        arr.splice(index, 1)
         data.value = arr
         localStorage.setItem("resources-data", JSON.stringify(data.value))
       })
@@ -402,19 +516,21 @@ const batchDown = async () => {
   if (checkedRowKeysValue.value.length <= 0) {
     return
   }
+
   if (!store.globalConfig.SaveDirectory) {
     window?.$message?.error(t("index.save_path_empty"))
     return
   }
+
   for (let i = 0; i < data.value.length; i++) {
     if (checkedRowKeysValue.value.includes(data.value[i].Id) && data.value[i].Classify != "live" && data.value[i].Classify != "m3u8") {
       download(data.value[i], i)
-      await checkVariable()
     }
   }
+  checkedRowKeysValue.value = []
 }
 
-const batchImport = () => {
+const batchExport = () => {
   if (checkedRowKeysValue.value.length <= 0) {
     window?.$message?.error(t("index.use_data"))
     return
@@ -429,7 +545,7 @@ const batchImport = () => {
   for (let i = 0; i < data.value.length; i++) {
     jsonData.push(encodeURIComponent(JSON.stringify(data.value[i])))
   }
-  appApi.batchImport({content: jsonData.join("\n")}).then((res: appType.Res) => {
+  appApi.batchExport({content: jsonData.join("\n")}).then((res: appType.Res) => {
     loading.value = false
     if (res.code === 0) {
       window?.$message?.error(res.message)
@@ -440,27 +556,15 @@ const batchImport = () => {
       duration: 5000
     })
   })
-
 }
 
 const uint8ArrayToBase64 = (bytes: any) => {
-  let binary = '';
-  const len = bytes.byteLength;
+  let binary = ''
+  const len = bytes.byteLength
   for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+    binary += String.fromCharCode(bytes[i])
   }
-  return window.btoa(binary);
-}
-
-async function checkVariable() {
-  return new Promise((resolve) => {
-    const interval = setInterval(() => {
-      if (!loading.value) {
-        clearInterval(interval)
-        resolve(true)
-      }
-    }, 600);
-  });
+  return window.btoa(binary)
 }
 
 const download = (row: appType.MediaInfo, index: number) => {
@@ -468,26 +572,51 @@ const download = (row: appType.MediaInfo, index: number) => {
     window?.$message?.error(t("index.save_path_empty"))
     return
   }
-  loadingText.value = "ready"
-  loading.value = true
-  downIndex = index
-  if (row.DecodeKey) {
-    appApi.download({
-      ...row,
-      decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))
-    }).then((res: appType.Res) => {
-      if (res.code === 0) {
-        loading.value = false
-        window?.$message?.error(res.message)
+
+  if (data.value.some(item => item.Id === row.Id && item.Status === "running")) {
+    return
+  }
+
+  if (downloadQueue.value.some(item => item.Id === row.Id || item.Url === row.Url)) {
+    return
+  }
+
+  if (activeDownloads >= maxConcurrentDownloads.value) {
+    downloadQueue.value.push(row)
+    window?.$message?.info((row.Description ? `「${row.Description}」` : "")
+        + t("index.download_queued", {count: downloadQueue.value.length}))
+    return
+  }
+
+  startDownload(row, index)
+}
+
+const startDownload = (row: appType.MediaInfo, index: number) => {
+  activeDownloads++
+
+  const decodeStr = row.DecodeKey
+      ? uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))
+      : ""
+
+  appApi.download({...row, decodeStr}).then((res: appType.Res) => {
+    if (res.code === 0) {
+      window?.$message?.error(res.message)
+    }
+  }).finally(() => {
+    activeDownloads--
+    checkQueue()
+  })
+}
+
+const checkQueue = () => {
+  if (downloadQueue.value.length > 0 && activeDownloads < maxConcurrentDownloads.value) {
+    const nextItem = downloadQueue.value.shift()
+    if (nextItem) {
+      const index = data.value.findIndex(item => item.Id === nextItem.Id)
+      if (index !== -1) {
+        startDownload(nextItem, index)
       }
-    })
-  } else {
-    appApi.download({...row, decodeStr: ""}).then((res: appType.Res) => {
-      if (res.code === 0) {
-        loading.value = false
-        window?.$message?.error(res.message)
-      }
-    })
+    }
   }
 }
 
@@ -565,7 +694,7 @@ const handleImport = (content: string) => {
     } catch (e) {
       console.log(e)
     }
-  });
+  })
   localStorage.setItem("resources-data", JSON.stringify(data.value))
   showImport.value = false
 }
