@@ -33,6 +33,7 @@
     "close_grab": "Stop Grabbing",
     "grab_type": "Grab Type",
     "clear_list": "Clear List",
+    "clear_list_tip": "Clear all records?",
     "batch_download": "Batch Download",
     "batch_export": "Batch Export",
     "batch_import": "Batch Import",
@@ -68,6 +69,7 @@
     "copy_data": "Copy Data",
     "open_link": "Open Link",
     "open_file": "Open File",
+    "delete_row": "Delete Row",
     "video_decode": "WxDecrypt",
     "video_decode_loading": "Decrypting",
     "video_decode_no": "Cannot Decrypt",
@@ -75,7 +77,10 @@
     "use_data": "Please select required data",
     "import_placeholder": "When adding multiple items, ensure each line contains only one (each link on a new line)",
     "import_empty": "Please enter data to import",
-    "win_install_tip": "For the first time using this software, please right-click and select 'Run as administrator'"
+    "win_install_tip": "For the first time using this software, please right-click and select 'Run as administrator'",
+    "download_queued": "Download has been added to the queue, current queue length：{count}",
+    "search": "Search",
+    "search_description": "Keyword Search..."
   },
   "setting": {
     "restart_tip": "Keep default if unsure, please restart software after modification",
@@ -96,9 +101,13 @@
     "user_agent_tip": "Keep default if unsure",
     "connections": "Connections",
     "connections_tip": "Keep default if unsure, usually CPU cores * 2, for faster downloads",
+    "down_number": "Download Number",
+    "down_number_tip": "Number of downloads executed simultaneously",
     "use_headers_tip": "Define headers for downloads, comma separated",
     "mime_map": "Intercept Rules",
-    "mime_map_tip": "JSON format, keep default if unsure, please restart software after modification"
+    "mime_map_tip": "JSON format, keep default if unsure, please restart software after modification",
+    "port_format_error": "port format error",
+    "host_format_error": "host format error"
   },
   "footer": {
     "title": "About Us",
@@ -106,7 +115,7 @@
     "support": "Supports almost all network applications on the market",
     "application": "Douyin,Kuaishou,Xiaohongshu,Wechat,Mini Programs,Youtube,Kugou Music,QQ Music,QQ Weishi,......",
     "forum": "Forum",
-    "cert": "Certificate",
+    "cert_download": "Certificate Download",
     "source_code": "Source Code",
     "help": "Issues",
     "update_log": "Update Log"

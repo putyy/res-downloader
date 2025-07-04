@@ -33,6 +33,7 @@
     "close_grab": "关闭抓取",
     "grab_type": "抓取类型",
     "clear_list": "清空列表",
+    "clear_list_tip": "清空所有记录?",
     "batch_download": "批量下载",
     "batch_export": "批量导出",
     "batch_import": "批量导入",
@@ -68,6 +69,7 @@
     "copy_data": "复制数据",
     "open_link": "打开链接",
     "open_file": "打开文件",
+    "delete_row": "删除记录",
     "video_decode": "视频解密",
     "video_decode_loading": "解密中",
     "video_decode_no": "无法解密",
@@ -75,7 +77,10 @@
     "use_data": "请选择需要的数据",
     "import_placeholder": "添加多个时，请确保每行只有一个(每个链接回车换行)",
     "import_empty": "请输入需要导入的数据",
-    "win_install_tip": "首次启用本软件，请使用鼠标右键选择以管理员身份运行"
+    "win_install_tip": "首次启用本软件，请使用鼠标右键选择以管理员身份运行",
+    "download_queued": "下载已加入队列，当前队列长度：{count}",
+    "search": "搜索",
+    "search_description": "关键字搜索..."
   },
   "setting": {
     "restart_tip": "如果不清楚保持默认就行，修改后请重启软件",
@@ -96,9 +101,13 @@
     "user_agent_tip": "如不清楚请保持默认",
     "connections": "连接数",
     "connections_tip": "如不清楚请保持默认，通常CPU核心数*2，用于加速下载",
+    "down_number": "下载数",
+    "down_number_tip": "同时进行的下载数量",
     "use_headers_tip": "定义下载时可使用的header参数，逗号分割",
     "mime_map": "拦截规则",
-    "mime_map_tip": "json格式，如果不清楚保持默认就行，修改后请重启软件"
+    "mime_map_tip": "json格式，如果不清楚保持默认就行，修改后请重启软件",
+    "port_format_error": "port 格式错误",
+    "host_format_error": "host 格式错误"
   },
   "footer": {
     "title": "关于我们",
@@ -106,7 +115,7 @@
     "support": "支持市面上几乎所有的网络应用",
     "application": "抖音,快手,小红书,视频号,小程序,公众号,酷狗音乐,QQ音乐,QQ微视,......",
     "forum": "论坛",
-    "cert": "证书",
+    "cert_download": "证书下载",
     "source_code": "软件源码",
     "help": "帮助支持",
     "update_log": "更新日志"

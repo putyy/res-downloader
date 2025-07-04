@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"io"
 	"log"
 	"net"
@@ -16,6 +15,8 @@ import (
 	"res-downloader/core/shared"
 	sysRuntime "runtime"
 	"strings"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type respData map[string]interface{}
@@ -394,7 +395,7 @@ func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *HttpServer) batchImport(w http.ResponseWriter, r *http.Request) {
+func (h *HttpServer) batchExport(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		Content string `json:"content"`
 	}

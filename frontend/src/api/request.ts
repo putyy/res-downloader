@@ -1,7 +1,5 @@
 import type {AxiosResponse, InternalAxiosRequestConfig} from 'axios'
 import axios from 'axios'
-import {useIndexStore} from "@/stores";
-import {computed} from "vue";
 
 interface RequestOptions {
     url: string

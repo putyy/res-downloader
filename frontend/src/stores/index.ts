@@ -29,6 +29,7 @@ export const useIndexStore = defineStore("index-store", () => {
         AutoProxy: false,
         WxAction: false,
         TaskNumber: 8,
+        DownNumber: 3,
         UserAgent: "",
         UseHeaders: "",
         MimeMap: {}
@@ -59,7 +60,7 @@ export const useIndexStore = defineStore("index-store", () => {
             globalConfig.value = Object.assign({}, globalConfig.value, res.data)
         })
 
-        baseUrl.value = "http://"+globalConfig.value.Host + ":" +globalConfig.value.Port
+        baseUrl.value = "http://127.0.0.1:" +globalConfig.value.Port
         window.$baseUrl = baseUrl.value
         window.addEventListener("resize", handleResize);
         handleResize()

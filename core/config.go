@@ -2,8 +2,10 @@ package core
 
 import (
 	"encoding/json"
+	"os"
+	"os/user"
+	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -30,6 +32,7 @@ type Config struct {
 	AutoProxy     bool                `json:"AutoProxy"`
 	WxAction      bool                `json:"WxAction"`
 	TaskNumber    int                 `json:"TaskNumber"`
+	DownNumber    int                 `json:"DownNumber"`
 	UserAgent     string              `json:"UserAgent"`
 	UseHeaders    string              `json:"UseHeaders"`
 	MimeMap       map[string]MimeInfo `json:"MimeMap"`
@@ -40,113 +43,161 @@ var (
 )
 
 func initConfig() *Config {
-	if globalConfig == nil {
-		def := `
-{
-  "Host": "127.0.0.1",
-  "Port": "8899",
-  "Theme": "lightTheme",
-  "Locale": "zh",
-  "Quality": 0,
-  "SaveDirectory": "",
-  "FilenameLen": 0,
-  "FilenameTime": true,
-  "UpstreamProxy": "",
-  "OpenProxy": false,
-  "DownloadProxy": false,
-  "AutoProxy": false,
-  "WxAction": true,
-  "TaskNumber": __TaskNumber__,
-  "UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-  "UseHeaders": "User-Agent,Referer,Authorization,Cookie",
-  "MimeMap": {
-	  "image/png": { "Type": "image", "Suffix": ".png" },
-	  "image/webp": { "Type": "image", "Suffix": ".webp" },
-	  "image/jpeg": { "Type": "image", "Suffix": ".jpeg" },
-	  "image/jpg": { "Type": "image", "Suffix": ".jpg" },
-	  "image/gif": { "Type": "image", "Suffix": ".gif" },
-	  "image/avif": { "Type": "image", "Suffix": ".avif" },
-	  "image/bmp": { "Type": "image", "Suffix": ".bmp" },
-	  "image/tiff": { "Type": "image", "Suffix": ".tiff" },
-	  "image/heic": { "Type": "image", "Suffix": ".heic" },
-	  "image/x-icon": { "Type": "image", "Suffix": ".ico" },
-	  "image/svg+xml": { "Type": "image", "Suffix": ".svg" },
-	  "image/vnd.adobe.photoshop": { "Type": "image", "Suffix": ".psd" },
-	  "image/jp2": { "Type": "image", "Suffix": ".jp2" },
-	  "image/jpeg2000": { "Type": "image", "Suffix": ".jp2" },
-	  "image/apng": { "Type": "image", "Suffix": ".apng" },
-	  "audio/mpeg": { "Type": "audio", "Suffix": ".mp3" },
-	  "audio/mp3": { "Type": "audio", "Suffix": ".mp3" },
-	  "audio/wav": { "Type": "audio", "Suffix": ".wav" },
-	  "audio/aiff": { "Type": "audio", "Suffix": ".aiff" },
-	  "audio/x-aiff": { "Type": "audio", "Suffix": ".aiff" },
-	  "audio/aac": { "Type": "audio", "Suffix": ".aac" },
-	  "audio/ogg": { "Type": "audio", "Suffix": ".ogg" },
-	  "audio/flac": { "Type": "audio", "Suffix": ".flac" },
-	  "audio/midi": { "Type": "audio", "Suffix": ".mid" },
-	  "audio/x-midi": { "Type": "audio", "Suffix": ".mid" },
-	  "audio/x-ms-wma": { "Type": "audio", "Suffix": ".wma" },
-	  "audio/opus": { "Type": "audio", "Suffix": ".opus" },
-	  "audio/webm": { "Type": "audio", "Suffix": ".webm" },
-	  "audio/mp4": { "Type": "audio", "Suffix": ".m4a" },
-	  "audio/amr": { "Type": "audio", "Suffix": ".amr" },
-	  "video/mp4": { "Type": "video", "Suffix": ".mp4" },
-	  "video/webm": { "Type": "video", "Suffix": ".webm" },
-	  "video/ogg": { "Type": "video", "Suffix": ".ogv" },
-	  "video/x-msvideo": { "Type": "video", "Suffix": ".avi" },
-	  "video/mpeg": { "Type": "video", "Suffix": ".mpeg" },
-	  "video/quicktime": { "Type": "video", "Suffix": ".mov" },
-	  "video/x-ms-wmv": { "Type": "video", "Suffix": ".wmv" },
-	  "video/3gpp": { "Type": "video", "Suffix": ".3gp" },
-	  "video/x-matroska": { "Type": "video", "Suffix": ".mkv" },
-	  "audio/video": { "Type": "live", "Suffix": ".flv" },
-	  "video/x-flv": { "Type": "live", "Suffix": ".flv" },
-	  "application/dash+xml": { "Type": "live", "Suffix": ".mpd" },
-	  "application/vnd.apple.mpegurl": { "Type": "m3u8", "Suffix": ".m3u8" },
-	  "application/x-mpegurl": { "Type": "m3u8", "Suffix": ".m3u8" },
-	  "application/x-mpeg": { "Type": "m3u8", "Suffix": ".m3u8" },
-	  "application/pdf": { "Type": "pdf", "Suffix": ".pdf" },
-	  "application/vnd.ms-powerpoint": { "Type": "ppt", "Suffix": ".ppt" },
-	  "application/vnd.openxmlformats-officedocument.presentationml.presentation": { "Type": "ppt", "Suffix": ".pptx" },
-	  "application/vnd.ms-excel": { "Type": "xls", "Suffix": ".xls" },
-	  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": { "Type": "xls", "Suffix": ".xlsx" },
-	  "text/csv": { "Type": "xls", "Suffix": ".csv" },
-	  "application/msword": { "Type": "doc", "Suffix": ".doc" },
-	  "application/rtf": { "Type": "doc", "Suffix": ".rtf" },
-	  "text/rtf": { "Type": "doc", "Suffix": ".rtf" },
-	  "application/vnd.oasis.opendocument.text": { "Type": "doc", "Suffix": ".odt" },
-	  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { "Type": "doc", "Suffix": ".docx" },
-	  "font/woff": { "Type": "font", "Suffix": ".woff" }
+	if globalConfig != nil {
+		return globalConfig
+	}
+
+	defaultConfig := &Config{
+		Theme:         "lightTheme",
+		Locale:        "zh",
+		Host:          "127.0.0.1",
+		Port:          "8899",
+		Quality:       0,
+		SaveDirectory: getDefaultDownloadDir(),
+		FilenameLen:   0,
+		FilenameTime:  true,
+		UpstreamProxy: "",
+		OpenProxy:     false,
+		DownloadProxy: false,
+		AutoProxy:     false,
+		WxAction:      true,
+		TaskNumber:    runtime.NumCPU() * 2,
+		DownNumber:    3,
+		UserAgent:     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+		UseHeaders:    "User-Agent,Referer,Authorization,Cookie",
+		MimeMap:       getDefaultMimeMap(),
+	}
+
+	rawDefaults, err := json.Marshal(defaultConfig)
+	if err != nil {
+		return globalConfig
+	}
+
+	storage := NewStorage("config.json", rawDefaults)
+	defaultConfig.storage = storage
+	globalConfig = defaultConfig
+
+	data, err := storage.Load()
+	if err != nil {
+		globalLogger.Esg(err, "load config failed, using defaults")
+		return globalConfig
+	}
+
+	var cacheMap map[string]interface{}
+	if err := json.Unmarshal(data, &cacheMap); err != nil {
+		globalLogger.Esg(err, "parse cached config failed, using defaults")
+		return globalConfig
+	}
+
+	var defaultMap map[string]interface{}
+	defaultBytes, _ := json.Marshal(defaultConfig)
+	_ = json.Unmarshal(defaultBytes, &defaultMap)
+
+	for k, v := range cacheMap {
+		if _, ok := defaultMap[k]; ok {
+			defaultMap[k] = v
+		}
+	}
+
+	finalBytes, err := json.Marshal(defaultMap)
+	if err != nil {
+		globalLogger.Esg(err, "marshal merged config failed")
+		return globalConfig
+	}
+
+	if err := json.Unmarshal(finalBytes, globalConfig); err != nil {
+		globalLogger.Esg(err, "unmarshal merged config to struct failed")
+	}
+
+	return globalConfig
+}
+
+func getDefaultMimeMap() map[string]MimeInfo {
+	return map[string]MimeInfo{
+		"image/png":                     {Type: "image", Suffix: ".png"},
+		"image/webp":                    {Type: "image", Suffix: ".webp"},
+		"image/jpeg":                    {Type: "image", Suffix: ".jpeg"},
+		"image/jpg":                     {Type: "image", Suffix: ".jpg"},
+		"image/gif":                     {Type: "image", Suffix: ".gif"},
+		"image/avif":                    {Type: "image", Suffix: ".avif"},
+		"image/bmp":                     {Type: "image", Suffix: ".bmp"},
+		"image/tiff":                    {Type: "image", Suffix: ".tiff"},
+		"image/heic":                    {Type: "image", Suffix: ".heic"},
+		"image/x-icon":                  {Type: "image", Suffix: ".ico"},
+		"image/svg+xml":                 {Type: "image", Suffix: ".svg"},
+		"image/vnd.adobe.photoshop":     {Type: "image", Suffix: ".psd"},
+		"image/jp2":                     {Type: "image", Suffix: ".jp2"},
+		"image/jpeg2000":                {Type: "image", Suffix: ".jp2"},
+		"image/apng":                    {Type: "image", Suffix: ".apng"},
+		"audio/mpeg":                    {Type: "audio", Suffix: ".mp3"},
+		"audio/mp3":                     {Type: "audio", Suffix: ".mp3"},
+		"audio/wav":                     {Type: "audio", Suffix: ".wav"},
+		"audio/aiff":                    {Type: "audio", Suffix: ".aiff"},
+		"audio/x-aiff":                  {Type: "audio", Suffix: ".aiff"},
+		"audio/aac":                     {Type: "audio", Suffix: ".aac"},
+		"audio/ogg":                     {Type: "audio", Suffix: ".ogg"},
+		"audio/flac":                    {Type: "audio", Suffix: ".flac"},
+		"audio/midi":                    {Type: "audio", Suffix: ".mid"},
+		"audio/x-midi":                  {Type: "audio", Suffix: ".mid"},
+		"audio/x-ms-wma":                {Type: "audio", Suffix: ".wma"},
+		"audio/opus":                    {Type: "audio", Suffix: ".opus"},
+		"audio/webm":                    {Type: "audio", Suffix: ".webm"},
+		"audio/mp4":                     {Type: "audio", Suffix: ".m4a"},
+		"audio/amr":                     {Type: "audio", Suffix: ".amr"},
+		"video/mp4":                     {Type: "video", Suffix: ".mp4"},
+		"video/webm":                    {Type: "video", Suffix: ".webm"},
+		"video/ogg":                     {Type: "video", Suffix: ".ogv"},
+		"video/x-msvideo":               {Type: "video", Suffix: ".avi"},
+		"video/mpeg":                    {Type: "video", Suffix: ".mpeg"},
+		"video/quicktime":               {Type: "video", Suffix: ".mov"},
+		"video/x-ms-wmv":                {Type: "video", Suffix: ".wmv"},
+		"video/3gpp":                    {Type: "video", Suffix: ".3gp"},
+		"video/x-matroska":              {Type: "video", Suffix: ".mkv"},
+		"audio/video":                   {Type: "live", Suffix: ".flv"},
+		"video/x-flv":                   {Type: "live", Suffix: ".flv"},
+		"application/dash+xml":          {Type: "live", Suffix: ".mpd"},
+		"application/vnd.apple.mpegurl": {Type: "m3u8", Suffix: ".m3u8"},
+		"application/x-mpegurl":         {Type: "m3u8", Suffix: ".m3u8"},
+		"application/x-mpeg":            {Type: "m3u8", Suffix: ".m3u8"},
+		"application/pdf":               {Type: "pdf", Suffix: ".pdf"},
+		"application/vnd.ms-powerpoint": {Type: "ppt", Suffix: ".ppt"},
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation": {Type: "ppt", Suffix: ".pptx"},
+		"application/vnd.ms-excel": {Type: "xls", Suffix: ".xls"},
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {Type: "xls", Suffix: ".xlsx"},
+		"text/csv":           {Type: "xls", Suffix: ".csv"},
+		"application/msword": {Type: "doc", Suffix: ".doc"},
+		"application/rtf":    {Type: "doc", Suffix: ".rtf"},
+		"text/rtf":           {Type: "doc", Suffix: ".rtf"},
+		"application/vnd.oasis.opendocument.text":                                 {Type: "doc", Suffix: ".odt"},
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": {Type: "doc", Suffix: ".docx"},
+		"font/woff": {Type: "font", Suffix: ".woff"},
 	}
 }
-`
-		def = strings.ReplaceAll(def, "__TaskNumber__", strconv.Itoa(runtime.NumCPU()*2))
-		globalConfig = &Config{
-			storage: NewStorage("config.json", []byte(def)),
-		}
 
-		defaultMap := make(map[string]interface{})
-		_ = json.Unmarshal([]byte(def), &defaultMap)
+func getDefaultDownloadDir() string {
+	usr, err := user.Current()
+	if err != nil {
+		return ""
+	}
 
-		data, err := globalConfig.storage.Load()
-		if err == nil {
-			var loadedMap map[string]interface{}
-			_ = json.Unmarshal(data, &loadedMap)
+	homeDir := usr.HomeDir
+	var downloadDir string
 
-			for key, val := range defaultMap {
-				if _, ok := loadedMap[key]; !ok {
-					loadedMap[key] = val
-				}
-			}
-
-			finalBytes, _ := json.Marshal(loadedMap)
-			_ = json.Unmarshal(finalBytes, &globalConfig)
-
-		} else {
-			globalLogger.Esg(err, "load config err")
+	switch runtime.GOOS {
+	case "windows", "darwin":
+		downloadDir = filepath.Join(homeDir, "Downloads")
+	case "linux":
+		downloadDir = filepath.Join(homeDir, "Downloads")
+		if xdgDir := os.Getenv("XDG_DOWNLOAD_DIR"); xdgDir != "" {
+			downloadDir = xdgDir
 		}
 	}
-	return globalConfig
+
+	if stat, err := os.Stat(downloadDir); err == nil && stat.IsDir() {
+		return downloadDir
+	}
+
+	return ""
 }
 
 func (c *Config) setConfig(config Config) {
@@ -166,6 +217,7 @@ func (c *Config) setConfig(config Config) {
 	c.DownloadProxy = config.DownloadProxy
 	c.AutoProxy = config.AutoProxy
 	c.TaskNumber = config.TaskNumber
+	c.DownNumber = config.DownNumber
 	c.WxAction = config.WxAction
 	c.UseHeaders = config.UseHeaders
 	if oldProxy != c.UpstreamProxy || openProxy != c.OpenProxy {
@@ -212,6 +264,8 @@ func (c *Config) getConfig(key string) interface{} {
 		return c.AutoProxy
 	case "TaskNumber":
 		return c.TaskNumber
+	case "DownNumber":
+		return c.DownNumber
 	case "WxAction":
 		return c.WxAction
 	case "UseHeaders":

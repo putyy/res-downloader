@@ -26,6 +26,7 @@ export namespace appType {
         AutoProxy: boolean
         WxAction: boolean
         TaskNumber: number
+        DownNumber: number
         UserAgent: string
         UseHeaders: string
         MimeMap: { [key: string]: MimeMap }

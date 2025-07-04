@@ -106,9 +106,9 @@ export default {
             data: data
         })
     },
-    batchImport(data: object) {
+    batchExport(data: object) {
         return request({
-            url: 'api/batch-import',
+            url: 'api/batch-export',
             method: 'post',
             data: data
         })
