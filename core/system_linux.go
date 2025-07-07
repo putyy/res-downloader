@@ -88,13 +88,18 @@ func (s *SystemSetup) installCert() (string, error) {
 	}
 
 	certName := appOnce.AppName + ".crt"
-
 	var certPath string
-	if distro == "deepin" {
+	var updateCmd = []string{"update-ca-certificates"}
+
+	switch distro {
+	case "deepin":
 		certDir := "/usr/share/ca-certificates/" + appOnce.AppName
 		certPath = certDir + "/" + certName
 		s.runCommand([]string{"mkdir", "-p", certDir}, true)
-	} else {
+	case "arch":
+		certPath = "/usr/share/ca-certificates/trust-source/" + certName
+		updateCmd = []string{"update-ca-trust"}
+	default:
 		certPath = "/usr/local/share/ca-certificates/" + certName
 	}
 
@@ -122,7 +127,7 @@ func (s *SystemSetup) installCert() (string, error) {
 		}
 	}
 
-	if output, err := s.runCommand([]string{"update-ca-certificates"}, true); err != nil {
+	if output, err := s.runCommand(updateCmd, true); err != nil {
 		errs.WriteString(fmt.Sprintf("update failed: %s\n%s\n", err.Error(), output))
 	} else {
 		isSuccess = true
