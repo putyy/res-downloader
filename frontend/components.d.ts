@@ -9,8 +9,6 @@ declare module 'vue' {
   export interface GlobalComponents {
     Action: typeof import('./src/components/Action.vue')['default']
     ActionDesc: typeof import('./src/components/ActionDesc.vue')['default']
-    DescriptionHeader: typeof import('./src/components/DescriptionHeader.vue')['default']
-    DescriptionSearch: typeof import('./src/components/DescriptionSearch.vue')['default']
     Footer: typeof import('./src/components/Footer.vue')['default']
     ImportJson: typeof import('./src/components/ImportJson.vue')['default']
     Index: typeof import('./src/components/layout/Index.vue')['default']

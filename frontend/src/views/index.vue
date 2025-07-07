@@ -97,7 +97,6 @@ import {
   DownloadOutline,
   ArrowRedoCircleOutline,
   ServerOutline,
-  HelpCircleOutline,
   SearchOutline,
   TrashOutline
 } from "@vicons/ionicons5"
