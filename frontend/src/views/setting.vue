@@ -204,6 +204,7 @@ import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import {computed} from "vue"
 import {useI18n} from 'vue-i18n'
+import {isValidHost, isValidPort} from '@/func'
 
 const {t} = useI18n()
 const store = useIndexStore()
@@ -221,9 +222,6 @@ const renderKey = ref(999)
 
 const hostValidationFeedback = ref("")
 const portValidationFeedback = ref("")
-const ipv4Regex = /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/
-const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}?$/
-const localhostRegex = /^localhost$/
 
 watch(formValue.value, () => {
   formValue.value.Port = formValue.value.Port.trim()
@@ -261,15 +259,6 @@ watch(() => store.globalConfig.Locale, () => {
   formValue.value.Locale = store.globalConfig.Locale
   renderKey.value++
 })
-
-const isValidPort = (port: number) => {
-  const portNumber = Number(port)
-  return Number.isInteger(portNumber) && portNumber > 1024 && portNumber < 65535
-}
-
-const isValidHost = (host: string) => {
-  return ipv4Regex.test(host) || domainRegex.test(host) || localhostRegex.test(host)
-}
 
 const selectDir = () => {
   appApi.openDirectoryDialog().then((res: any) => {

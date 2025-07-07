@@ -2,7 +2,12 @@
   <div class="flex pb-2 flex-col h-full min-w-[80px] border-r border-slate-100 dark:border-slate-900">
     <Screen v-if="envInfo.platform!=='darwin'"></Screen>
     <div class="w-full flex flex-row items-center justify-center pt-5" :class="envInfo.platform==='darwin' ? 'pt-8' : 'pt-2'">
-      <img class="w-12 h-12 cursor-pointer" src="@/assets/image/logo.png" alt="res-downloader logo" @click="handleFooterUpdate('github')"/>
+      <div class="relative flex items-center justify-center cursor-pointer" @click="handleFooterUpdate('github')">
+        <img class="w-12 h-12 rounded-full transition-transform duration-300 hover:scale-105 dark" src="@/assets/image/logo.png" alt="res-downloader logo"/>
+        <span class="absolute right-[-25px] top-0 font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-pulse" v-if="showUpdate">
+            New
+        </span>
+      </div>
     </div>
     <main class="flex-1 flex-grow-1 mb-5 overflow-auto flex flex-col pt-1 items-center h-full" v-if="is">
       <NScrollbar :size="1">
@@ -66,6 +71,8 @@ import Footer from "@/components/Footer.vue"
 import Screen from "@/components/Screen.vue"
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
 import {useI18n} from "vue-i18n"
+import request from "@/api/request"
+import {compareVersions} from "@/func"
 
 const {t} = useI18n()
 const route = useRoute()
@@ -77,6 +84,7 @@ const showAppInfo = ref(false)
 const menuValue = ref(route.fullPath.substring(1))
 const store = useIndexStore()
 const is = ref(false)
+const showUpdate = ref(false)
 
 const envInfo = store.envInfo
 
@@ -98,6 +106,13 @@ onMounted(()=>{
     collapsed.value = JSON.parse(collapsedCache).collapsed
   }
   is.value = true
+
+  request({
+    url: 'https://res.putyy.com/version.json',
+    method: 'get',
+  }).then((res)=>{
+    showUpdate.value = compareVersions(res.version, store.appInfo.Version) === 1
+  })
 })
 
 const renderIcon = (icon: any) => {
@@ -183,3 +198,20 @@ const collapsedChange = (value: boolean)=>{
   localStorage.setItem("collapsed", JSON.stringify({collapsed: value}))
 }
 </script>
+<style scoped>
+@keyframes pulse {
+  0% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0.9);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+</style>
