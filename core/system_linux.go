@@ -112,8 +112,6 @@ func (s *SystemSetup) installCert() (string, error) {
 		confPath := "/etc/ca-certificates.conf"
 		checkCmd := []string{"grep", "-qxF", certName, confPath}
 		if _, err := s.runCommand(checkCmd, true); err != nil {
-			// certPath = "/usr/share/ca-certificates/" + appOnce.AppName + "/" + certName
-			// Therefore, in the conf file, it should be set to `appOnce.AppName + "/" + certName` instead of `certName`.
 			echoCmd := []string{"bash", "-c", fmt.Sprintf("echo '%s' >> %s", appOnce.AppName+"/"+certName, confPath)}
 			if output, err := s.runCommand(echoCmd, true); err != nil {
 				errs.WriteString(fmt.Sprintf("append conf failed: %s\n%s\n", err.Error(), output))
