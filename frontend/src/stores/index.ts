@@ -41,8 +41,6 @@ export const useIndexStore = defineStore("index-store", () => {
         arch: "",
     });
 
-    const tableHeight = ref(800)
-
     const isProxy = ref(false)
     const baseUrl = ref("")
 
@@ -62,17 +60,11 @@ export const useIndexStore = defineStore("index-store", () => {
 
         baseUrl.value = "http://127.0.0.1:" +globalConfig.value.Port
         window.$baseUrl = baseUrl.value
-        window.addEventListener("resize", handleResize);
-        handleResize()
     }
 
     const setConfig = (formValue: Object) => {
         globalConfig.value = Object.assign({}, globalConfig.value, formValue)
         appApi.setConfig(globalConfig.value)
-    }
-
-    const handleResize = () => {
-        tableHeight.value = document.documentElement.clientHeight || window.innerHeight
     }
 
     const openProxy = async () => {
@@ -94,7 +86,6 @@ export const useIndexStore = defineStore("index-store", () => {
     return {
         appInfo,
         globalConfig,
-        tableHeight,
         isProxy,
         envInfo,
         baseUrl,
