@@ -107,7 +107,9 @@
     "mime_map": "Intercept Rules",
     "mime_map_tip": "JSON format, keep default if unsure, please restart software after modification",
     "port_format_error": "port format error",
-    "host_format_error": "host format error"
+    "host_format_error": "host format error",
+    "basic_setting": "Basic Setting",
+    "advanced_setting": "Advanced Setting"
   },
   "footer": {
     "title": "About Us",

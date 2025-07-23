@@ -1,7 +1,7 @@
 <template>
   <div class="h-full relative p-5 overflow-y-auto [&::-webkit-scrollbar]:hidden" :key="renderKey">
     <NTabs type="line" animated>
-      <NTabPane name="basic" tab="基础设置">
+      <NTabPane name="basic" :tab="t('setting.basic_setting')">
         <NForm
           :model="formValue"
           size="medium"
@@ -67,7 +67,7 @@
         </NForm>
       </NTabPane>
 
-      <NTabPane name="advanced" tab="高级设置">
+      <NTabPane name="advanced" :tab="t('setting.advanced_setting')">
         <NForm
           :model="formValue"
           size="medium"
@@ -270,3 +270,9 @@ const selectDir = () => {
   })
 }
 </script>
+<style lang="scss">
+.n-tabs-nav--top{
+  @apply sticky top-0 z-10;
+  background-color: var(--n-color);
+}
+</style>
