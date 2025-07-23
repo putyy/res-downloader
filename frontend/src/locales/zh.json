@@ -107,7 +107,9 @@
     "mime_map": "拦截规则",
     "mime_map_tip": "json格式，如果不清楚保持默认就行，修改后请重启软件",
     "port_format_error": "port 格式错误",
-    "host_format_error": "host 格式错误"
+    "host_format_error": "host 格式错误",
+    "basic_setting": "基础设置",
+    "advanced_setting": "高级设置"
   },
   "footer": {
     "title": "关于我们",
