@@ -82,7 +82,7 @@
 </template>
 
 <script lang="ts" setup>
-import {NButton, NIcon, NImage, NInput, NSpace, NTooltip} from "naive-ui"
+import {NButton, NIcon, NImage, NInput, NSpace, NTooltip, NPopover} from "naive-ui"
 import {computed, h, onMounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
 import type {DataTableRowKey, ImageRenderToolbarProps} from "naive-ui"
@@ -112,16 +112,16 @@ const eventStore = useEventStore()
 const isProxy = computed(() => {
   return store.isProxy
 })
-const certUrl = computed(()=>{
+const certUrl = computed(() => {
   return store.baseUrl + "/api/cert"
 })
 const data = ref<any[]>([])
-
+let filterClassify: string[] = []
 const filteredData = computed(() => {
   let result = data.value
 
-  if (resourcesType.value.length > 0 && !resourcesType.value.includes("all")) {
-    result = result.filter(item => resourcesType.value.includes(item.Classify))
+  if (filterClassify.length > 0) {
+    result = result.filter(item => filterClassify.includes(item.Classify))
   }
 
   if (descriptionSearchValue.value) {
@@ -186,6 +186,7 @@ const columns = ref<any[]>([
     filterOptions: computed(() => Array.from(classify.value).slice(1)),
     filterMultiple: true,
     filter: (value: string, row: appType.MediaInfo) => {
+      if (!filterClassify.includes(value)) filterClassify.push(value)
       return !!~row.Classify.indexOf(String(value))
     },
     render: (row: appType.MediaInfo) => {
@@ -271,26 +272,26 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: () => h('div', { class: 'flex items-center' }, [
+    title: () => h('div', {class: 'flex items-center'}, [
       t('index.description'),
-      h(NTooltip, {
+      h(NPopover, {
         trigger: 'click',
         placement: 'bottom',
-        showArrow: false,
+        showArrow: true,
       }, {
         trigger: () => h(NIcon, {
           size: "18",
           class: "ml-1 text-gray-500 cursor-pointer",
           onClick: (e: MouseEvent) => e.stopPropagation()
         }, h(SearchOutline)),
-        default: () => h('div', { class: 'p-2 w-64' }, [
+        default: () => h('div', {class: 'p-2 w-64'}, [
           h(NInput, {
             value: descriptionSearchValue.value,
             'onUpdate:value': (val: string) => descriptionSearchValue.value = val,
             placeholder: t('index.search_description'),
             clearable: true
           }, {
-            prefix: () => h(NIcon, { component: SearchOutline })
+            prefix: () => h(NIcon, {component: SearchOutline})
           })
         ])
       })
@@ -298,15 +299,10 @@ const columns = ref<any[]>([
     key: "Description",
     width: 150,
     render: (row: appType.MediaInfo, index: number) => {
+      const d = h("div", {class: "ellipsis-2",}, row.Description)
       return h(NTooltip, {trigger: 'hover', placement: 'top'}, {
-        trigger: () => h("div", {}, row.Description.length > 16 ? row.Description.substring(0, 16) + "..." : row.Description),
-        default: () => h("div", {
-          style: {
-            "max-width": " 400px",
-            "white-space": "normal",
-            "word-wrap": "break-word"
-          }
-        }, row.Description)
+        trigger: () => d,
+        default: () => d
       })
     }
   },
@@ -322,7 +318,7 @@ const columns = ref<any[]>([
       return h("a",
           {
             href: "javascript:;",
-            class:"ellipsis-2",
+            class: "ellipsis-2",
             style: {
               color: "#5a95d0"
             },
@@ -338,7 +334,7 @@ const columns = ref<any[]>([
   },
   {
     key: "actions",
-    width: 210,
+    width: 130,
     render(row: appType.MediaInfo, index: number) {
       return h(Action, {key: index, row: row, index: index, onAction: dataAction})
     },
@@ -361,7 +357,7 @@ let isOpenProxy = false
 
 onMounted(() => {
   try {
-    window.addEventListener("resize", ()=>{
+    window.addEventListener("resize", () => {
       resetTableHeight()
     })
     loading.value = true
@@ -445,7 +441,7 @@ watch(resourcesType, (n, o) => {
   appApi.setType(resourcesType.value)
 })
 
-const resetTableHeight = ()=>{
+const resetTableHeight = () => {
   try {
     const headerHeight = document.getElementById("header")?.offsetHeight || 0
     const bottomHeight = document.getElementById("bottom")?.offsetHeight || 0
@@ -453,7 +449,7 @@ const resetTableHeight = ()=>{
     const theadHeight = document.getElementsByClassName("n-data-table-thead")[0]?.offsetHeight || 0
     const height = document.documentElement.clientHeight || window.innerHeight
     tableHeight.value = height - headerHeight - bottomHeight - theadHeight - 20
-  }catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -537,6 +533,7 @@ const handleCheck = (rowKeys: DataTableRowKey[]) => {
 
 const batchDown = async () => {
   if (checkedRowKeysValue.value.length <= 0) {
+    window?.$message?.error(t("index.use_data"))
     return
   }
 
@@ -566,7 +563,9 @@ const batchExport = () => {
   loading.value = true
   let jsonData = []
   for (let i = 0; i < data.value.length; i++) {
-    jsonData.push(encodeURIComponent(JSON.stringify(data.value[i])))
+    if (checkedRowKeysValue.value.includes(data.value[i].Id)) {
+      jsonData.push(encodeURIComponent(JSON.stringify(data.value[i])))
+    }
   }
   appApi.batchExport({content: jsonData.join("\n")}).then((res: appType.Res) => {
     loading.value = false
@@ -663,6 +662,20 @@ const close = () => {
 }
 
 const clear = () => {
+  if (checkedRowKeysValue.value.length > 0) {
+    let newData = []
+    for (let i = 0; i < data.value.length; i++) {
+      if (!checkedRowKeysValue.value.includes(data.value[i].Id)) {
+        appApi.delete({sign: data.value[i].UrlSign})
+        newData.push(data.value[i])
+      }
+    }
+    checkedRowKeysValue.value = []
+    data.value = newData
+    localStorage.setItem("resources-data", JSON.stringify(data.value))
+    return
+  }
+
   data.value = []
   localStorage.setItem("resources-data", "")
   appApi.clear()

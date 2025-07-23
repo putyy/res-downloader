@@ -3,10 +3,13 @@ package shared
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"golang.org/x/net/publicsuffix"
 	"net/url"
 	"os"
+	"os/exec"
+	sysRuntime "runtime"
 	"time"
 )
 
@@ -67,4 +70,33 @@ func GetCurrentDateTimeFormatted() string {
 		now.Hour(),
 		now.Minute(),
 		now.Second())
+}
+
+func OpenFolder(filePath string) error {
+	var cmd *exec.Cmd
+
+	switch sysRuntime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-R", filePath)
+	case "windows":
+		cmd = exec.Command("explorer", "/select,", filePath)
+	case "linux":
+		cmd = exec.Command("nautilus", filePath)
+		if err := cmd.Start(); err != nil {
+			cmd = exec.Command("thunar", filePath)
+			if err := cmd.Start(); err != nil {
+				cmd = exec.Command("dolphin", filePath)
+				if err := cmd.Start(); err != nil {
+					cmd = exec.Command("pcmanfm", filePath)
+					if err := cmd.Start(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	default:
+		return errors.New("unsupported platform")
+	}
+
+	return cmd.Start()
 }

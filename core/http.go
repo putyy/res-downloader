@@ -10,10 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"res-downloader/core/shared"
-	sysRuntime "runtime"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -207,42 +205,14 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := data.FilePath
-	var cmd *exec.Cmd
-
-	switch sysRuntime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", "-R", filePath)
-	case "windows":
-		cmd = exec.Command("explorer", "/select,", filePath)
-	case "linux":
-		cmd = exec.Command("nautilus", filePath)
-		if err := cmd.Start(); err != nil {
-			cmd = exec.Command("thunar", filePath)
-			if err := cmd.Start(); err != nil {
-				cmd = exec.Command("dolphin", filePath)
-				if err := cmd.Start(); err != nil {
-					cmd = exec.Command("pcmanfm", filePath)
-					if err := cmd.Start(); err != nil {
-						globalLogger.Err(err)
-						h.error(w, err.Error())
-						return
-					}
-				}
-			}
-		}
-	default:
-		h.error(w, "unsupported platform")
-		return
-	}
-
-	err = cmd.Start()
+	err = shared.OpenFolder(data.FilePath)
 	if err != nil {
 		globalLogger.Err(err)
 		h.error(w, err.Error())
 		return
 	}
 	h.success(w)
+	return
 }
 
 func (h *HttpServer) install(w http.ResponseWriter, r *http.Request) {
@@ -409,6 +379,8 @@ func (h *HttpServer) batchExport(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
+
+	_ = shared.OpenFolder(fileName)
 	h.success(w, respData{
 		"file_name": fileName,
 	})

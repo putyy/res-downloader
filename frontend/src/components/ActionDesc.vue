@@ -3,7 +3,7 @@
     <span>
       {{ t('index.operation') }}
     </span>
-    <NTooltip trigger="hover">
+    <NPopover trigger="hover">
       <template #trigger>
         <NIcon size="18" class="ml-1 text-gray-500">
           <HelpCircleOutline/>
@@ -68,8 +68,17 @@
           <span class="ml-1">{{ t("index.delete_row") }}</span>
         </div>
 
+        <div class="flex items-center justify-start p-1.5">
+          <n-icon
+              size="28"
+              class="text-sky-500 dark:text-sky-300 bg-sky-500/20 dark:bg-sky-200/30 rounded-full flex items-center justify-center p-2 cursor-pointer hover:bg-sky-200/40 transition-colors"
+          >
+            <GridSharp/>
+          </n-icon>
+          <span class="ml-1">{{ t("index.more_operation") }}</span>
+        </div>
       </div>
-    </NTooltip>
+    </NPopover>
   </div>
 </template>
 <script setup lang="ts">
@@ -78,7 +87,10 @@ import {
   CopyOutline,
   DownloadOutline,
   GlobeOutline,
-  HelpCircleOutline, LinkOutline, LockOpenSharp,
+  HelpCircleOutline,
+  LinkOutline,
+  LockOpenSharp,
+  GridSharp,
   TrashOutline
 } from "@vicons/ionicons5"
 
