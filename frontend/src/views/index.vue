@@ -1,6 +1,6 @@
 <template>
-  <div class="h-full flex flex-col p-5 overflow-y-auto [&::-webkit-scrollbar]:hidden">
-    <div class="pb-2 z-40">
+  <div class="h-full flex flex-col px-5 pt-5 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+    <div class="pb-2 z-40" id="header">
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">
           {{ t("index.close_grab") }}
@@ -68,6 +68,12 @@
           style="--wails-draggable:no-drag"
       />
     </div>
+    <div class="flex justify-center items-center text-blue-400" id="bottom">
+      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL(certUrl)">{{ t('footer.cert_download') }}</span>
+      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</span>
+      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/issues')">{{ t('footer.help') }}</span>
+      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/releases')">{{ t('footer.update_log') }}</span>
+    </div>
     <Preview v-model:showModal="showPreviewRow" :previewRow="previewRow"/>
     <ShowLoading :loadingText="loadingText" :isLoading="loading"/>
     <ImportJson v-model:showModal="showImport" @submit="handleImport"/>
@@ -106,6 +112,9 @@ const eventStore = useEventStore()
 const isProxy = computed(() => {
   return store.isProxy
 })
+const certUrl = computed(()=>{
+  return store.baseUrl + "/api/cert"
+})
 const data = ref<any[]>([])
 
 const filteredData = computed(() => {
@@ -123,9 +132,7 @@ const filteredData = computed(() => {
 })
 
 const store = useIndexStore()
-const tableHeight = computed(() => {
-  return store.globalConfig.Locale === "zh" ? store.tableHeight - 130 : store.tableHeight - 151
-})
+const tableHeight = ref(800)
 const resourcesType = ref<string[]>(["all"])
 
 const classifyAlias: { [key: string]: any } = {
@@ -315,6 +322,7 @@ const columns = ref<any[]>([
       return h("a",
           {
             href: "javascript:;",
+            class:"ellipsis-2",
             style: {
               color: "#5a95d0"
             },
@@ -353,6 +361,9 @@ let isOpenProxy = false
 
 onMounted(() => {
   try {
+    window.addEventListener("resize", ()=>{
+      resetTableHeight()
+    })
     loading.value = true
     handleInstall().then((is: boolean) => {
       loading.value = false
@@ -374,7 +385,7 @@ onMounted(() => {
   if (cache) {
     data.value = JSON.parse(cache)
   }
-
+  resetTableHeight()
   eventStore.addHandle({
     type: "newResources",
     event: (res: appType.MediaInfo) => {
@@ -433,6 +444,19 @@ watch(resourcesType, (n, o) => {
   localStorage.setItem("resources-type", JSON.stringify({res: resourcesType.value}))
   appApi.setType(resourcesType.value)
 })
+
+const resetTableHeight = ()=>{
+  try {
+    const headerHeight = document.getElementById("header")?.offsetHeight || 0
+    const bottomHeight = document.getElementById("bottom")?.offsetHeight || 0
+    // @ts-ignore
+    const theadHeight = document.getElementsByClassName("n-data-table-thead")[0]?.offsetHeight || 0
+    const height = document.documentElement.clientHeight || window.innerHeight
+    tableHeight.value = height - headerHeight - bottomHeight - theadHeight - 20
+  }catch (e) {
+    console.log(e)
+  }
+}
 
 const buildClassify = () => {
   const mimeMap = store.globalConfig.MimeMap ?? {}
@@ -736,3 +760,12 @@ const handleInstall = async () => {
   return false
 }
 </script>
+<style>
+.ellipsis-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+</style>
