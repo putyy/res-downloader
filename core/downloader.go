@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,6 +43,7 @@ type FileDownloader struct {
 	totalTasks       int
 	TotalSize        int64
 	IsMultiPart      bool
+	RetryOnError     bool
 	Headers          map[string]string
 	DownloadTaskList []*DownloadTask
 	progressCallback ProgressCallback
@@ -55,6 +55,7 @@ func NewFileDownloader(url, filename string, totalTasks int, headers map[string]
 		FileName:         filename,
 		totalTasks:       totalTasks,
 		IsMultiPart:      false,
+		RetryOnError:     false,
 		TotalSize:        0,
 		Headers:          headers,
 		DownloadTaskList: make([]*DownloadTask, 0),
@@ -132,10 +133,9 @@ func (fd *FileDownloader) init() error {
 
 	fd.TotalSize = resp.ContentLength
 	if fd.TotalSize <= 0 {
-		return errors.New("invalid file size")
-	}
-
-	if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > MinPartSize {
+		fd.IsMultiPart = false
+		fd.TotalSize = -1
+	} else if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > MinPartSize {
 		fd.IsMultiPart = true
 	}
 
@@ -147,9 +147,11 @@ func (fd *FileDownloader) init() error {
 	if err != nil {
 		return fmt.Errorf("file open failed: %w", err)
 	}
-	if err := fd.File.Truncate(fd.TotalSize); err != nil {
-		fd.File.Close()
-		return fmt.Errorf("file truncate failed: %w", err)
+	if fd.TotalSize > 0 {
+		if err := fd.File.Truncate(fd.TotalSize); err != nil {
+			fd.File.Close()
+			return fmt.Errorf("file truncate failed: %w", err)
+		}
 	}
 	return nil
 }
@@ -182,10 +184,14 @@ func (fd *FileDownloader) createDownloadTasks() {
 		}
 	} else {
 		fd.totalTasks = 1
+		rangeEnd := int64(-1)
+		if fd.TotalSize > 0 {
+			rangeEnd = fd.TotalSize - 1
+		}
 		fd.DownloadTaskList = append(fd.DownloadTaskList, &DownloadTask{
 			taskID:     0,
 			rangeStart: 0,
-			rangeEnd:   fd.TotalSize - 1,
+			rangeEnd:   rangeEnd,
 		})
 	}
 }
@@ -233,6 +239,15 @@ func (fd *FileDownloader) startDownload() error {
 	}
 
 	if len(errArr) > 0 {
+		if !fd.RetryOnError && fd.IsMultiPart {
+			// 降级
+			fd.RetryOnError = true
+			fd.DownloadTaskList = []*DownloadTask{}
+			fd.totalTasks = 1
+			fd.IsMultiPart = false
+			fd.createDownloadTasks()
+			return fd.startDownload()
+		}
 		return fmt.Errorf("download failed with %d errors: %v", len(errArr), errArr[0])
 	}
 
@@ -294,31 +309,23 @@ func (fd *FileDownloader) doDownloadTask(progressChan chan ProgressChan, task *D
 	for {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
-			remain := task.rangeEnd - (task.rangeStart + task.downloadedSize) + 1
 			writeSize := int64(n)
-			if writeSize > remain {
-				writeSize = remain
-			}
-
-			_, writeErr := fd.File.WriteAt(buf[:writeSize], task.rangeStart+task.downloadedSize)
+			offset := task.rangeStart + task.downloadedSize
+			_, writeErr := fd.File.WriteAt(buf[:writeSize], offset)
 			if writeErr != nil {
-				return fmt.Errorf("write file failed at offset %d: %w", task.rangeStart+task.downloadedSize, writeErr)
+				return fmt.Errorf("write file failed at offset %d: %w", offset, writeErr)
 			}
 
 			task.downloadedSize += writeSize
 			progressChan <- ProgressChan{taskID: task.taskID, bytes: writeSize}
 
-			if task.rangeStart+task.downloadedSize-1 >= task.rangeEnd {
+			if fd.TotalSize > 0 && task.rangeStart+task.downloadedSize-1 >= task.rangeEnd {
 				return nil
 			}
 		}
 
 		if err != nil {
 			if err == io.EOF {
-				expectedSize := task.rangeEnd - task.rangeStart + 1
-				if task.downloadedSize < expectedSize {
-					return fmt.Errorf("incomplete download: got %d bytes, expected %d", task.downloadedSize, expectedSize)
-				}
 				return nil
 			}
 			return fmt.Errorf("read response failed: %w", err)
@@ -331,20 +338,13 @@ func (fd *FileDownloader) verifyDownload() error {
 		if !task.isCompleted {
 			return fmt.Errorf("task %d not completed", task.taskID)
 		}
+	}
 
-		expectedSize := task.rangeEnd - task.rangeStart + 1
-		if task.downloadedSize != expectedSize {
-			return fmt.Errorf("task %d size mismatch: got %d, expected %d", task.taskID, task.downloadedSize, expectedSize)
+	if fd.TotalSize > 0 {
+		_, err := fd.File.Stat()
+		if err != nil {
+			return fmt.Errorf("get file info failed: %w", err)
 		}
-	}
-
-	info, err := fd.File.Stat()
-	if err != nil {
-		return fmt.Errorf("get file info failed: %w", err)
-	}
-
-	if info.Size() != fd.TotalSize {
-		return fmt.Errorf("file size mismatch: got %d, expected %d", info.Size(), fd.TotalSize)
 	}
 
 	return nil
