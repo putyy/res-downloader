@@ -381,7 +381,11 @@ onMounted(() => {
   eventStore.addHandle({
     type: "newResources",
     event: (res: appType.MediaInfo) => {
-      data.value.push(res)
+      if (store.globalConfig.InsertTail) {
+        data.value.push(res)
+      } else {
+        data.value.unshift(res)
+      }
       cacheData()
     }
   })

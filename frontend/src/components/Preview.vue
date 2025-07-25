@@ -141,7 +141,6 @@ const buildUrlWithParams = (url: string) => {
 }
 
 const handleSeeking = () => {
-  console.log('handleSeeking')
   const currentTime = videoPlayer.value.currentTime
   const bufferedEnd = videoPlayer.value.buffered.end(videoPlayer.value.buffered.length - 1)
 

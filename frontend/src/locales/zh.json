@@ -96,6 +96,8 @@
     "quality_tip": "视频号有效",
     "full_intercept": "全量拦截",
     "full_intercept_tip": "微信视频号是否全量拦截，否：只拦截视频详情",
+    "insert_tail": "添入尾部",
+    "insert_tail_tip": "拦截到新数据是否添加到列表尾部",
     "upstream_proxy": "上游代理",
     "upstream_proxy_tip": "用于结合其他代理工具，格式: http://username:password@your.proxy.server:port",
     "download_proxy": "下载代理",
