@@ -31,7 +31,7 @@
 - 📘 [在线文档](https://res.putyy.com/)
 - 💬 [加入交流群](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
 - 🧩 [最新版](https://github.com/putyy/res-downloader/releases) ｜ [Mini版 使用默认浏览器展示UI](https://github.com/putyy/resd-mini) ｜ [Electron旧版 支持Win7](https://github.com/putyy/res-downloader/tree/old)
-  > *群满时可加微信 `AmorousWorld`，请备注“来源”*
+  > *群满时可加微信 `AmorousWorld`，请备注“github”*
 
 ## 🧩 下载地址
 

@@ -32,7 +32,7 @@ Clean UI, easy to use, and supports a wide range of resource sniffing and downlo
 - 📘 [Online Documentation (Chinese)](https://res.putyy.com/)
 - 🧩 [Mini Version Ui Display using default browser](https://github.com/putyy/res-downloader) ｜ [Old Electron Version Support Win7](https://github.com/putyy/res-downloader/tree/old)
 - 💬 [Join the User Group (Chinese)](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
-  > *If full, you can add WeChat `AmorousWorld` with a note “From GitHub”*
+  > *If full, you can add WeChat `AmorousWorld` with a note “github”*
 
 ## 🧩 Download Links
 
