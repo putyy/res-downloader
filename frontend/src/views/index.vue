@@ -177,7 +177,7 @@ const columns = ref<any[]>([
   {
     title: computed(() => t("index.domain")),
     key: "Domain",
-    width: 80,
+    width: 90,
   },
   {
     title: computed(() => t("index.type")),
@@ -200,12 +200,14 @@ const columns = ref<any[]>([
     width: 80,
     render: (row: appType.MediaInfo) => {
       if (row.Classify === "image") {
-        return h(NImage, {
-          maxWidth: "80px",
+        return h("div", {
+          style: "width: 100%;max-height:80px;overflow:hidden;"
+        }, h(NImage, {
+          objectFit: "contain",
           lazy: true,
           "render-toolbar": renderToolbar,
           src: row.Url
-        })
+        }))
       }
       return [
         h(
