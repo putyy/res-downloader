@@ -190,12 +190,8 @@ const columns = ref<any[]>([
       return !!~row.Classify.indexOf(String(value))
     },
     render: (row: appType.MediaInfo) => {
-      for (const key in classify.value) {
-        if (classify.value[key].value === row.Classify) {
-          return classify.value[key].label
-        }
-      }
-      return row.Classify
+      const item = classify.value.find(item => item.value === row.Classify)
+      return item ? item.label : row.Classify
     }
   },
   {
@@ -386,7 +382,7 @@ onMounted(() => {
     type: "newResources",
     event: (res: appType.MediaInfo) => {
       data.value.push(res)
-      localStorage.setItem("resources-data", JSON.stringify(data.value))
+      cacheData()
     }
   })
 
@@ -395,34 +391,25 @@ onMounted(() => {
     event: (res: { Id: string, SavePath: string, Status: string, Message: string }) => {
       switch (res.Status) {
         case "running":
-          for (const i in data.value) {
-            if (data.value[i].Id === res.Id) {
-              data.value[i].SavePath = res.Message
-              data.value[i].Status = "running"
-              break
-            }
-          }
+          updateItem(res.Id, item => {
+            item.SavePath = res.Message
+            item.Status = 'running'
+          })
           break
         case "done":
-          for (const i in data.value) {
-            if (data.value[i].Id === res.Id) {
-              data.value[i].SavePath = res.SavePath
-              data.value[i].Status = "done"
-              break
-            }
-          }
-          localStorage.setItem("resources-data", JSON.stringify(data.value))
+          updateItem(res.Id, item => {
+            item.SavePath = res.SavePath
+            item.Status = 'done'
+          })
+          cacheData()
           checkQueue()
           break
         case "error":
-          for (const i in data.value) {
-            if (data.value[i].Id === res.Id) {
-              data.value[i].SavePath = res.Message
-              data.value[i].Status = "error"
-              break
-            }
-          }
-          localStorage.setItem("resources-data", JSON.stringify(data.value))
+          updateItem(res.Id, item => {
+            item.SavePath = res.Message
+            item.Status = 'error'
+          })
+          cacheData()
           checkQueue()
           break
       }
@@ -440,6 +427,15 @@ watch(resourcesType, (n, o) => {
   localStorage.setItem("resources-type", JSON.stringify({res: resourcesType.value}))
   appApi.setType(resourcesType.value)
 })
+
+const updateItem = (id: string, updater: (item: any) => void)=>{
+  const item = data.value.find(i => i.Id === id)
+  if (item) updater(item)
+}
+
+function cacheData() {
+  localStorage.setItem("resources-data", JSON.stringify(data.value))
+}
 
 const resetTableHeight = () => {
   try {
@@ -503,10 +499,8 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       break
     case "delete":
       appApi.delete({sign: row.UrlSign}).then(() => {
-        let arr = data.value
-        arr.splice(index, 1)
-        data.value = arr
-        localStorage.setItem("resources-data", JSON.stringify(data.value))
+        data.value.splice(index, 1)
+        cacheData()
       })
       break
   }
@@ -542,11 +536,12 @@ const batchDown = async () => {
     return
   }
 
-  for (let i = 0; i < data.value.length; i++) {
-    if (checkedRowKeysValue.value.includes(data.value[i].Id) && data.value[i].Classify != "live" && data.value[i].Classify != "m3u8") {
-      download(data.value[i], i)
+  data.value.forEach((item, index) => {
+    if (checkedRowKeysValue.value.includes(item.Id) && item.Classify !== 'live' && item.Classify !== 'm3u8') {
+      download(item, index)
     }
-  }
+  })
+
   checkedRowKeysValue.value = []
 }
 
@@ -555,18 +550,19 @@ const batchExport = () => {
     window?.$message?.error(t("index.use_data"))
     return
   }
+
   if (!store.globalConfig.SaveDirectory) {
     window?.$message?.error(t("index.save_path_empty"))
     return
   }
+
   loadingText.value = t("common.loading")
   loading.value = true
-  let jsonData = []
-  for (let i = 0; i < data.value.length; i++) {
-    if (checkedRowKeysValue.value.includes(data.value[i].Id)) {
-      jsonData.push(encodeURIComponent(JSON.stringify(data.value[i])))
-    }
-  }
+
+  const jsonData = data.value
+      .filter(item => checkedRowKeysValue.value.includes(item.Id))
+      .map(item => encodeURIComponent(JSON.stringify(item)))
+
   appApi.batchExport({content: jsonData.join("\n")}).then((res: appType.Res) => {
     loading.value = false
     if (res.code === 0) {
@@ -581,12 +577,7 @@ const batchExport = () => {
 }
 
 const uint8ArrayToBase64 = (bytes: any) => {
-  let binary = ''
-  const len = bytes.byteLength
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return window.btoa(binary)
+  return window.btoa(Array.from(bytes, (byte: any) => String.fromCharCode(byte)).join(''))
 }
 
 const download = (row: appType.MediaInfo, index: number) => {
@@ -663,16 +654,17 @@ const close = () => {
 
 const clear = () => {
   if (checkedRowKeysValue.value.length > 0) {
-    let newData = []
-    for (let i = 0; i < data.value.length; i++) {
-      if (!checkedRowKeysValue.value.includes(data.value[i].Id)) {
-        appApi.delete({sign: data.value[i].UrlSign})
-        newData.push(data.value[i])
+    let newData = [] as any[]
+    data.value.forEach((item, index) => {
+      if (checkedRowKeysValue.value.includes(item.Id)) {
+        appApi.delete({sign: item.UrlSign})
+      } else {
+        newData.push(item)
       }
-    }
-    checkedRowKeysValue.value = []
+    })
     data.value = newData
-    localStorage.setItem("resources-data", JSON.stringify(data.value))
+    checkedRowKeysValue.value = []
+    cacheData()
     return
   }
 
@@ -706,7 +698,7 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
         }
         data.value[index].SavePath = res.data.save_path
         data.value[index].Status = "done"
-        localStorage.setItem("resources-data", JSON.stringify(data.value))
+        cacheData()
         window?.$message?.success(t("index.video_decode_success"))
       })
     }
@@ -718,6 +710,7 @@ const handleImport = (content: string) => {
     window?.$message?.error(t("view.import_empty"))
     return
   }
+  let newItems = [] as any[]
   content.split("\n").forEach((line, index) => {
     try {
       let res = JSON.parse(decodeURIComponent(line))
@@ -725,13 +718,16 @@ const handleImport = (content: string) => {
         res.Id = res.Id + Math.floor(Math.random() * 100000)
         res.SavePath = ""
         res.Status = "ready"
-        data.value.unshift(res)
+        newItems.push(res)
       }
     } catch (e) {
       console.log(e)
     }
   })
-  localStorage.setItem("resources-data", JSON.stringify(data.value))
+  if (newItems.length > 0) {
+    data.value = [...newItems, ...data.value]
+  }
+  cacheData()
   showImport.value = false
 }
 
