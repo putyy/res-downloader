@@ -1,5 +1,5 @@
 ## 下载安装文件
-- windows下载.exe结尾的，根据自己的系统架构下载合适的安装文件，通常下载带有“x64-installer.exe”结尾的文件  
+- windows下载.exe结尾的，根据自己的系统架构下载合适的安装文件，通常下载带有“win_amd64.exe”或“x64-installer.exe”结尾的文件  
 - Mac下载.dmg结尾即可  
 - Linux根据系统类型下载对应的执行文件或安装文件  
 
