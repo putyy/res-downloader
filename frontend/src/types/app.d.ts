@@ -29,6 +29,7 @@ export namespace appType {
         DownNumber: number
         UserAgent: string
         UseHeaders: string
+        InsertTail: boolean
         MimeMap: { [key: string]: MimeMap }
     }
 

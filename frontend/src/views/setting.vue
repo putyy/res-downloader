@@ -64,6 +64,18 @@
               {{ t("setting.full_intercept_tip") }}
             </NTooltip>
           </NFormItem>
+
+          <NFormItem :label="t('setting.insert_tail')" path="InsertTail">
+            <NSwitch v-model:value="formValue.InsertTail"/>
+            <NTooltip trigger="hover">
+              <template #trigger>
+                <NIcon size="18" class="ml-1 text-gray-500">
+                  <HelpCircleOutline/>
+                </NIcon>
+              </template>
+              {{ t("setting.insert_tail_tip") }}
+            </NTooltip>
+          </NFormItem>
         </NForm>
       </NTabPane>
 

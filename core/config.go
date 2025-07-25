@@ -35,6 +35,7 @@ type Config struct {
 	DownNumber    int                 `json:"DownNumber"`
 	UserAgent     string              `json:"UserAgent"`
 	UseHeaders    string              `json:"UseHeaders"`
+	InsertTail    bool                `json:"InsertTail"`
 	MimeMap       map[string]MimeInfo `json:"MimeMap"`
 }
 
@@ -65,6 +66,7 @@ func initConfig() *Config {
 		DownNumber:    3,
 		UserAgent:     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
 		UseHeaders:    "User-Agent,Referer,Authorization,Cookie",
+		InsertTail:    true,
 		MimeMap:       getDefaultMimeMap(),
 	}
 
@@ -220,6 +222,7 @@ func (c *Config) setConfig(config Config) {
 	c.DownNumber = config.DownNumber
 	c.WxAction = config.WxAction
 	c.UseHeaders = config.UseHeaders
+	c.InsertTail = config.InsertTail
 	if oldProxy != c.UpstreamProxy || openProxy != c.OpenProxy {
 		proxyOnce.setTransport()
 	}
@@ -270,6 +273,8 @@ func (c *Config) getConfig(key string) interface{} {
 		return c.WxAction
 	case "UseHeaders":
 		return c.UseHeaders
+	case "InsertTail":
+		return c.InsertTail
 	case "MimeMap":
 		mimeMux.RLock()
 		defer mimeMux.RUnlock()

@@ -32,6 +32,7 @@ export const useIndexStore = defineStore("index-store", () => {
         DownNumber: 3,
         UserAgent: "",
         UseHeaders: "",
+        InsertTail: true,
         MimeMap: {}
     })
 
