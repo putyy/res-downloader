@@ -108,7 +108,7 @@ onMounted(()=>{
   is.value = true
 
   request({
-    url: 'https://res.putyy.com/version.json',
+    url: 'https://res.putyy.com/version.json?v=' + Date.now(),
     method: 'get',
   }).then((res)=>{
     showUpdate.value = compareVersions(res.version, store.appInfo.Version) === 1
