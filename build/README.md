@@ -24,7 +24,7 @@ wails build -platform "linux/amd64" -s -skipbindings
 
 # 打包debian
 cp build/bin/res-downloader build/linux/Debian/usr/local/bin/
-echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g")" > build/linux/Debian/DEBIAN/control
+echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g" -e "s/{{Architecture}}/amd64/g")" > build/linux/Debian/DEBIAN/control
 dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_amd64.deb
 
 # 打包AppImage
@@ -64,7 +64,7 @@ wails build -platform "linux/arm64" -s -skipbindings
 
 # 打包debian
 cp build/bin/res-downloader build/linux/Debian/usr/local/bin/
-echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g")" > build/linux/Debian/DEBIAN/control
+echo "$(cat build/linux/Debian/DEBIAN/.control | sed -e "s/{{Version}}/$(jq -r '.info.productVersion' wails.json)/g" -e "s/{{Architecture}}/arm64/g")" > build/linux/Debian/DEBIAN/control
 dpkg-deb --build ./build/linux/Debian build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64.deb
 
 mv -f build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVersion' wails.json)_linux_arm64
