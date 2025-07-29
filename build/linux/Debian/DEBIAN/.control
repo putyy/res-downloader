@@ -2,7 +2,7 @@ Package: res-downloader
 Version: {{Version}}
 Section: utils
 Priority: optional
-Architecture: amd64
+Architecture: {{Architecture}}
 Depends: libwebkit2gtk-4.0-37
 Maintainer: putyy@qq.com
 Homepage: https://github.com/putyy/res-downloader
