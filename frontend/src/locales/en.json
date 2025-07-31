@@ -96,7 +96,7 @@
     "quality_tip": "Effective for video accounts",
     "full_intercept": "Full Intercept",
     "full_intercept_tip": "Whether to fully intercept WeChat video accounts, No: only intercept video details",
-    "insert_tail": "insert tail",
+    "insert_tail": "Insert tail",
     "insert_tail_tip": "Intercept whether new data is added to the end of the list",
     "upstream_proxy": "Upstream Proxy",
     "upstream_proxy_tip": "For combining with other proxy tools, format: http://username:password@your.proxy.server:port",

@@ -65,6 +65,7 @@
           :height-for-row="()=> 48"
           :checked-row-keys="checkedRowKeysValue"
           @update:checked-row-keys="handleCheck"
+          @update:filters="updateFilters"
           style="--wails-draggable:no-drag"
       />
     </div>
@@ -85,7 +86,7 @@
 import {NButton, NIcon, NImage, NInput, NSpace, NTooltip, NPopover} from "naive-ui"
 import {computed, h, onMounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
-import type {DataTableRowKey, ImageRenderToolbarProps} from "naive-ui"
+import type {DataTableRowKey, ImageRenderToolbarProps, DataTableFilterState,DataTableBaseColumn} from "naive-ui"
 import Preview from "@/components/Preview.vue"
 import ShowLoading from "@/components/ShowLoading.vue"
 // @ts-ignore
@@ -116,12 +117,12 @@ const certUrl = computed(() => {
   return store.baseUrl + "/api/cert"
 })
 const data = ref<any[]>([])
-let filterClassify: string[] = []
+const filterClassify = ref<string[]>([])
 const filteredData = computed(() => {
   let result = data.value
 
-  if (filterClassify.length > 0) {
-    result = result.filter(item => filterClassify.includes(item.Classify))
+  if (filterClassify.value.length > 0) {
+    result = result.filter(item => filterClassify.value.includes(item.Classify))
   }
 
   if (descriptionSearchValue.value) {
@@ -186,7 +187,6 @@ const columns = ref<any[]>([
     filterOptions: computed(() => Array.from(classify.value).slice(1)),
     filterMultiple: true,
     filter: (value: string, row: appType.MediaInfo) => {
-      if (!filterClassify.includes(value)) filterClassify.push(value)
       return !!~row.Classify.indexOf(String(value))
     },
     render: (row: appType.MediaInfo) => {
@@ -273,6 +273,7 @@ const columns = ref<any[]>([
     title: () => h('div', {class: 'flex items-center'}, [
       t('index.description'),
       h(NPopover, {
+        style:"--wails-draggable:no-drag",
         trigger: 'click',
         placement: 'bottom',
         showArrow: true,
@@ -531,6 +532,10 @@ const handleCheck = (rowKeys: DataTableRowKey[]) => {
   checkedRowKeysValue.value = rowKeys
 }
 
+const updateFilters = (filters: DataTableFilterState, initiatorColumn: DataTableBaseColumn)=>{
+  filterClassify.value = filters.Classify as string[]
+}
+
 const batchDown = async () => {
   if (checkedRowKeysValue.value.length <= 0) {
     window?.$message?.error(t("index.use_data"))
@@ -732,8 +737,8 @@ const handleImport = (content: string) => {
   })
   if (newItems.length > 0) {
     data.value = [...newItems, ...data.value]
+    cacheData()
   }
-  cacheData()
   showImport.value = false
 }
 
