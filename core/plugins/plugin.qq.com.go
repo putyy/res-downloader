@@ -53,6 +53,9 @@ func (p *QqPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.
 
 	classify, _ := p.bridge.TypeSuffix(resp.Header.Get("Content-Type"))
 	if classify == "video" && strings.HasSuffix(host, "finder.video.qq.com") {
+		if strings.Contains(resp.Request.Header.Get("Origin"), "mp.weixin.qq.com") {
+			return nil
+		}
 		return resp
 	}
 
