@@ -72,7 +72,6 @@ func (fd *FileDownloader) buildClient() *http.Client {
 	}
 	return &http.Client{
 		Transport: transport,
-		Timeout:   60 * time.Second,
 	}
 }
 
