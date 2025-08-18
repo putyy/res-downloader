@@ -1,11 +1,14 @@
 package shared
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"golang.org/x/net/publicsuffix"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -62,14 +65,22 @@ func IsDevelopment() bool {
 }
 
 func GetCurrentDateTimeFormatted() string {
-	now := time.Now()
-	return fmt.Sprintf("%04d%02d%02d%02d%02d%02d",
-		now.Year(),
-		now.Month(),
-		now.Day(),
-		now.Hour(),
-		now.Minute(),
-		now.Second())
+	return time.Now().Format("20060102150405")
+}
+
+func ReadResponseBody(resp *http.Response) ([]byte, error) {
+	if resp == nil || resp.Body == nil {
+		return nil, nil
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	
+	resp.Body = io.NopCloser(bytes.NewBuffer(body))
+	
+	return body, nil
 }
 
 func OpenFolder(filePath string) error {

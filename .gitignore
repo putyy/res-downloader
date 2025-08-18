@@ -3,3 +3,8 @@ build/bin
 node_modules
 frontend/dist
 .DS_Store
+.cursor
+.cursorindexingignore
+.windsurf
+.specstory
+cat-catch-master

@@ -104,7 +104,6 @@ func (h *HttpServer) preview(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to serve the resource", http.StatusInternalServerError)
 	}
-	return
 }
 
 func (h *HttpServer) send(t string, data interface{}) {
@@ -212,7 +211,6 @@ func (h *HttpServer) openFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.success(w)
-	return
 }
 
 func (h *HttpServer) install(w http.ResponseWriter, r *http.Request) {
@@ -334,7 +332,7 @@ func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		MediaInfo
+		shared.MediaInfo
 		DecodeStr string `json:"decodeStr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
@@ -347,7 +345,7 @@ func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		MediaInfo
+		shared.MediaInfo
 		Filename  string `json:"filename"`
 		DecodeStr string `json:"decodeStr"`
 	}

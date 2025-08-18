@@ -195,9 +195,8 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: computed(() => t("index.preview")),
+    title: () => h('div', {style: {minWidth: '80px'}}, t('index.preview')),
     key: "Url",
-    width: 80,
     render: (row: appType.MediaInfo) => {
       if (row.Classify === "image") {
         return h("div", {
@@ -240,9 +239,8 @@ const columns = ref<any[]>([
     }
   },
   {
-    title: computed(() => t("index.status")),
+    title: () => h('div', {style: {minWidth: '80px'}}, t('index.status')),
     key: "Status",
-    width: 80,
     render: (row: appType.MediaInfo, index: number) => {
       return h(
           NButton,

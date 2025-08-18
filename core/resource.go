@@ -79,18 +79,21 @@ func (r *Resource) setResType(n []string) {
 }
 
 func (r *Resource) clear() {
-	r.mediaMark.Clear()
+	r.mediaMark.Range(func(key, value interface{}) bool {
+		r.mediaMark.Delete(key)
+		return true
+	})
 }
 
 func (r *Resource) delete(sign string) {
 	r.mediaMark.Delete(sign)
 }
 
-func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
+func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 	if globalConfig.SaveDirectory == "" {
 		return
 	}
-	go func(mediaInfo MediaInfo) {
+	go func(mediaInfo shared.MediaInfo) {
 		rawUrl := mediaInfo.Url
 		fileName := shared.Md5(rawUrl)
 		if mediaInfo.Description != "" {
@@ -134,16 +137,30 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 			}
 		}
 
-		headers, _ := r.parseHeaders(mediaInfo)
-
-		downloader := NewFileDownloader(rawUrl, mediaInfo.SavePath, globalConfig.TaskNumber, headers)
-		downloader.progressCallback = func(totalDownloaded, totalSize float64, taskID int, taskProgress float64) {
-			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded*100/totalSize))+"%", shared.DownloadStatusRunning)
-		}
-		err := downloader.Start()
-		if err != nil {
-			r.progressEventsEmit(mediaInfo, err.Error())
-			return
+		if mediaInfo.Type == "stream" {
+			sd, err := NewStreamDownloader(mediaInfo)
+			if err != nil {
+				r.progressEventsEmit(mediaInfo, "create stream downloader error: "+err.Error())
+				return
+			}
+			sd.ProgressCallback = func(totalDownloaded, totalSize float64, taskID int, taskProgress float64) {
+				r.progressEventsEmit(mediaInfo, strconv.Itoa(int(taskProgress*100))+"%", shared.DownloadStatusRunning)
+			}
+			if err := sd.Start(); err != nil {
+				r.progressEventsEmit(mediaInfo, "stream download error: "+err.Error())
+				return
+			}
+		} else {
+			headers, _ := r.parseHeaders(mediaInfo)
+			downloader := NewFileDownloader(rawUrl, mediaInfo.SavePath, globalConfig.TaskNumber, headers)
+			downloader.progressCallback = func(totalDownloaded, totalSize float64, taskID int, taskProgress float64) {
+				r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded*100/totalSize))+"%", shared.DownloadStatusRunning)
+			}
+			err := downloader.Start()
+			if err != nil {
+				r.progressEventsEmit(mediaInfo, err.Error())
+				return
+			}
 		}
 		if decodeStr != "" {
 			r.progressEventsEmit(mediaInfo, "decrypting in progress", shared.DownloadStatusRunning)
@@ -156,7 +173,7 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 	}(mediaInfo)
 }
 
-func (r *Resource) parseHeaders(mediaInfo MediaInfo) (map[string]string, error) {
+func (r *Resource) parseHeaders(mediaInfo shared.MediaInfo) (map[string]string, error) {
 	headers := make(map[string]string)
 
 	if hh, ok := mediaInfo.OtherData["headers"]; ok {
@@ -175,7 +192,7 @@ func (r *Resource) parseHeaders(mediaInfo MediaInfo) (map[string]string, error) 
 	return headers, nil
 }
 
-func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string) (string, error) {
+func (r *Resource) wxFileDecode(mediaInfo shared.MediaInfo, fileName, decodeStr string) (string, error) {
 	sourceFile, err := os.Open(fileName)
 	if err != nil {
 		return "", err
@@ -200,7 +217,7 @@ func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string)
 	return mediaInfo.SavePath, nil
 }
 
-func (r *Resource) progressEventsEmit(mediaInfo MediaInfo, args ...string) {
+func (r *Resource) progressEventsEmit(mediaInfo shared.MediaInfo, args ...string) {
 	Status := shared.DownloadStatusError
 	Message := "ok"
 
@@ -217,7 +234,6 @@ func (r *Resource) progressEventsEmit(mediaInfo MediaInfo, args ...string) {
 		"SavePath": mediaInfo.SavePath,
 		"Message":  Message,
 	})
-	return
 }
 
 func (r *Resource) decodeWxFile(fileName, decodeStr string) error {
