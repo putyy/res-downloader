@@ -12,6 +12,7 @@
     "@vicons/ionicons5": "^0.12.0",
     "axios": "^1.7.2",
     "flv.js": "^1.6.2",
+    "mpegts.js": "^1.7.3",
     "naive-ui": "^2.38.2",
     "pinia": "^2.1.7",
     "video.js": "^8.22.0",
