@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	sysRuntime "runtime"
 	"time"
 )
@@ -59,6 +60,14 @@ func CreateDirIfNotExist(dir string) error {
 
 func IsDevelopment() bool {
 	return os.Getenv("APP_ENV") == "development"
+}
+
+func GetFileNameFromURL(rawUrl string) string {
+	parsedURL, err := url.Parse(rawUrl)
+	if err == nil {
+		return path.Base(parsedURL.Path)
+	}
+	return ""
 }
 
 func GetCurrentDateTimeFormatted() string {
