@@ -10,12 +10,22 @@
       :on-after-enter="onAfterEnter"
       :on-after-leave="onAfterLeave"
   >
-    <div class="flex justify-center w-full h-[80vh]">
+    <div class="flex flex-col gap-2 w-full h-[80vh]">
+      <div v-if="isHevc" class="px-3 py-2 text-sm text-yellow-900 bg-yellow-100 border border-yellow-300 rounded">
+        当前直播为 HEVC/H.265，内置播放器可能无法解码。你可以：
+        <button class="ml-2 px-2 py-1 bg-yellow-300 hover:bg-yellow-400 rounded" @click="openInBrowser">用浏览器打开</button>
+        <button class="ml-2 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded" @click="copyLink">复制直链</button>
+      </div>
       <video
           class="video-js vjs-default-skin w-full h-full"
           ref="videoPlayer"
           controls
           preload="auto"
+          autoplay
+          muted
+          playsinline
+          webkit-playsinline
+          x-webkit-airplay="allow"
       ></video>
     </div>
   </NModal>
@@ -31,11 +41,16 @@ import axios from "axios"
 import { getDecryptionArray } from '@/assets/js/decrypt.js'
 import type Player from "video.js/dist/types/player"
 import {useI18n} from 'vue-i18n'
+import {useIndexStore} from "../stores"
+import mpegts from "mpegts.js"
+import {BrowserOpenURL} from "../../wailsjs/runtime"
 
 const {t} = useI18n()
+const store = useIndexStore()
 const videoPlayer = ref<HTMLElement | any>(null)
 let player: Player | null = null
 let flvPlayer: flvjs.Player | null = null
+let mpPlayer: any | null = null
 let sourceBuffer: SourceBuffer | null = null
 let isLoading = false
 let isOver = false
@@ -45,6 +60,26 @@ let endByte = startByte + chunkSize - 1
 let decodeArr: any = null
 let mediaSource: MediaSource
 let rowUrl = ''
+const isHevc = ref(false)
+let lastPlayUrl = ''
+
+// helpers used by HEVC提示条
+const openInBrowser = () => {
+  if (lastPlayUrl) {
+    BrowserOpenURL(lastPlayUrl)
+  }
+}
+const copyLink = async () => {
+  try {
+    if (lastPlayUrl) {
+      await navigator.clipboard.writeText(lastPlayUrl)
+      console.log('[Preview] link copied:', lastPlayUrl)
+      try { window.alert?.('直链已复制到剪贴板') } catch {}
+    }
+  } catch (e) {
+    console.warn('[Preview] copy failed', e)
+  }
+}
 
 const props = defineProps<{
   showModal: boolean
@@ -55,11 +90,15 @@ const emits = defineEmits(["update:showModal"])
 const changeShow = (value: boolean) => emits("update:showModal", value)
 
 const onAfterEnter = () => {
+  console.log('[Preview] onAfterEnter, row=', props.previewRow)
+  isHevc.value = false
   if (props.previewRow.DecodeKey) {
     playVideoWithoutTotalLength()
   } else if (props.previewRow.Classify === "live") {
+    console.log('[Preview] classify=live, use playFlvStream')
     playFlvStream()
   } else {
+    console.log('[Preview] classify not live, use video.js, type=', props.previewRow.ContentType)
     setupVideoJsPlayer()
   }
 }
@@ -70,9 +109,14 @@ const onAfterLeave = () => {
     flvPlayer.detachMediaElement()
     flvPlayer.destroy()
     flvPlayer = null
+  }
+  if (props.previewRow.Classify === "live" && mpPlayer) {
+    try { mpPlayer.unload(); mpPlayer.detachMediaElement(); mpPlayer.destroy() } catch {}
+    mpPlayer = null
   } else if (player) {
     player.pause()
   }
+  isHevc.value = false
   if (startByte){
     videoPlayer.value?.pause()
     videoPlayer.value?.removeEventListener("seeking", handleSeeking)
@@ -82,14 +126,175 @@ const onAfterLeave = () => {
 
 const playFlvStream = () => {
   try {
-    if (!flvjs.isSupported() || !videoPlayer.value) return
+    if (!videoPlayer.value) return
 
-    flvPlayer = flvjs.createPlayer({ type: "flv", url: props.previewRow.Url })
-    flvPlayer.attachMediaElement(videoPlayer.value)
-    flvPlayer.load()
-    flvPlayer.play()
+    const headersStr = props.previewRow.OtherData?.headers || ""
+    const base = (window as any).$baseUrl || (store as any).baseUrl?.value || 'http://127.0.0.1:8899'
+    console.log('[Preview] baseUrl=', base)
+    const proxiedUrl = `${base}/api/preview?url=${encodeURIComponent(props.previewRow.Url)}${headersStr?`&headers=${encodeURIComponent(headersStr)}`:''}`
+    console.log('[Preview] proxiedUrl=', proxiedUrl)
+    lastPlayUrl = `${base}/api/play?url=${encodeURIComponent(props.previewRow.Url)}${headersStr?`&headers=${encodeURIComponent(headersStr)}`:''}`
+
+    // WKWebView/Safari 有时不支持 MSE，直接在系统浏览器打开我们已验证的播放页
+    const flvSupported = !!flvjs.isSupported?.() || (typeof flvjs.isSupported === 'function' && flvjs.isSupported())
+    const mpegtsSupported = !!(mpegts && mpegts.isSupported && mpegts.isSupported())
+    console.log('[Preview] support -> flv:', flvSupported, 'mpegts:', mpegtsSupported)
+
+    // 先发一个 GET 探测请求（短超时+no-store），确保 Network 可见
+    try {
+      const ctrl = new AbortController()
+      const tid = setTimeout(() => ctrl.abort(), 3000)
+      fetch(proxiedUrl + `&t=${Date.now()}`,
+        { method: 'GET', cache: 'no-store', signal: ctrl.signal } as any)
+        .then(r => {
+          clearTimeout(tid)
+          console.log('[Preview] PROBE GET /api/preview status=', r.status)
+        }, e => {
+          clearTimeout(tid)
+          console.warn('[Preview] PROBE GET error', e)
+        })
+    } catch (e) { console.warn('[Preview] PROBE exception', e) }
+    if (!flvSupported && !mpegtsSupported) {
+      const playUrl = `${base}/api/play?url=${encodeURIComponent(props.previewRow.Url)}${headersStr?`&headers=${encodeURIComponent(headersStr)}`:''}`
+      BrowserOpenURL(playUrl)
+      console.log('[Preview] neither flv nor mpegts supported, open browser:', playUrl)
+      return
+    }
+
+    let started = false
+    let settled = false
+    const markStarted = (tag: string) => {
+      if (settled) return
+      settled = true
+      started = true
+      console.log('[Preview] started by', tag)
+    }
+    const tryFlv = () => {
+      if (settled) return
+      if (!flvSupported) return fallbackToBrowser()
+      try {
+        flvPlayer = flvjs.createPlayer(
+          { type: "flv", isLive: true, url: proxiedUrl },
+          { enableWorker: true, enableStashBuffer: false, stashInitialSize: 32 } as any
+        )
+        flvPlayer.attachMediaElement(videoPlayer.value)
+        flvPlayer.on(flvjs.Events.ERROR, (type: any, detail: any, info: any) => {
+          console.warn('[Preview] flv error:', type, detail, info)
+          if (!settled) {
+            try { flvPlayer?.unload(); flvPlayer?.detachMediaElement(); flvPlayer?.destroy(); } catch {}
+            fallbackToBrowser()
+          }
+        })
+        // 尝试读取媒体信息
+        try { (flvPlayer as any).on((flvjs as any).Events.MEDIA_INFO, (info: any) => {
+          console.log('[Preview] flv MEDIA_INFO', info)
+          const vc = (info && (info.videoCodec || info.videoCodecName)) || ''
+          if (typeof vc === 'string' && vc.toLowerCase().startsWith('hvc')) {
+            isHevc.value = true
+          }
+        }) } catch {}
+        flvPlayer.on(flvjs.Events.STATISTICS_INFO, (stat: any) => console.log('[Preview] flv STAT', stat))
+        flvPlayer.load()
+        console.log('[Preview] flv.js created, waiting events...')
+        const onOk = () => markStarted('flv-media')
+        videoPlayer.value.addEventListener('loadedmetadata', onOk, { once: true })
+        videoPlayer.value.addEventListener('playing', onOk, { once: true })
+        const pr: any = (flvPlayer as any).play?.()
+        if (pr && pr.catch) pr.catch(() => {})
+      } catch (e) {
+        console.warn('[Preview] flv.js init error -> browser', e)
+        fallbackToBrowser()
+      }
+    }
+
+    const fallbackToBrowser = () => {
+      if (settled) return
+      settled = true
+      BrowserOpenURL(lastPlayUrl)
+      console.log('[Preview] fallback -> open browser:', lastPlayUrl)
+    }
+    const tryMpegts = () => {
+      if (settled) return
+      if (!mpegtsSupported) return fallbackToBrowser()
+      try {
+        const mp = mpegts.createPlayer(
+          { type: "flv", isLive: true, url: proxiedUrl },
+          {
+            enableWorker: true,
+            enableStashBuffer: false,
+            stashInitialSize: 32,
+            autoCleanupSourceBuffer: true,
+            liveBufferLatencyChasing: true,
+            deferLoadAfterSourceOpen: true,
+            seekType: 'range',
+          } as any
+        )
+        mpPlayer = mp
+        mp.attachMediaElement(videoPlayer.value)
+        mp.load()
+        console.log('[Preview] mpegts.js created, waiting events...')
+        mp.on(mpegts.Events.ERROR, (type: any, detail: any) => {
+          console.warn('[Preview] mpegts error:', type, detail)
+          if (!settled) {
+            try { mp.unload(); mp.detachMediaElement(); mp.destroy() } catch {}
+            mpPlayer = null
+            tryFlv()
+          }
+        })
+        mp.on(mpegts.Events.MEDIA_INFO, (info: any) => {
+          console.log('[Preview] mpegts MEDIA_INFO', info)
+          const vc = (info && (info.videoCodec || info.videoCodecName)) || ''
+          if (typeof vc === 'string' && vc.toLowerCase().startsWith('hvc')) {
+            isHevc.value = true
+          }
+        })
+        mp.on(mpegts.Events.STATISTICS_INFO, (stat: any) => console.log('[Preview] mpegts STAT', stat))
+        const onOk = () => markStarted('mpegts-media')
+        videoPlayer.value.addEventListener('loadedmetadata', onOk, { once: true })
+        videoPlayer.value.addEventListener('playing', onOk, { once: true })
+        // safety timer
+        setTimeout(() => {
+          if (!settled) {
+            console.warn('[Preview] mpegts timeout, try flv')
+            try { mp.unload(); mp.detachMediaElement(); mp.destroy() } catch {}
+            mpPlayer = null
+            tryFlv()
+          }
+        }, 8000)
+        const pr = (videoPlayer.value as any).play?.()
+        if (pr && pr.catch) pr.catch(() => {})
+      } catch (e) {
+        console.warn('[Preview] mpegts.js init error -> try flv', e)
+        tryFlv()
+      }
+    }
+    // 优先 mpegts.js，若失败再尝试 flv.js，最后打开浏览器
+    try {
+      // 先试 mpegts
+      if (mpegtsSupported) {
+        tryMpegts()
+      } else if (flvSupported) {
+        tryFlv()
+      } else {
+        fallbackToBrowser()
+      }
+    } catch (e) {
+      console.warn('[Preview] flv.js init error -> fallback mpegts', e)
+      tryMpegts()
+    }
+
+    // 如果最终也没有成功，会在 tryMpegts 内部 fallbackToBrowser
+    // 通用视频元素事件日志
+    try {
+      videoPlayer.value.muted = true
+      videoPlayer.value.addEventListener('error', (ev: any) => {
+        const ve = videoPlayer.value as HTMLVideoElement
+        console.warn('[Preview] video error', ve?.error?.code, ve?.error?.message)
+      }, { once: true })
+    } catch {}
+
   }catch (e) {
-
+    console.error('[Preview] playFlvStream outer error', e)
   }
 }
 

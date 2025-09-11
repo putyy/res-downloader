@@ -84,7 +84,7 @@ func (s *SystemSetup) setProxy() error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs)
+	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs.String())
 }
 
 func (s *SystemSetup) unsetProxy() error {
@@ -113,7 +113,7 @@ func (s *SystemSetup) unsetProxy() error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs)
+	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs.String())
 }
 
 func (s *SystemSetup) installCert() (string, error) {

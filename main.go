@@ -77,7 +77,7 @@ func main() {
 			About: &mac.AboutInfo{
 				Title:   fmt.Sprintf("%s %s", app.AppName, app.Version),
 				Message: app.Description + app.Copyright,
-				Icon:    icon,
+				Icon:    nil,
 			},
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,

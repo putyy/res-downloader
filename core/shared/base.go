@@ -14,5 +14,6 @@ type MediaInfo struct {
 	DecodeKey   string
 	Description string
 	ContentType string
+	Type        string
 	OtherData   map[string]string
 }

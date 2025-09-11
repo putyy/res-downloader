@@ -30,6 +30,8 @@ func HandleApi(w http.ResponseWriter, r *http.Request) bool {
 			httpServerOnce.setSystemPassword(w, r)
 		case "/api/preview":
 			httpServerOnce.preview(w, r)
+		case "/api/play":
+			httpServerOnce.play(w, r)
 		case "/api/proxy-open":
 			httpServerOnce.openSystemProxy(w, r)
 		case "/api/proxy-unset":
