@@ -93,6 +93,11 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 	go func(mediaInfo MediaInfo) {
 		rawUrl := mediaInfo.Url
 		fileName := shared.Md5(rawUrl)
+
+		if v := shared.GetFileNameFromURL(rawUrl); v != "" {
+			fileName = v
+		}
+
 		if mediaInfo.Description != "" {
 			fileName = regexp.MustCompile(`[^\w\p{Han}]`).ReplaceAllString(mediaInfo.Description, "")
 			fileLen := globalConfig.FilenameLen
@@ -107,9 +112,13 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		}
 
 		if globalConfig.FilenameTime {
-			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+shared.GetCurrentDateTimeFormatted()+mediaInfo.Suffix)
+			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+shared.GetCurrentDateTimeFormatted())
 		} else {
-			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+mediaInfo.Suffix)
+			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName)
+		}
+
+		if !strings.HasSuffix(mediaInfo.SavePath, mediaInfo.Suffix) {
+			mediaInfo.SavePath = mediaInfo.SavePath + mediaInfo.Suffix
 		}
 
 		if strings.Contains(rawUrl, "qq.com") {
