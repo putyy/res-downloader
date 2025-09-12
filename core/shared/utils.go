@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	sysRuntime "runtime"
+	"strings"
 	"time"
 )
 
@@ -79,6 +81,24 @@ func GetCurrentDateTimeFormatted() string {
 		now.Hour(),
 		now.Minute(),
 		now.Second())
+}
+
+func GetUniqueFileName(filePath string) string {
+	if !FileExist(filePath) {
+		return filePath
+	}
+
+	ext := filepath.Ext(filePath)
+	baseName := strings.TrimSuffix(filePath, ext)
+	count := 1
+
+	for {
+		newFileName := fmt.Sprintf("%s(%d)%s", baseName, count, ext)
+		if !FileExist(newFileName) {
+			return newFileName
+		}
+		count++
+	}
 }
 
 func OpenFolder(filePath string) error {

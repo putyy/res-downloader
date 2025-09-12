@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"res-downloader/core/shared"
 	"strings"
 	"sync"
 	"time"
@@ -142,6 +143,9 @@ func (fd *FileDownloader) init() error {
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return fmt.Errorf("create directory failed: %w", err)
 	}
+
+	fd.FileName = shared.GetUniqueFileName(fd.FileName)
+
 	fd.File, err = os.OpenFile(fd.FileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("file open failed: %w", err)
@@ -349,9 +353,9 @@ func (fd *FileDownloader) verifyDownload() error {
 	return nil
 }
 
-func (fd *FileDownloader) Start() error {
+func (fd *FileDownloader) Start() (*FileDownloader, error) {
 	if err := fd.init(); err != nil {
-		return err
+		return nil, err
 	}
 	fd.createDownloadTasks()
 
@@ -361,5 +365,5 @@ func (fd *FileDownloader) Start() error {
 		fd.File.Close()
 	}
 
-	return err
+	return fd, err
 }
