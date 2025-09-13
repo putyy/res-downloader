@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -48,9 +49,12 @@ type FileDownloader struct {
 	Headers          map[string]string
 	DownloadTaskList []*DownloadTask
 	progressCallback ProgressCallback
+	ctx              context.Context
+	cancelFunc       context.CancelFunc
 }
 
 func NewFileDownloader(url, filename string, totalTasks int, headers map[string]string) *FileDownloader {
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &FileDownloader{
 		Url:              url,
 		FileName:         filename,
@@ -60,6 +64,8 @@ func NewFileDownloader(url, filename string, totalTasks int, headers map[string]
 		TotalSize:        0,
 		Headers:          headers,
 		DownloadTaskList: make([]*DownloadTask, 0),
+		ctx:              ctx,
+		cancelFunc:       cancelFunc,
 	}
 }
 
@@ -271,11 +277,21 @@ func (fd *FileDownloader) startDownloadTask(wg *sync.WaitGroup, progressChan cha
 			return
 		}
 
+		if strings.Contains(err.Error(), "cancelled") {
+			errorChan <- err
+			return
+		}
+
 		task.err = err
 		globalLogger.Warn().Msgf("Task %d failed (attempt %d/%d): %v", task.taskID, retries+1, MaxRetries, err)
 
 		if retries < MaxRetries-1 {
-			time.Sleep(RetryDelay)
+			select {
+			case <-fd.ctx.Done():
+				errorChan <- fmt.Errorf("task %d cancelled during retry", task.taskID)
+				return
+			case <-time.After(RetryDelay):
+			}
 		}
 	}
 
@@ -283,7 +299,13 @@ func (fd *FileDownloader) startDownloadTask(wg *sync.WaitGroup, progressChan cha
 }
 
 func (fd *FileDownloader) doDownloadTask(progressChan chan ProgressChan, task *DownloadTask) error {
-	request, err := http.NewRequest("GET", fd.Url, nil)
+	select {
+	case <-fd.ctx.Done():
+		return fmt.Errorf("download cancelled")
+	default:
+	}
+
+	request, err := http.NewRequestWithContext(fd.ctx, "GET", fd.Url, nil)
 	if err != nil {
 		return fmt.Errorf("create request failed: %w", err)
 	}
@@ -310,6 +332,12 @@ func (fd *FileDownloader) doDownloadTask(progressChan chan ProgressChan, task *D
 
 	buf := make([]byte, 32*1024)
 	for {
+		select {
+		case <-fd.ctx.Done():
+			return fmt.Errorf("download cancelled")
+		default:
+		}
+
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			writeSize := int64(n)
@@ -353,9 +381,9 @@ func (fd *FileDownloader) verifyDownload() error {
 	return nil
 }
 
-func (fd *FileDownloader) Start() (*FileDownloader, error) {
+func (fd *FileDownloader) Start() error {
 	if err := fd.init(); err != nil {
-		return nil, err
+		return err
 	}
 	fd.createDownloadTasks()
 
@@ -365,5 +393,19 @@ func (fd *FileDownloader) Start() (*FileDownloader, error) {
 		fd.File.Close()
 	}
 
-	return fd, err
+	return err
+}
+
+func (fd *FileDownloader) Cancel() {
+	if fd.cancelFunc != nil {
+		fd.cancelFunc()
+	}
+
+	if fd.File != nil {
+		fd.File.Close()
+	}
+
+	if fd.FileName != "" {
+		_ = os.Remove(fd.FileName)
+	}
 }

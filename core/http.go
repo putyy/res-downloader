@@ -345,6 +345,24 @@ func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 	h.success(w)
 }
 
+func (h *HttpServer) cancel(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		MediaInfo
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+
+	err := resourceOnce.cancel(data.Id)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	h.success(w)
+}
+
 func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		MediaInfo

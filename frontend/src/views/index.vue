@@ -480,6 +480,22 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
     case "down":
       download(row, index)
       break
+    case "cancel":
+      if (row.Status === "running") {
+        appApi.cancel({id: row.Id}).then((res)=>{
+          if (res.code === 0) {
+            window?.$message?.error(res.message)
+            return
+          }
+          updateItem(row.Id, item => {
+            item.Status = 'ready'
+            item.SavePath = ''
+          })
+          cacheData()
+          checkQueue()
+        })
+      }
+      break
     case "copy":
       ClipboardSetText(row.Url).then((is: boolean) => {
         if (is) {

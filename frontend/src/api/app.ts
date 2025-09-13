@@ -92,6 +92,13 @@ export default {
             data: data
         })
     },
+    cancel(data: object) {
+        return request({
+            url: 'api/cancel',
+            method: 'post',
+            data: data
+        })
+    },
     download(data: object) {
         return request({
             url: 'api/download',

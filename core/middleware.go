@@ -56,6 +56,8 @@ func HandleApi(w http.ResponseWriter, r *http.Request) bool {
 			httpServerOnce.delete(w, r)
 		case "/api/download":
 			httpServerOnce.download(w, r)
+		case "/api/cancel":
+			httpServerOnce.cancel(w, r)
 		case "/api/wx-file-decode":
 			httpServerOnce.wxFileDecode(w, r)
 		case "/api/batch-export":
