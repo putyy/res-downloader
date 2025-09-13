@@ -19,6 +19,14 @@
         </div>
 
         <div class="flex items-center justify-start p-1.5">
+          <n-icon size="28"
+                  class="text-red-500 dark:text-red-300 bg-red-500/20 dark:bg-red-500/30 rounded-full flex items-center justify-center p-1.5 cursor-pointer hover:bg-red-500/40 transition-colors">
+            <CloseOutline/>
+          </n-icon>
+          <span class="ml-1">{{ t("index.cancel_down") }}</span>
+        </div>
+
+        <div class="flex items-center justify-start p-1.5">
           <n-icon
               size="28"
               class="text-blue-600 dark:text-blue-300 bg-blue-500/20 dark:bg-blue-500/30 rounded-full flex items-center justify-center p-1.5 cursor-pointer hover:bg-blue-500/40 transition-colors"
@@ -91,6 +99,7 @@ import {
   LinkOutline,
   LockOpenSharp,
   GridSharp,
+  CloseOutline,
   TrashOutline
 } from "@vicons/ionicons5"
 

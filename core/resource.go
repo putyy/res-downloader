@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -22,6 +23,7 @@ type WxFileDecodeResult struct {
 
 type Resource struct {
 	mediaMark  sync.Map
+	tasks      sync.Map
 	resType    map[string]bool
 	resTypeMux sync.RWMutex
 }
@@ -84,6 +86,15 @@ func (r *Resource) clear() {
 
 func (r *Resource) delete(sign string) {
 	r.mediaMark.Delete(sign)
+}
+
+func (r *Resource) cancel(id string) error {
+	if d, ok := r.tasks.Load(id); ok {
+		d.(*FileDownloader).Cancel()
+		r.tasks.Delete(id) // 可选：取消后清理
+		return nil
+	}
+	return errors.New("task not found")
 }
 
 func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
@@ -149,10 +160,13 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 		downloader.progressCallback = func(totalDownloaded, totalSize float64, taskID int, taskProgress float64) {
 			r.progressEventsEmit(mediaInfo, strconv.Itoa(int(totalDownloaded*100/totalSize))+"%", shared.DownloadStatusRunning)
 		}
-		fd, err := downloader.Start()
-		mediaInfo.SavePath = fd.FileName
+		r.tasks.Store(mediaInfo.Id, downloader)
+		err := downloader.Start()
+		mediaInfo.SavePath = downloader.FileName
 		if err != nil {
-			r.progressEventsEmit(mediaInfo, err.Error())
+			if !strings.Contains(err.Error(), "cancelled") {
+				r.progressEventsEmit(mediaInfo, err.Error())
+			}
 			return
 		}
 		if decodeStr != "" {

@@ -23,6 +23,16 @@
         </NIcon>
       </template>
       <div class="flex flex-col">
+        <div class="flex items-center justify-start p-1.5 cursor-pointer" @click="action('cancel')">
+          <n-icon
+              size="28"
+              class="text-red-500 dark:text-red-300 bg-red-500/20 dark:bg-red-500/30 rounded-full flex items-center justify-center p-1.5 cursor-pointer hover:bg-red-500/40 transition-colors"
+          >
+            <CloseOutline/>
+          </n-icon>
+          <span class="ml-1">{{ t("index.cancel_down") }}</span>
+        </div>
+
         <div class="flex items-center justify-start p-1.5 cursor-pointer" @click="action('copy')">
           <n-icon
               size="28"
@@ -76,6 +86,7 @@ import {
   LockOpenSharp,
   LinkOutline,
   GridSharp,
+  CloseOutline,
   TrashOutline
 } from "@vicons/ionicons5"
 
