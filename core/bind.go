@@ -1,5 +1,9 @@
 package core
 
+import (
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+)
+
 type Bind struct {
 }
 
@@ -13,4 +17,9 @@ func (b *Bind) Config() *ResponseData {
 
 func (b *Bind) AppInfo() *ResponseData {
 	return httpServerOnce.buildResp(1, "ok", appOnce)
+}
+
+func (b *Bind) ResetApp() {
+	appOnce.IsReset = true
+	runtime.Quit(appOnce.ctx)
 }

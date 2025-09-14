@@ -51,7 +51,7 @@
                   </template>
                   {{ t('index.cancel_down') }}
                 </NButton>
-                <NButton tertiary type="warning" @click.stop="batchExport" class="my-1">
+                <NButton tertiary type="warning" @click.stop="batchExport()" class="my-1">
                   <template #icon>
                     <n-icon>
                       <ArrowRedoCircleOutline/>
@@ -136,9 +136,14 @@ import {
   Apps,
   TrashOutline, CloseOutline
 } from "@vicons/ionicons5"
+import { useDialog } from 'naive-ui'
+import * as bind from "../../wailsjs/go/core/Bind"
+import {Quit} from "../../wailsjs/runtime"
+import {DialogOptions} from "naive-ui/es/dialog/src/DialogProvider"
 
 const {t} = useI18n()
 const eventStore = useEventStore()
+const dialog = useDialog()
 const isProxy = computed(() => {
   return store.isProxy
 })
@@ -382,6 +387,7 @@ const showPassword = ref(false)
 const downloadQueue = ref<appType.MediaInfo[]>([])
 let activeDownloads = 0
 let isOpenProxy = false
+let isInstall = false
 
 onMounted(() => {
   try {
@@ -390,7 +396,15 @@ onMounted(() => {
     })
     loading.value = true
     handleInstall().then((is: boolean) => {
+      isInstall = true
       loading.value = false
+    })
+
+    checkLoading()
+    watch(showPassword, ()=>{
+      if (!showPassword.value){
+        checkLoading()
+      }
     })
   } catch (e) {
     window.$message?.error(JSON.stringify(e), {duration: 5000})
@@ -607,12 +621,11 @@ const batchCancel = () =>{
     return
   }
 
-  data.value.forEach((item, index) => {
+  data.value.forEach(async (item, index) => {
     if (checkedRowKeysValue.value.includes(item.Id) && item.Status === "running") {
-      appApi.cancel({id: item.Id}).then((res)=>{
-        item.Status = 'ready'
-        item.SavePath = ''
-      })
+      appApi.cancel({id: item.Id})
+      data.value[index].Status = 'ready'
+      data.value[index].SavePath = ''
     }
   })
   checkedRowKeysValue.value = []
@@ -846,6 +859,29 @@ const handleInstall = async () => {
     showPassword.value = true
   }
   return false
+}
+
+const checkLoading = ()=>{
+  setTimeout(()=>{
+    if (loading.value && !isInstall && !showPassword.value) {
+      dialog.warning({
+        title: t("index.start_err_tip"),
+        content: t("index.start_err_content"),
+        positiveText: t("index.start_err_positiveText"),
+        negativeText: t("index.start_err_negativeText"),
+        draggable: false,
+        closeOnEsc: false,
+        closable: false,
+        maskClosable: false,
+        onPositiveClick: () => {
+          bind.ResetApp()
+        },
+        onNegativeClick: () => {
+          Quit()
+        }
+      } as DialogOptions)
+    }
+  }, 6000)
 }
 </script>
 <style>
