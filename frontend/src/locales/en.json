@@ -37,6 +37,7 @@
     "batch_download": "Batch Download",
     "batch_export": "Batch Export",
     "batch_import": "Batch Import",
+    "export_url": "Export Url",
     "import_success": "Export Success",
     "all": "All",
     "image": "Image",
