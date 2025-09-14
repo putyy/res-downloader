@@ -37,6 +37,7 @@
     "batch_download": "批量下载",
     "batch_export": "批量导出",
     "batch_import": "批量导入",
+    "export_url": "导出链接",
     "import_success": "导出成功",
     "all": "全部",
     "image": "图片",
