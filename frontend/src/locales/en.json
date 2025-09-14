@@ -84,7 +84,11 @@
     "win_install_tip": "For the first time using this software, please right-click and select 'Run as administrator'",
     "download_queued": "Download has been added to the queue, current queue length：{count}",
     "search": "Search",
-    "search_description": "Keyword Search..."
+    "search_description": "Keyword Search...",
+    "start_err_tip": "Error Message",
+    "start_err_content": "The current startup process has encountered an issue. Do you want to reset the application?",
+    "start_err_positiveText": "Clear cache and restart",
+    "start_err_negativeText": "Close the software"
   },
   "setting": {
     "restart_tip": "Keep default if unsure, please restart software after modification",

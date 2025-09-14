@@ -9,3 +9,7 @@ export function AppInfo() {
 export function Config() {
   return window['go']['core']['Bind']['Config']();
 }
+
+export function ResetApp() {
+  return window['go']['core']['Bind']['ResetApp']();
+}

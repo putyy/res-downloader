@@ -5,3 +5,5 @@ import {core} from '../models';
 export function AppInfo():Promise<core.ResponseData>;
 
 export function Config():Promise<core.ResponseData>;
+
+export function ResetApp():Promise<void>;
