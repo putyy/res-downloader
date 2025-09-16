@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	sysRuntime "runtime"
 	"strings"
 	"time"
@@ -66,10 +67,41 @@ func IsDevelopment() bool {
 
 func GetFileNameFromURL(rawUrl string) string {
 	parsedURL, err := url.Parse(rawUrl)
-	if err == nil {
-		return path.Base(parsedURL.Path)
+	if err != nil {
+		return ""
 	}
-	return ""
+
+	fileName := path.Base(parsedURL.Path)
+	if fileName == "" || fileName == "/" {
+		return ""
+	}
+
+	if decoded, err := url.QueryUnescape(fileName); err == nil {
+		fileName = decoded
+	}
+
+	re := regexp.MustCompile(`[<>:"/\\|?*]`)
+	fileName = re.ReplaceAllString(fileName, "_")
+
+	fileName = strings.TrimRightFunc(fileName, func(r rune) bool {
+		return r == '.' || r == ' '
+	})
+
+	const maxFileNameLen = 255
+	runes := []rune(fileName)
+	if len(runes) > maxFileNameLen {
+		ext := path.Ext(fileName)
+		name := strings.TrimSuffix(fileName, ext)
+
+		runes = []rune(name)
+		if len(runes) > maxFileNameLen-len(ext) {
+			runes = runes[:maxFileNameLen-len(ext)]
+		}
+		name = string(runes)
+		fileName = name + ext
+	}
+
+	return fileName
 }
 
 func GetCurrentDateTimeFormatted() string {
