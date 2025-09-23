@@ -82,7 +82,7 @@
     "import_placeholder": "添加多个时，请确保每行只有一个(每个链接回车换行)",
     "import_empty": "请输入需要导入的数据",
     "win_install_tip": "首次启用本软件，请使用鼠标右键选择以管理员身份运行",
-    "download_queued": "下载已加入队列，当前队列长度：{count}",
+    "download_queued": "已加入队列，当前队列长度：{count}",
     "search": "搜索",
     "search_description": "关键字搜索...",
     "start_err_tip": "错误提示",

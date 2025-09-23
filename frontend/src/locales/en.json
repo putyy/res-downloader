@@ -82,7 +82,7 @@
     "import_placeholder": "When adding multiple items, ensure each line contains only one (each link on a new line)",
     "import_empty": "Please enter data to import",
     "win_install_tip": "For the first time using this software, please right-click and select 'Run as administrator'",
-    "download_queued": "Download has been added to the queue, current queue length：{count}",
+    "download_queued": "has been added to the queue, current queue length：{count}",
     "search": "Search",
     "search_description": "Keyword Search...",
     "start_err_tip": "Error Message",

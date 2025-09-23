@@ -451,6 +451,9 @@ onMounted(() => {
             item.SavePath = res.SavePath
             item.Status = 'done'
           })
+          if (activeDownloads > 0) {
+            activeDownloads--
+          }
           cacheData()
           checkQueue()
           break
@@ -459,6 +462,9 @@ onMounted(() => {
             item.SavePath = res.Message
             item.Status = 'error'
           })
+          if (activeDownloads > 0) {
+            activeDownloads--
+          }
           cacheData()
           checkQueue()
           break
@@ -530,6 +536,9 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
             item.Status = 'ready'
             item.SavePath = ''
           })
+          if (activeDownloads > 0) {
+            activeDownloads--
+          }
           cacheData()
           checkQueue()
           if (res.code === 0) {
@@ -624,6 +633,9 @@ const batchCancel = () =>{
   data.value.forEach(async (item, index) => {
     if (checkedRowKeysValue.value.includes(item.Id) && item.Status === "running") {
       appApi.cancel({id: item.Id})
+      if (activeDownloads > 0) {
+        activeDownloads--
+      }
       data.value[index].Status = 'ready'
       data.value[index].SavePath = ''
     }
@@ -688,8 +700,7 @@ const download = (row: appType.MediaInfo, index: number) => {
 
   if (activeDownloads >= maxConcurrentDownloads.value) {
     downloadQueue.value.push(row)
-    window?.$message?.info((row.Description ? `「${row.Description}」` : "")
-        + t("index.download_queued", {count: downloadQueue.value.length}))
+    window?.$message?.info(t("index.download_queued", {count: downloadQueue.value.length}))
     return
   }
 
@@ -707,9 +718,6 @@ const startDownload = (row: appType.MediaInfo, index: number) => {
     if (res.code === 0) {
       window?.$message?.error(res.message)
     }
-  }).finally(() => {
-    activeDownloads--
-    checkQueue()
   })
 }
 
