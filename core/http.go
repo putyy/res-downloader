@@ -84,8 +84,6 @@ func (h *HttpServer) preview(w http.ResponseWriter, r *http.Request) {
 		request.Header.Set("Range", rangeHeader)
 	}
 
-	//request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36")
-	//request.Header.Set("Referer", parsedURL.Scheme+"://"+parsedURL.Host+"/")
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		http.Error(w, "Failed to fetch the resource", http.StatusInternalServerError)
@@ -93,12 +91,15 @@ func (h *HttpServer) preview(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	w.WriteHeader(resp.StatusCode)
-
-	if contentRange := resp.Header.Get("Content-Range"); contentRange != "" {
-		w.Header().Set("Content-Range", contentRange)
+	for k, v := range resp.Header {
+		if strings.ToLower(k) == "access-control-allow-origin" {
+			continue
+		}
+		for _, vv := range v {
+			w.Header().Add(k, vv)
+		}
 	}
+	w.WriteHeader(resp.StatusCode)
 
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {

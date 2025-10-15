@@ -84,7 +84,7 @@ const playFlvStream = () => {
   try {
     if (!flvjs.isSupported() || !videoPlayer.value) return
 
-    flvPlayer = flvjs.createPlayer({ type: "flv", url: props.previewRow.Url })
+    flvPlayer = flvjs.createPlayer({ type: "flv", url: window?.$baseUrl + "/api/preview?url=" + encodeURIComponent(props.previewRow.Url) })
     flvPlayer.attachMediaElement(videoPlayer.value)
     flvPlayer.load()
     flvPlayer.play()
@@ -105,7 +105,7 @@ const setupVideoJsPlayer = () => {
   }
 
   player.src({
-    src: props.previewRow.Url,
+    src: window?.$baseUrl + "/api/preview?url=" + encodeURIComponent(props.previewRow.Url),
     type: props.previewRow.ContentType,
     withCredentials: true,
   })
@@ -113,7 +113,7 @@ const setupVideoJsPlayer = () => {
 }
 
 const playVideoWithoutTotalLength = () => {
-  rowUrl = buildUrlWithParams(props.previewRow.Url)
+  rowUrl = window?.$baseUrl + "/api/preview?url=" + encodeURIComponent(buildUrlWithParams(props.previewRow.Url))
   mediaSource = new MediaSource()
   videoPlayer.value.src = URL.createObjectURL(mediaSource)
   videoPlayer.value.play()

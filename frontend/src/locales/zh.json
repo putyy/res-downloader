@@ -34,11 +34,13 @@
     "grab_type": "抓取类型",
     "clear_list": "清空列表",
     "clear_list_tip": "清空所有记录?",
+    "remember_clear_choice": "记住此选择，下次直接清除",
     "batch_download": "批量下载",
     "batch_export": "批量导出",
     "batch_import": "批量导入",
     "export_url": "导出链接",
     "import_success": "导出成功",
+    "total_resources": "共{count}个资源",
     "all": "全部",
     "image": "图片",
     "audio": "音频",
@@ -50,6 +52,7 @@
     "pdf": "pdf",
     "font": "字体",
     "domain": "域",
+    "choice": "已选",
     "type": "类型",
     "preview": "预览",
     "preview_tip": "暂不支持预览",
@@ -88,7 +91,8 @@
     "start_err_tip": "错误提示",
     "start_err_content": "当前启动过程遇到了问题，是否重置应用？",
     "start_err_positiveText": "清理缓存并重启",
-    "start_err_negativeText": "关闭软件"
+    "start_err_negativeText": "关闭软件",
+    "reset_app_tip": "此操作会删除已拦截数据以及本应用相关数据，请谨慎操作！"
   },
   "setting": {
     "restart_tip": "如果不清楚保持默认就行，修改后请重启软件",
