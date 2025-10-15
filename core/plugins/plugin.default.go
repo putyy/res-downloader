@@ -51,7 +51,7 @@ func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *
 			Url:         rawUrl,
 			UrlSign:     urlSign,
 			CoverUrl:    "",
-			Size:        shared.FormatSize(value),
+			Size:        value,
 			Domain:      shared.GetTopLevelDomain(rawUrl),
 			Classify:    classify,
 			Suffix:      suffix,

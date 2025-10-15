@@ -38,7 +38,7 @@ export namespace appType {
         Url: string
         UrlSign: string
         CoverUrl: string
-        Size: string
+        Size: number
         Domain: string
         Classify: string
         Suffix: string

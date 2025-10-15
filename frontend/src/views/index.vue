@@ -3,16 +3,28 @@
     <div class="pb-2 z-40" id="header">
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">
-          {{ t("index.close_grab") }}
+          <span class="inline-block w-1.5 h-1.5 bg-red-600 rounded-full mr-1 animate-pulse"></span>
+          {{ t("index.close_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count:data.length})}` : ''}}
         </NButton>
         <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">
-          {{ t("index.open_grab") }}
+          {{ t("index.open_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count:data.length})}` : ''}}
         </NButton>
         <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')" v-model:value="resourcesType" multiple clearable
                  :max-tag-count="3" :options="classify"></NSelect>
         <NButtonGroup style="--wails-draggable:no-drag">
+
+          <NButton v-if="rememberChoice" tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">
+            <template #icon>
+              <n-icon>
+                <TrashOutline/>
+              </n-icon>
+            </template>
+            {{ t("index.clear_list") }}
+          </NButton>
           <n-popconfirm
-              @positive-click="clear"
+              v-else
+              @positive-click="()=>{rememberChoice=rememberChoiceTmp;clear()}"
+              :show-icon="false"
           >
             <template #trigger>
               <NButton tertiary type="error" style="--wails-draggable:no-drag">
@@ -24,7 +36,19 @@
                 {{ t("index.clear_list") }}
               </NButton>
             </template>
-            {{ t("index.clear_list_tip") }}
+            <div>
+              <div class="flex flex-row items-center text-red-700 my-2 text-base">
+                <n-icon>
+                  <TrashOutline/>
+                </n-icon>
+                <p class="ml-1">{{ t("index.clear_list_tip") }}</p>
+              </div>
+              <NCheckbox
+                  v-model:checked="rememberChoiceTmp"
+              >
+                <span class="text-gray-400">{{t('index.remember_clear_choice')}}</span>
+              </NCheckbox>
+            </div>
           </n-popconfirm>
 
           <NButton tertiary type="primary" @click.stop="batchDown">
@@ -111,7 +135,7 @@
 </template>
 
 <script lang="ts" setup>
-import {NButton, NIcon, NImage, NInput, NSpace, NTooltip, NPopover} from "naive-ui"
+import {NButton, NIcon, NImage, NInput, NSpace, NTooltip, NPopover, NGradientText} from "naive-ui"
 import {computed, h, onMounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
 import type {DataTableRowKey, ImageRenderToolbarProps, DataTableFilterState,DataTableBaseColumn} from "naive-ui"
@@ -140,6 +164,7 @@ import { useDialog } from 'naive-ui'
 import * as bind from "../../wailsjs/go/core/Bind"
 import {Quit} from "../../wailsjs/runtime"
 import {DialogOptions} from "naive-ui/es/dialog/src/DialogProvider"
+import {formatSize} from "@/func"
 
 const {t} = useI18n()
 const eventStore = useEventStore()
@@ -204,13 +229,17 @@ const classify = ref([
 ])
 
 const descriptionSearchValue = ref("")
+const rememberChoice = ref(false)
+const rememberChoiceTmp = ref(false)
 
 const columns = ref<any[]>([
   {
     type: "selection",
   },
   {
-    title: computed(() => t("index.domain")),
+    title: computed(() => {
+      return checkedRowKeysValue.value.length > 0 ? h(NGradientText, {type:"success"}, t("index.choice") + `(${checkedRowKeysValue.value.length})`) : t("index.domain")
+    }),
     key: "Domain",
     width: 90,
   },
@@ -343,6 +372,10 @@ const columns = ref<any[]>([
     title: computed(() => t("index.resource_size")),
     key: "Size",
     width: 120,
+    sorter: (row1: appType.MediaInfo, row2: appType.MediaInfo) => row1.Size - row2.Size,
+    render(row: appType.MediaInfo, index: number) {
+      return formatSize(row.Size)
+    }
   },
   {
     title: computed(() => t("index.save_path")),
@@ -423,7 +456,22 @@ onMounted(() => {
   if (cache) {
     data.value = JSON.parse(cache)
   }
+
+  const choiceCache = localStorage.getItem("remember-clear-choice")
+  if (choiceCache === "1") {
+    rememberChoice.value = true
+  }
+
+  watch(rememberChoice, (n, o) => {
+    if (rememberChoice.value) {
+      localStorage.setItem("remember-clear-choice", "1")
+    } else {
+      localStorage.removeItem("remember-clear-choice")
+    }
+  })
+
   resetTableHeight()
+
   eventStore.addHandle({
     type: "newResources",
     event: (res: appType.MediaInfo) => {

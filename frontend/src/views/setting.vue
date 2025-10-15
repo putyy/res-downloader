@@ -76,6 +76,17 @@
               {{ t("setting.insert_tail_tip") }}
             </NTooltip>
           </NFormItem>
+
+          <NFormItem >
+            <n-popconfirm @positive-click="resetHandle">
+              <template #trigger>
+                <NButton tertiary type="error" style="--wails-draggable:no-drag">
+                  {{ t("index.start_err_positiveText") }}
+                </NButton>
+              </template>
+              {{t("index.reset_app_tip")}}
+            </n-popconfirm>
+          </NFormItem>
         </NForm>
       </NTabPane>
 
@@ -217,6 +228,8 @@ import appApi from "@/api/app"
 import {computed} from "vue"
 import {useI18n} from 'vue-i18n'
 import {isValidHost, isValidPort} from '@/func'
+import {NButton, NIcon} from "naive-ui"
+import * as bind from "../../wailsjs/go/core/Bind"
 
 const {t} = useI18n()
 const store = useIndexStore()
@@ -280,6 +293,11 @@ const selectDir = () => {
   }).catch((err: any) => {
     window?.$message?.error(err)
   })
+}
+
+const resetHandle = ()=>{
+  localStorage.clear()
+  bind.ResetApp()
 }
 </script>
 <style lang="scss">

@@ -27,3 +27,14 @@ export const isValidPort = (port: number) => {
     const portNumber = Number(port)
     return Number.isInteger(portNumber) && portNumber > 1024 && portNumber < 65535
 }
+
+export const formatSize = (size: number | string) => {
+    if (typeof size === "string") return size
+    if (size > 1048576) {
+        return (size / 1048576).toFixed(2) + 'MB';
+    }
+    if (size > 1024) {
+        return (size / 1024).toFixed(2) + 'KB';
+    }
+    return Math.floor(size) + 'b';
+}

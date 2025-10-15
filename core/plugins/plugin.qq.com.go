@@ -166,7 +166,7 @@ func (p *QqPlugin) handleMedia(body []byte) {
 		Url:         rawUrl,
 		UrlSign:     urlSign,
 		CoverUrl:    "",
-		Size:        "0",
+		Size:        0,
 		Domain:      shared.GetTopLevelDomain(rawUrl),
 		Classify:    "video",
 		Suffix:      ".mp4",
@@ -201,10 +201,10 @@ func (p *QqPlugin) handleMedia(body []byte) {
 
 	switch size := firstMedia["fileSize"].(type) {
 	case float64:
-		res.Size = shared.FormatSize(size)
+		res.Size = size
 	case string:
 		if value, err := strconv.ParseFloat(size, 64); err == nil {
-			res.Size = shared.FormatSize(value)
+			res.Size = value
 		}
 	}
 

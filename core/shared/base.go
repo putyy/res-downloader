@@ -5,7 +5,7 @@ type MediaInfo struct {
 	Url         string
 	UrlSign     string
 	CoverUrl    string
-	Size        string
+	Size        float64
 	Domain      string
 	Classify    string
 	Suffix      string

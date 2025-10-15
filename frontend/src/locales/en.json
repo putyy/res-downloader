@@ -34,11 +34,13 @@
     "grab_type": "Grab Type",
     "clear_list": "Clear List",
     "clear_list_tip": "Clear all records?",
+    "remember_clear_choice": "Remember this selection and clear it next time",
     "batch_download": "Batch Download",
     "batch_export": "Batch Export",
     "batch_import": "Batch Import",
     "export_url": "Export Url",
     "import_success": "Export Success",
+    "total_resources": "total of {count} resources",
     "all": "All",
     "image": "Image",
     "audio": "Audio",
@@ -50,6 +52,7 @@
     "pdf": "PDF",
     "font": "Font",
     "domain": "Domain",
+    "choice": "choice",
     "type": "Type",
     "preview": "Preview",
     "preview_tip": "Preview not supported",
@@ -88,7 +91,8 @@
     "start_err_tip": "Error Message",
     "start_err_content": "The current startup process has encountered an issue. Do you want to reset the application?",
     "start_err_positiveText": "Clear cache and restart",
-    "start_err_negativeText": "Close the software"
+    "start_err_negativeText": "Close the software",
+    "reset_app_tip": "This operation will delete intercepted data and data related to this application. Please proceed with caution!"
   },
   "setting": {
     "restart_tip": "Keep default if unsure, please restart software after modification",
