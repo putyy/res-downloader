@@ -63,6 +63,7 @@
     "save_path_empty": "请设置保存位置",
     "operation": "操作",
     "ready": "就绪",
+    "pending": "待处理",
     "running": "运行中",
     "error": "错误",
     "done": "完成",

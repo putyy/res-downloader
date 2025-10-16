@@ -63,6 +63,7 @@
     "save_path_empty": "Please set save location",
     "operation": "Operation",
     "ready": "Ready",
+    "pending": "Pending",
     "running": "Running",
     "error": "Error",
     "done": "Done",

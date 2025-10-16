@@ -4,10 +4,10 @@
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">
           <span class="inline-block w-1.5 h-1.5 bg-red-600 rounded-full mr-1 animate-pulse"></span>
-          {{ t("index.close_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count:data.length})}` : ''}}
+          {{ t("index.close_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count: data.length})}` : '' }}
         </NButton>
         <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">
-          {{ t("index.open_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count:data.length})}` : ''}}
+          {{ t("index.open_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count: data.length})}` : '' }}
         </NButton>
         <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')" v-model:value="resourcesType" multiple clearable
                  :max-tag-count="3" :options="classify"></NSelect>
@@ -46,7 +46,7 @@
               <NCheckbox
                   v-model:checked="rememberChoiceTmp"
               >
-                <span class="text-gray-400">{{t('index.remember_clear_choice')}}</span>
+                <span class="text-gray-400">{{ t('index.remember_clear_choice') }}</span>
               </NCheckbox>
             </div>
           </n-popconfirm>
@@ -138,7 +138,7 @@
 import {NButton, NIcon, NImage, NInput, NSpace, NTooltip, NPopover, NGradientText} from "naive-ui"
 import {computed, h, onMounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
-import type {DataTableRowKey, ImageRenderToolbarProps, DataTableFilterState,DataTableBaseColumn} from "naive-ui"
+import type {DataTableRowKey, ImageRenderToolbarProps, DataTableFilterState, DataTableBaseColumn} from "naive-ui"
 import Preview from "@/components/Preview.vue"
 import ShowLoading from "@/components/ShowLoading.vue"
 // @ts-ignore
@@ -160,7 +160,7 @@ import {
   Apps,
   TrashOutline, CloseOutline
 } from "@vicons/ionicons5"
-import { useDialog } from 'naive-ui'
+import {useDialog} from 'naive-ui'
 import * as bind from "../../wailsjs/go/core/Bind"
 import {Quit} from "../../wailsjs/runtime"
 import {DialogOptions} from "naive-ui/es/dialog/src/DialogProvider"
@@ -210,6 +210,7 @@ const classifyAlias: { [key: string]: any } = {
 const dwStatus = computed<any>(() => {
   return {
     ready: t("index.ready"),
+    pending: t("index.pending"),
     running: t("index.running"),
     error: t("index.error"),
     done: t("index.done"),
@@ -238,7 +239,7 @@ const columns = ref<any[]>([
   },
   {
     title: computed(() => {
-      return checkedRowKeysValue.value.length > 0 ? h(NGradientText, {type:"success"}, t("index.choice") + `(${checkedRowKeysValue.value.length})`) : t("index.domain")
+      return checkedRowKeysValue.value.length > 0 ? h(NGradientText, {type: "success"}, t("index.choice") + `(${checkedRowKeysValue.value.length})`) : t("index.domain")
     }),
     key: "Domain",
     width: 90,
@@ -307,11 +308,18 @@ const columns = ref<any[]>([
     key: "Status",
     width: 80,
     render: (row: appType.MediaInfo, index: number) => {
+      let status = "info"
+      if (row.Status === "done" || row.Status === "running") {
+        status = "success"
+      } else if (row.Status === "pending") {
+        status = "warning"
+      }
+
       return h(
           NButton,
           {
             tertiary: true,
-            type: row.Status === "done" ? "success" : "info",
+            type: status as any,
             size: "small",
             style: {
               margin: "2px"
@@ -336,7 +344,7 @@ const columns = ref<any[]>([
     title: () => h('div', {class: 'flex items-center'}, [
       t('index.description'),
       h(NPopover, {
-        style:"--wails-draggable:no-drag",
+        style: "--wails-draggable:no-drag",
         trigger: 'click',
         placement: 'bottom',
         showArrow: true,
@@ -434,8 +442,8 @@ onMounted(() => {
     })
 
     checkLoading()
-    watch(showPassword, ()=>{
-      if (!showPassword.value){
+    watch(showPassword, () => {
+      if (!showPassword.value) {
         checkLoading()
       }
     })
@@ -532,7 +540,7 @@ watch(resourcesType, (n, o) => {
   appApi.setType(resourcesType.value)
 })
 
-const updateItem = (id: string, updater: (item: any) => void)=>{
+const updateItem = (id: string, updater: (item: any) => void) => {
   const item = data.value.find(i => i.Id === id)
   if (item) updater(item)
 }
@@ -579,7 +587,7 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       break
     case "cancel":
       if (row.Status === "running") {
-        appApi.cancel({id: row.Id}).then((res)=>{
+        appApi.cancel({id: row.Id}).then((res) => {
           updateItem(row.Id, item => {
             item.Status = 'ready'
             item.SavePath = ''
@@ -648,7 +656,7 @@ const handleCheck = (rowKeys: DataTableRowKey[]) => {
   checkedRowKeysValue.value = rowKeys
 }
 
-const updateFilters = (filters: DataTableFilterState, initiatorColumn: DataTableBaseColumn)=>{
+const updateFilters = (filters: DataTableFilterState, initiatorColumn: DataTableBaseColumn) => {
   filterClassify.value = filters.Classify as string[]
 }
 
@@ -672,25 +680,29 @@ const batchDown = async () => {
   checkedRowKeysValue.value = []
 }
 
-const batchCancel = () =>{
+const batchCancel = async () => {
   if (checkedRowKeysValue.value.length <= 0) {
     window?.$message?.error(t("index.use_data"))
     return
   }
-
-  data.value.forEach(async (item, index) => {
+  loading.value = true
+  const cancelTasks: Promise<any>[] = []
+  data.value.forEach((item, index) => {
     if (checkedRowKeysValue.value.includes(item.Id) && item.Status === "running") {
-      appApi.cancel({id: item.Id})
       if (activeDownloads > 0) {
         activeDownloads--
       }
-      data.value[index].Status = 'ready'
-      data.value[index].SavePath = ''
+      cancelTasks.push(appApi.cancel({id: item.Id}).then(() => {
+        item.Status = 'ready'
+        item.SavePath = ''
+        checkQueue()
+      }))
     }
   })
+  await Promise.allSettled(cancelTasks)
+  loading.value = false
   checkedRowKeysValue.value = []
   cacheData()
-  checkQueue()
 }
 
 const batchExport = (type?: string) => {
@@ -709,9 +721,9 @@ const batchExport = (type?: string) => {
 
   let jsonData = data.value.filter(item => checkedRowKeysValue.value.includes(item.Id))
 
-  if (type === "url"){
+  if (type === "url") {
     jsonData = jsonData.map(item => item.Url)
-  } else{
+  } else {
     jsonData = jsonData.map(item => encodeURIComponent(JSON.stringify(item)))
   }
 
@@ -747,6 +759,7 @@ const download = (row: appType.MediaInfo, index: number) => {
   }
 
   if (activeDownloads >= maxConcurrentDownloads.value) {
+    row.Status = "pending"
     downloadQueue.value.push(row)
     window?.$message?.info(t("index.download_queued", {count: downloadQueue.value.length}))
     return
@@ -917,8 +930,8 @@ const handleInstall = async () => {
   return false
 }
 
-const checkLoading = ()=>{
-  setTimeout(()=>{
+const checkLoading = () => {
+  setTimeout(() => {
     if (loading.value && !isInstall && !showPassword.value) {
       dialog.warning({
         title: t("index.start_err_tip"),
