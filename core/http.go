@@ -335,7 +335,7 @@ func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		MediaInfo
+		shared.MediaInfo
 		DecodeStr string `json:"decodeStr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
@@ -348,7 +348,7 @@ func (h *HttpServer) download(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) cancel(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		MediaInfo
+		shared.MediaInfo
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
@@ -366,7 +366,7 @@ func (h *HttpServer) cancel(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		MediaInfo
+		shared.MediaInfo
 		Filename  string `json:"filename"`
 		DecodeStr string `json:"decodeStr"`
 	}

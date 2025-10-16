@@ -97,11 +97,11 @@ func (r *Resource) cancel(id string) error {
 	return errors.New("task not found")
 }
 
-func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
+func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 	if globalConfig.SaveDirectory == "" {
 		return
 	}
-	go func(mediaInfo MediaInfo) {
+	go func(mediaInfo shared.MediaInfo) {
 		rawUrl := mediaInfo.Url
 		fileName := shared.Md5(rawUrl)
 
@@ -180,7 +180,7 @@ func (r *Resource) download(mediaInfo MediaInfo, decodeStr string) {
 	}(mediaInfo)
 }
 
-func (r *Resource) parseHeaders(mediaInfo MediaInfo) (map[string]string, error) {
+func (r *Resource) parseHeaders(mediaInfo shared.MediaInfo) (map[string]string, error) {
 	headers := make(map[string]string)
 
 	if hh, ok := mediaInfo.OtherData["headers"]; ok {
@@ -199,7 +199,7 @@ func (r *Resource) parseHeaders(mediaInfo MediaInfo) (map[string]string, error) 
 	return headers, nil
 }
 
-func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string) (string, error) {
+func (r *Resource) wxFileDecode(mediaInfo shared.MediaInfo, fileName, decodeStr string) (string, error) {
 	sourceFile, err := os.Open(fileName)
 	if err != nil {
 		return "", err
@@ -224,7 +224,7 @@ func (r *Resource) wxFileDecode(mediaInfo MediaInfo, fileName, decodeStr string)
 	return mediaInfo.SavePath, nil
 }
 
-func (r *Resource) progressEventsEmit(mediaInfo MediaInfo, args ...string) {
+func (r *Resource) progressEventsEmit(mediaInfo shared.MediaInfo, args ...string) {
 	Status := shared.DownloadStatusError
 	Message := "ok"
 
