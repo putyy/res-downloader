@@ -324,11 +324,13 @@ func (h *HttpServer) clear(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) delete(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		Sign string `json:"sign"`
+		Sign []string `json:"sign"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&data)
-	if err == nil && data.Sign != "" {
-		resourceOnce.delete(data.Sign)
+	if err == nil && len(data.Sign) > 0 {
+		for _, v := range data.Sign {
+			resourceOnce.delete(v)
+		}
 	}
 	h.success(w)
 }

@@ -76,6 +76,7 @@
     "open_link": "打开链接",
     "open_file": "打开文件",
     "delete_row": "删除记录",
+    "delete_tip": "运行中任务无法删除",
     "cancel_down": "取消下载",
     "more_operation": "更多操作",
     "video_decode": "视频解密",

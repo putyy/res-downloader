@@ -629,7 +629,11 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       decodeWxFile(row, index)
       break
     case "delete":
-      appApi.delete({sign: row.UrlSign}).then(() => {
+      if (row.Status === "pending" || row.Status === "running") {
+        window?.$message?.error(t("index.delete_tip"))
+        return
+      }
+      appApi.delete({sign: [row.UrlSign]}).then(() => {
         data.value.splice(index, 1)
         cacheData()
       })
@@ -813,25 +817,30 @@ const close = () => {
   store.unsetProxy()
 }
 
-const clear = () => {
+const clear = async () => {
+  const newData = [] as any[]
+  const signs: string[] = []
   if (checkedRowKeysValue.value.length > 0) {
-    let newData = [] as any[]
     data.value.forEach((item, index) => {
-      if (checkedRowKeysValue.value.includes(item.Id)) {
-        appApi.delete({sign: item.UrlSign})
+      if (checkedRowKeysValue.value.includes(item.Id) && item.Status !== "pending" && item.Status !== "running") {
+        signs.push(item.UrlSign)
       } else {
         newData.push(item)
       }
     })
-    data.value = newData
     checkedRowKeysValue.value = []
-    cacheData()
-    return
+  } else {
+    data.value.forEach((item, index) => {
+      if (item.Status === "pending" || item.Status === "running") {
+        newData.push(item)
+      } else {
+        signs.push(item.UrlSign)
+      }
+    })
   }
-
-  data.value = []
-  localStorage.setItem("resources-data", "")
-  appApi.clear()
+  await appApi.delete({sign: signs})
+  data.value = newData
+  cacheData()
 }
 
 const decodeWxFile = (row: appType.MediaInfo, index: number) => {
