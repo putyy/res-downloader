@@ -151,6 +151,7 @@ import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 import Password from "@/components/Password.vue"
+import ShowOrEdit from "@/components/ShowOrEdit.vue"
 import {useI18n} from 'vue-i18n'
 import {
   DownloadOutline,
@@ -369,10 +370,12 @@ const columns = ref<any[]>([
     key: "Description",
     width: 150,
     render: (row: appType.MediaInfo, index: number) => {
-      const d = h("div", {class: "ellipsis-2",}, row.Description)
-      return h(NTooltip, {trigger: 'hover', placement: 'top'}, {
-        trigger: () => d,
-        default: () => d
+      return h(ShowOrEdit, {
+        value: row.Description,
+        onUpdateValue(v: string) {
+          data.value[index].Description = v
+          cacheData()
+        }
       })
     }
   },
@@ -962,12 +965,3 @@ const checkLoading = () => {
   }, 6000)
 }
 </script>
-<style>
-.ellipsis-2 {
-  display: -webkit-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-</style>
