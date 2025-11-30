@@ -49,6 +49,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     Screen: typeof import('./src/components/Screen.vue')['default']
     ShowLoading: typeof import('./src/components/ShowLoading.vue')['default']
+    ShowOrEdit: typeof import('./src/components/ShowOrEdit.vue')['default']
     Sider: typeof import('./src/components/layout/Sider.vue')['default']
   }
 }
