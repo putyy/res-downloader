@@ -352,7 +352,7 @@ const columns = ref<any[]>([
       }, {
         trigger: () => h(NIcon, {
           size: "18",
-          class: "ml-1 text-gray-500 cursor-pointer",
+          class: `ml-1 cursor-pointer ${descriptionSearchValue.value ? "text-green-600": "text-gray-500"}`,
           onClick: (e: MouseEvent) => e.stopPropagation()
         }, h(SearchOutline)),
         default: () => h('div', {class: 'p-2 w-64'}, [
