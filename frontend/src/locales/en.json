@@ -76,6 +76,7 @@
     "open_link": "Open Link",
     "open_file": "Open File",
     "delete_row": "Delete Row",
+    "delete_tip": "Running tasks cannot be deleted",
     "cancel_down": "Cancel Download",
     "more_operation": "More Operations",
     "video_decode": "WxDecrypt",
