@@ -8,7 +8,6 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20241223171911-d5978cb8c956
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/rs/zerolog v1.33.0
-	github.com/vrischmann/userdir v0.0.0-20151206171402-20f291cebd68
 	github.com/wailsapp/wails/v2 v2.10.1
 	golang.org/x/net v0.35.0
 	golang.org/x/sys v0.30.0

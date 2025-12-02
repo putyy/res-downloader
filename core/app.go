@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"github.com/vrischmann/userdir"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,8 +107,13 @@ ILKEQKmPPzKs7kp/7Nz+2cT3
 -----END PRIVATE KEY-----
 `),
 		}
-		appOnce.UserDir = filepath.Join(userdir.GetConfigHome(), appOnce.AppName)
-		err := os.MkdirAll(appOnce.UserDir, 0750)
+
+		userConfigDir, err := os.UserConfigDir()
+		if err != nil {
+			fmt.Println("User ConfigDir err: ", err.Error())
+		}
+		appOnce.UserDir = filepath.Join(userConfigDir, appOnce.AppName)
+		err = os.MkdirAll(appOnce.UserDir, 0750)
 		if err != nil {
 			fmt.Println("Mkdir UserDir err: ", err.Error())
 		}
