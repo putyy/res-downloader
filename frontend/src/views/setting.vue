@@ -197,6 +197,22 @@
             </NTooltip>
           </NFormItem>
 
+          <NFormItem :label="t('setting.domain_rule')" path="DomainRule">
+            <NInput
+                v-model:value="formValue.Rule"
+                type="textarea"
+                rows="5"
+                :placeholder="t('setting.domain_rule_tip')"
+            />
+            <NTooltip trigger="hover">
+              <template #trigger>
+                <NIcon size="18" class="ml-1 text-gray-500">
+                  <HelpCircleOutline/>
+                </NIcon>
+              </template>
+              {{ t("setting.domain_rule_tip") }}
+            </NTooltip>
+          </NFormItem>
           <NFormItem :label="t('setting.mime_map')" path="MimeMap">
             <NInput
                 v-model:value="MimeMap"

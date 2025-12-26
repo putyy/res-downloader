@@ -33,7 +33,8 @@ export const useIndexStore = defineStore("index-store", () => {
         UserAgent: "",
         UseHeaders: "",
         InsertTail: true,
-        MimeMap: {}
+        MimeMap: {},
+        Rule: "*"
     })
 
     const envInfo = ref({

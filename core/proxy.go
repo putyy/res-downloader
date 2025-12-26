@@ -80,7 +80,14 @@ func (p *Proxy) Startup() {
 	//p.Proxy.KeepDestinationHeaders = true
 	//p.Proxy.Verbose = false
 	p.setTransport()
-	p.Proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	//p.Proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	p.Proxy.OnRequest().HandleConnectFunc(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+		if ruleOnce.shouldMitm(host) {
+			return goproxy.MitmConnect, host
+		}
+		return goproxy.OkConnect, host
+	})
+
 	p.Proxy.OnRequest().DoFunc(p.httpRequestEvent)
 	p.Proxy.OnResponse().DoFunc(p.httpResponseEvent)
 }

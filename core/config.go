@@ -37,6 +37,7 @@ type Config struct {
 	UseHeaders    string              `json:"UseHeaders"`
 	InsertTail    bool                `json:"InsertTail"`
 	MimeMap       map[string]MimeInfo `json:"MimeMap"`
+	Rule          string              `json:"Rule"`
 }
 
 var (
@@ -68,6 +69,7 @@ func initConfig() *Config {
 		UseHeaders:    "User-Agent,Referer,Authorization,Cookie",
 		InsertTail:    true,
 		MimeMap:       getDefaultMimeMap(),
+		Rule:          "*",
 	}
 
 	rawDefaults, err := json.Marshal(defaultConfig)
@@ -207,6 +209,7 @@ func getDefaultDownloadDir() string {
 func (c *Config) setConfig(config Config) {
 	oldProxy := c.UpstreamProxy
 	openProxy := c.OpenProxy
+	oldRule := c.Rule
 	c.Host = config.Host
 	c.Port = config.Port
 	c.Theme = config.Theme
@@ -225,8 +228,16 @@ func (c *Config) setConfig(config Config) {
 	c.WxAction = config.WxAction
 	c.UseHeaders = config.UseHeaders
 	c.InsertTail = config.InsertTail
+	c.Rule = config.Rule
 	if oldProxy != c.UpstreamProxy || openProxy != c.OpenProxy {
 		proxyOnce.setTransport()
+	}
+
+	if oldRule != c.Rule {
+		err := ruleOnce.Load(c.Rule)
+		if err != nil {
+			globalLogger.Esg(err, "set rule failed")
+		}
 	}
 
 	mimeMux.Lock()
@@ -281,6 +292,8 @@ func (c *Config) getConfig(key string) interface{} {
 		mimeMux.RLock()
 		defer mimeMux.RUnlock()
 		return c.MimeMap
+	case "Rule":
+		return c.Rule
 	default:
 		return nil
 	}

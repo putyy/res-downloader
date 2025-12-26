@@ -123,6 +123,8 @@
     "use_headers_tip": "Define headers for downloads, comma separated",
     "mime_map": "Intercept Rules",
     "mime_map_tip": "JSON format, keep default if unsure, please restart software after modification",
+    "domain_rule": "Domain Rule",
+    "domain_rule_tip": "Default * matches all domains, One line for each rule，supports the following: \n*.qq.com\nvideo.qq.com\nexample.com\n\n# Exclude\n!static.qq.com",
     "port_format_error": "port format error",
     "host_format_error": "host format error",
     "basic_setting": "Basic Setting",

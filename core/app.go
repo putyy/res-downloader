@@ -37,6 +37,7 @@ var (
 	systemOnce     *SystemSetup
 	proxyOnce      *Proxy
 	httpServerOnce *HttpServer
+	ruleOnce       *RuleSet
 )
 
 func GetApp(assets embed.FS, wjs string) *App {
@@ -120,6 +121,7 @@ ILKEQKmPPzKs7kp/7Nz+2cT3
 		initResource()
 		initHttpServer()
 		initSystem()
+		initRule()
 	}
 	return appOnce
 }

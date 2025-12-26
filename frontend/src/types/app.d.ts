@@ -31,6 +31,7 @@ export namespace appType {
         UseHeaders: string
         InsertTail: boolean
         MimeMap: { [key: string]: MimeMap }
+        Rule: string
     }
 
     interface MediaInfo {
