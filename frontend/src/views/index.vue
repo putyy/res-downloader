@@ -205,6 +205,7 @@ const classifyAlias: { [key: string]: any } = {
   xls: computed(() => t("index.xls")),
   doc: computed(() => t("index.doc")),
   pdf: computed(() => t("index.pdf")),
+  stream: computed(() => t("index.stream")),
   font: computed(() => t("index.font"))
 }
 
