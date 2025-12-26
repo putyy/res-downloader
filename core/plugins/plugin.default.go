@@ -5,8 +5,10 @@ import (
 	"github.com/elazarl/goproxy"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"net/http"
+	"path/filepath"
 	"res-downloader/core/shared"
 	"strconv"
+	"strings"
 )
 
 type DefaultPlugin struct {
@@ -26,7 +28,7 @@ func (p *DefaultPlugin) OnRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http
 }
 
 func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
-	if resp == nil || resp.Request == nil || (resp.StatusCode != 200 && resp.StatusCode != 206) {
+	if resp == nil || resp.Request == nil || (resp.StatusCode != 200 && resp.StatusCode != 206 && resp.StatusCode != 304) {
 		return resp
 	}
 
@@ -38,6 +40,13 @@ func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *
 	rawUrl := resp.Request.URL.String()
 	isAll, _ := p.bridge.GetResType("all")
 	isClassify, _ := p.bridge.GetResType(classify)
+
+	if suffix == "default" {
+		ext := filepath.Ext(filepath.Base(strings.Split(strings.Split(rawUrl, "?")[0], "#")[0]))
+		if ext != "" {
+			suffix = ext
+		}
+	}
 
 	urlSign := shared.Md5(rawUrl)
 	if ok := p.bridge.MediaIsMarked(urlSign); !ok && (isAll || isClassify) {

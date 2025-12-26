@@ -161,6 +161,7 @@ func getDefaultMimeMap() map[string]MimeInfo {
 		"application/vnd.apple.mpegurl": {Type: "m3u8", Suffix: ".m3u8"},
 		"application/x-mpegurl":         {Type: "m3u8", Suffix: ".m3u8"},
 		"application/x-mpeg":            {Type: "m3u8", Suffix: ".m3u8"},
+		"audio/x-mpegurl":               {Type: "m3u8", Suffix: ".m3u8"},
 		"application/pdf":               {Type: "pdf", Suffix: ".pdf"},
 		"application/vnd.ms-powerpoint": {Type: "ppt", Suffix: ".ppt"},
 		"application/vnd.openxmlformats-officedocument.presentationml.presentation": {Type: "ppt", Suffix: ".pptx"},
@@ -172,7 +173,8 @@ func getDefaultMimeMap() map[string]MimeInfo {
 		"text/rtf":           {Type: "doc", Suffix: ".rtf"},
 		"application/vnd.oasis.opendocument.text":                                 {Type: "doc", Suffix: ".odt"},
 		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": {Type: "doc", Suffix: ".docx"},
-		"font/woff": {Type: "font", Suffix: ".woff"},
+		"font/woff":                {Type: "font", Suffix: ".woff"},
+		"application/octet-stream": {Type: "stream", Suffix: "default"},
 	}
 }
 
