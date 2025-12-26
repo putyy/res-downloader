@@ -123,6 +123,8 @@
     "use_headers_tip": "定义下载时可使用的header参数，逗号分割",
     "mime_map": "拦截规则",
     "mime_map_tip": "json格式，如果不清楚保持默认就行，修改后请重启软件",
+    "domain_rule": "域名规则",
+    "domain_rule_tip": "默认*匹配所有域，每个规则一行，支持如下: \n*.qq.com\nvideo.qq.com\nexample.com\n\n# 排除\n!static.qq.com",
     "port_format_error": "port 格式错误",
     "host_format_error": "host 格式错误",
     "basic_setting": "基础设置",
