@@ -9,8 +9,9 @@ import (
 
 type Rule struct {
 	raw        string
-	isNeg      bool   // 是否否定规则（以 ! 开头）
-	isWildcard bool   // 是否为 *.domain 形式
+	isNeg      bool // 是否否定规则（以 ! 开头）
+	isWildcard bool // 是否为 *.domain 形式
+	isAll      bool
 	domain     string // 域名部分，不含 "*."
 }
 
@@ -49,6 +50,15 @@ func (r *RuleSet) Load(rs string) error {
 			if line == "" {
 				continue
 			}
+		}
+
+		if line == "*" {
+			rules = append(rules, Rule{
+				raw:   "*",
+				isAll: true,
+				isNeg: isNeg,
+			})
+			continue
 		}
 
 		isWildcard := false
@@ -96,22 +106,20 @@ func (r *RuleSet) shouldMitm(host string) bool {
 
 	action := false
 	for _, rule := range r.rules {
+		if rule.isAll {
+			action = !rule.isNeg
+			continue
+		}
+
 		if rule.isWildcard {
 			if h == rule.domain || strings.HasSuffix(h, "."+rule.domain) {
-				if rule.isNeg {
-					action = false
-				} else {
-					action = true
-				}
+				action = !rule.isNeg
 			}
-		} else {
-			if h == rule.domain {
-				if rule.isNeg {
-					action = false
-				} else {
-					action = true
-				}
-			}
+			continue
+		}
+
+		if h == rule.domain {
+			action = !rule.isNeg
 		}
 	}
 	return action
