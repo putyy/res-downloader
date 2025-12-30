@@ -82,8 +82,41 @@ func (fd *FileDownloader) buildClient() *http.Client {
 	}
 }
 
+var forbiddenDownloadHeaders = map[string]struct{}{
+	"accept-encoding":   {},
+	"content-length":    {},
+	"host":              {},
+	"connection":        {},
+	"keep-alive":        {},
+	"proxy-connection":  {},
+	"transfer-encoding": {},
+
+	"sec-fetch-site":     {},
+	"sec-fetch-mode":     {},
+	"sec-fetch-dest":     {},
+	"sec-fetch-user":     {},
+	"sec-ch-ua":          {},
+	"sec-ch-ua-mobile":   {},
+	"sec-ch-ua-platform": {},
+
+	"if-none-match":     {},
+	"if-modified-since": {},
+
+	"x-forwarded-for": {},
+	"x-real-ip":       {},
+}
+
 func (fd *FileDownloader) setHeaders(request *http.Request) {
 	for key, value := range fd.Headers {
+		if globalConfig.UseHeaders == "default" {
+			lk := strings.ToLower(key)
+			if _, forbidden := forbiddenDownloadHeaders[lk]; forbidden {
+				continue
+			}
+			request.Header.Set(key, value)
+			continue
+		}
+		
 		if strings.Contains(globalConfig.UseHeaders, key) {
 			request.Header.Set(key, value)
 		}

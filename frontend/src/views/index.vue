@@ -189,6 +189,10 @@ const filteredData = computed(() => {
     result = result.filter(item => item.Description?.toLowerCase().includes(descriptionSearchValue.value.toLowerCase()))
   }
 
+  if (urlSearchValue.value) {
+    result = result.filter(item => item.Url?.toLowerCase().includes(urlSearchValue.value.toLowerCase()))
+  }
+
   return result
 })
 
@@ -232,6 +236,7 @@ const classify = ref([
 ])
 
 const descriptionSearchValue = ref("")
+const urlSearchValue = ref("")
 const rememberChoice = ref(false)
 const rememberChoiceTmp = ref(false)
 
@@ -240,11 +245,49 @@ const columns = ref<any[]>([
     type: "selection",
   },
   {
-    title: computed(() => {
-      return checkedRowKeysValue.value.length > 0 ? h(NGradientText, {type: "success"}, t("index.choice") + `(${checkedRowKeysValue.value.length})`) : t("index.domain")
-    }),
+    title: () => {
+      if (checkedRowKeysValue.value.length > 0) {
+        return h(NGradientText, {type: "success"}, t("index.choice") + `(${checkedRowKeysValue.value.length})`)
+      }
+      return h('div', {class: 'flex items-center'}, [
+        t('index.domain'),
+        h(NPopover, {
+          style: "--wails-draggable:no-drag",
+          trigger: 'click',
+          placement: 'bottom',
+          showArrow: true,
+        }, {
+          trigger: () => h(NIcon, {
+            size: "18",
+            class: `ml-1 cursor-pointer ${urlSearchValue.value ? "text-green-600": "text-gray-500"}`,
+            onClick: (e: MouseEvent) => e.stopPropagation()
+          }, h(SearchOutline)),
+          default: () => h('div', {class: 'p-2 w-64'}, [
+            h(NInput, {
+              value: urlSearchValue.value,
+              'onUpdate:value': (val: string) => urlSearchValue.value = val,
+              placeholder: t('index.search_description'),
+              clearable: true
+            }, {
+              prefix: () => h(NIcon, {component: SearchOutline})
+            })
+          ])
+        })
+      ])
+    },
     key: "Domain",
     width: 90,
+    render: (row: appType.MediaInfo) => {
+      return h(NTooltip, {
+        trigger: 'hover',
+        placement: 'top'
+      }, {
+        trigger: () => h('span', {
+          class: 'cursor-default'
+        }, row.Domain),
+        default: () => row.Url
+      })
+    }
   },
   {
     title: computed(() => t("index.type")),
@@ -590,7 +633,17 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       download(row, index)
       break
     case "cancel":
-      if (row.Status === "running") {
+      if (row.Status === "pending") {
+        const queueIndex = downloadQueue.value.findIndex(item => item.Id === row.Id)
+        if (queueIndex !== -1) {
+          downloadQueue.value.splice(queueIndex, 1)
+        }
+        updateItem(row.Id, item => {
+          item.Status = 'ready'
+          item.SavePath = ''
+        })
+        cacheData()
+      } else if (row.Status === "running") {
         appApi.cancel({id: row.Id}).then((res) => {
           updateItem(row.Id, item => {
             item.Status = 'ready'
@@ -696,7 +749,21 @@ const batchCancel = async () => {
   loading.value = true
   const cancelTasks: Promise<any>[] = []
   data.value.forEach((item, index) => {
-    if (checkedRowKeysValue.value.includes(item.Id) && item.Status === "running") {
+    if (!checkedRowKeysValue.value.includes(item.Id)) {
+      return
+    }
+
+    if (item.Status === "pending") {
+      const queueIndex = downloadQueue.value.findIndex(qItem => qItem.Id === item.Id)
+      if (queueIndex !== -1) {
+        downloadQueue.value.splice(queueIndex, 1)
+      }
+      item.Status = 'ready'
+      item.SavePath = ''
+      return
+    }
+
+    if (item.Status === "running") {
       if (activeDownloads > 0) {
         activeDownloads--
       }
