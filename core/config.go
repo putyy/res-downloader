@@ -66,7 +66,7 @@ func initConfig() *Config {
 		TaskNumber:    runtime.NumCPU() * 2,
 		DownNumber:    3,
 		UserAgent:     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-		UseHeaders:    "User-Agent,Referer,Authorization,Cookie",
+		UseHeaders:    "default",
 		InsertTail:    true,
 		MimeMap:       getDefaultMimeMap(),
 		Rule:          "*",

@@ -120,7 +120,7 @@
     "connections_tip": "如不清楚请保持默认，通常CPU核心数*2，用于加速下载",
     "down_number": "下载数",
     "down_number_tip": "同时进行的下载数量",
-    "use_headers_tip": "定义下载时可使用的header参数，逗号分割",
+    "use_headers_tip": "默认系统过滤，定义下载时可使用的header参数，逗号分割",
     "mime_map": "拦截规则",
     "mime_map_tip": "json格式，如果不清楚保持默认就行，修改后请重启软件",
     "domain_rule": "域名规则",

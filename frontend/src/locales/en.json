@@ -120,7 +120,7 @@
     "connections_tip": "Keep default if unsure, usually CPU cores * 2, for faster downloads",
     "down_number": "Download Number",
     "down_number_tip": "Number of downloads executed simultaneously",
-    "use_headers_tip": "Define headers for downloads, comma separated",
+    "use_headers_tip": "Default system filtering, Define headers for downloads, comma separated",
     "mime_map": "Intercept Rules",
     "mime_map_tip": "JSON format, keep default if unsure, please restart software after modification",
     "domain_rule": "Domain Rule",
