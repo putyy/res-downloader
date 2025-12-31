@@ -120,10 +120,14 @@ func (p *Proxy) setTransport() {
 		IdleConnTimeout:       30 * time.Second,
 	}
 
+	p.Proxy.ConnectDial = nil
+	p.Proxy.ConnectDialWithReq = nil
+
 	if globalConfig.UpstreamProxy != "" && globalConfig.OpenProxy && !strings.Contains(globalConfig.UpstreamProxy, globalConfig.Port) {
 		proxyURL, err := url.Parse(globalConfig.UpstreamProxy)
 		if err == nil {
 			transport.Proxy = http.ProxyURL(proxyURL)
+			p.Proxy.ConnectDial = p.Proxy.NewConnectDialToProxy(globalConfig.UpstreamProxy)
 		}
 	}
 	p.Proxy.Tr = transport
