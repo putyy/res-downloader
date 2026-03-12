@@ -9,11 +9,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"res-downloader/core/shared"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type WxFileDecodeResult struct {
@@ -26,11 +26,114 @@ type Resource struct {
 	tasks      sync.Map
 	resType    map[string]bool
 	resTypeMux sync.RWMutex
+	history    *DownloadHistory // 新增：下载历史管理器
+}
+
+// DownloadRecord 下载历史记录
+type DownloadRecord struct {
+	URLSign     string  `json:"url_sign"`     // URL 的 MD5 签名（主键）
+	URL         string  `json:"url"`          // 原始 URL
+	Description string  `json:"description"`  // 文件描述（标题#话题）
+	SavePath    string  `json:"save_path"`    // 保存路径
+	DownloadAt  int64   `json:"download_at"`  // 下载时间戳（Unix timestamp）
+	FileSize    float64 `json:"file_size"`    // 文件大小
+}
+
+// DownloadHistory 历史记录管理器
+type DownloadHistory struct {
+	Records map[string]DownloadRecord `json:"records"` // key: urlSign
+	storage *Storage
+	mu      sync.RWMutex
+}
+
+// newDownloadHistory 创建并加载下载历史
+func newDownloadHistory() *DownloadHistory {
+	h := &DownloadHistory{
+		Records: make(map[string]DownloadRecord),
+		storage: NewStorage("download_history.json", []byte(`{"records":{}}`)),
+	}
+	h.load()
+	return h
+}
+
+// load 从文件加载历史记录
+func (h *DownloadHistory) load() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	data, err := h.storage.Load()
+	if err != nil {
+		globalLogger.Warn().Msgf("Failed to load download history: %v", err)
+		return
+	}
+
+	var historyData struct {
+		Records map[string]DownloadRecord `json:"records"`
+	}
+	if err := json.Unmarshal(data, &historyData); err != nil {
+		globalLogger.Warn().Msgf("Failed to parse download history: %v", err)
+		return
+	}
+
+	h.Records = historyData.Records
+	globalLogger.Info().Msgf("Loaded %d download records", len(h.Records))
+}
+
+// save 保存历史记录到文件
+func (h *DownloadHistory) save() error {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	historyData := struct {
+		Records map[string]DownloadRecord `json:"records"`
+	}{
+		Records: h.Records,
+	}
+
+	data, err := json.Marshal(historyData)
+	if err != nil {
+		return err
+	}
+
+	return h.storage.Store(data)
+}
+
+// isMarked 检查 URL 是否已在历史记录中
+func (h *DownloadHistory) isMarked(urlSign string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	_, exists := h.Records[urlSign]
+	return exists
+}
+
+// add 添加下载记录
+func (h *DownloadHistory) add(record DownloadRecord) {
+	h.mu.Lock()
+	h.Records[record.URLSign] = record
+	h.mu.Unlock()
+
+	// 异步保存，避免阻塞
+	go func() {
+		if err := h.save(); err != nil {
+			globalLogger.Warn().Msgf("Failed to save download history: %v", err)
+		}
+	}()
+}
+
+// clear 清空所有历史记录
+func (h *DownloadHistory) clear() error {
+	h.mu.Lock()
+	h.Records = make(map[string]DownloadRecord)
+	h.mu.Unlock()
+
+	return h.save()
 }
 
 func initResource() *Resource {
 	if resourceOnce == nil {
-		resourceOnce = &Resource{}
+		resourceOnce = &Resource{
+			history: newDownloadHistory(), // 新增：初始化历史管理器
+		}
 		resourceOnce.resType = resourceOnce.buildResType(globalConfig.MimeMap)
 	}
 	return resourceOnce
@@ -51,11 +154,18 @@ func (r *Resource) buildResType(mime map[string]MimeInfo) map[string]bool {
 }
 
 func (r *Resource) mediaIsMarked(key string) bool {
+	// 先检查持久化历史
+	if r.history.isMarked(key) {
+		return true
+	}
+	// 再检查内存标记（兼容性保留）
 	_, loaded := r.mediaMark.Load(key)
 	return loaded
 }
 
 func (r *Resource) markMedia(key string) {
+	// 只标记内存，不立即保存到历史
+	// 历史记录在下载完成后由 download() 函数添加
 	r.mediaMark.Store(key, true)
 }
 
@@ -110,16 +220,9 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 		}
 
 		if mediaInfo.Description != "" {
-			fileName = regexp.MustCompile(`[^\w\p{Han}]`).ReplaceAllString(mediaInfo.Description, "")
-			fileLen := globalConfig.FilenameLen
-			if fileLen <= 0 {
-				fileLen = 10
-			}
-
-			runes := []rune(fileName)
-			if len(runes) > fileLen {
-				fileName = string(runes[:fileLen])
-			}
+			// 直接使用 Description，不做额外的字符过滤
+			// Description 已经在 plugin.qq.com.go 中经过 sanitizeFilename 处理
+			fileName = mediaInfo.Description
 		}
 
 		if globalConfig.FilenameTime {
@@ -130,6 +233,12 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 
 		if !strings.HasSuffix(mediaInfo.SavePath, mediaInfo.Suffix) {
 			mediaInfo.SavePath = mediaInfo.SavePath + mediaInfo.Suffix
+		}
+
+		// 新增：检查文件是否已存在
+		if shared.FileExist(mediaInfo.SavePath) {
+			r.progressEventsEmit(mediaInfo, "文件已存在，跳过下载", shared.DownloadStatusDone)
+			return
 		}
 
 		if strings.Contains(rawUrl, "qq.com") {
@@ -177,6 +286,16 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 			}
 		}
 		r.progressEventsEmit(mediaInfo, "complete", shared.DownloadStatusDone)
+
+		// 新增：添加到下载历史
+		r.history.add(DownloadRecord{
+			URLSign:     mediaInfo.UrlSign,
+			URL:         mediaInfo.Url,
+			Description: mediaInfo.Description,
+			SavePath:    mediaInfo.SavePath,
+			DownloadAt:  time.Now().Unix(),
+			FileSize:    mediaInfo.Size,
+		})
 	}(mediaInfo)
 }
 
