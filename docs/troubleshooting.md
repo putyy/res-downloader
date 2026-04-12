@@ -46,7 +46,7 @@ C:\Users\Administrator\AppData\Roaming\res-downloader
 
 - Mac手动安装证书(V3+版本支持)，打开终端复制以下命令 粘贴到终端回车 按照提示输入密码，完成后再打开软件：
 ```shell
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /Users/$(whoami)/Library/Preferences/res-downloader/cert.crt && touch /Users/$(whoami)/Library/Preferences/res-downloader/install.lock && echo "安装完成"
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /Users/$(whoami)/Library/Preferences/res-downloader/ca.crt && echo "安装完成"
 ```
 
 ## 拦截不到小程序中的资源
@@ -71,8 +71,6 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 > [在线下载](https://m3u8-down.gowas.cn/)、[在线预览](https://m3u8play.com/)
 
 ## 安装证书后还会提示安装
-使用命令行打开本软件，查看 “lockfile:” 这串字符后面的锁文件路径，然后创建该文件即可  
-例如 mac系统下终端执行如下命令即可创建  
-> touch /Users/你的用户名/Library/Preferences/res-downloader/install.lock
+使用命令行打开本软件，查看 “certfile:” 后面的证书路径，确认本地证书文件存在且已成功导入系统受信任根证书即可
 
 ## 更多问题 请前往github进行[反馈](https://github.com/putyy/res-downloader/issues)

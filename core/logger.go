@@ -22,7 +22,9 @@ func initLogger() *Logger {
 }
 
 func (l *Logger) Close() {
-	_ = l.logFile.Close()
+	if l.logFile != nil {
+		_ = l.logFile.Close()
+	}
 }
 
 func (l *Logger) Err(err error) {

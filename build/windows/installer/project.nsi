@@ -100,6 +100,9 @@ SectionEnd
 Section "uninstall"
     !insertmacro wails.setShellContext
 
+    IfFileExists "$INSTDIR\${PRODUCT_EXECUTABLE}" 0 +2
+    ExecWait '"$INSTDIR\${PRODUCT_EXECUTABLE}" --cleanup-system'
+
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 
     RMDir /r $INSTDIR

@@ -29,9 +29,11 @@ func (s *SystemSetup) runCommand(args []string, sudo bool) ([]byte, error) {
 	}
 
 	var cmd *exec.Cmd
-	if s.Password != "" && sudo {
+	if sudo && s.Password != "" {
 		cmd = exec.Command("sudo", append([]string{"-S"}, args...)...)
 		cmd.Stdin = bytes.NewReader([]byte(s.Password + "\n"))
+	} else if sudo {
+		cmd = exec.Command("sudo", args...)
 	} else {
 		cmd = exec.Command(args[0], args[1:]...)
 	}
@@ -76,35 +78,33 @@ func (s *SystemSetup) unsetProxy() error {
 	return nil
 }
 
-func (s *SystemSetup) installCert() (string, error) {
-	_, err := s.initCert()
-	if err != nil {
-		return "", err
+func (s *SystemSetup) linuxCertTarget(distro string) (string, []string) {
+	switch distro {
+	case "deepin":
+		return "/usr/share/ca-certificates/" + appOnce.AppName + "/" + appOnce.AppName + ".crt", []string{"update-ca-certificates"}
+	case "arch":
+		return "/usr/share/ca-certificates/trust-source/" + appOnce.AppName + ".crt", []string{"update-ca-trust"}
+	default:
+		return "/usr/local/share/ca-certificates/" + appOnce.AppName + ".crt", []string{"update-ca-certificates"}
 	}
+}
 
+func (s *SystemSetup) installCert() (string, error) {
 	distro, err := s.getLinuxDistro()
 	if err != nil {
 		return "", fmt.Errorf("detect distro failed: %w", err)
 	}
 
-	certName := appOnce.AppName + ".crt"
-	var certPath string
-	var updateCmd = []string{"update-ca-certificates"}
-
-	switch distro {
-	case "deepin":
-		certDir := "/usr/share/ca-certificates/" + appOnce.AppName
-		certPath = certDir + "/" + certName
-		s.runCommand([]string{"mkdir", "-p", certDir}, true)
-	case "arch":
-		certPath = "/usr/share/ca-certificates/trust-source/" + certName
-		updateCmd = []string{"update-ca-trust"}
-	default:
-		certPath = "/usr/local/share/ca-certificates/" + certName
-	}
-
+	certPath, updateCmd := s.linuxCertTarget(distro)
 	var outs, errs strings.Builder
 	isSuccess := false
+
+	if distro == "deepin" {
+		certDir := "/usr/share/ca-certificates/" + appOnce.AppName
+		if output, err := s.runCommand([]string{"mkdir", "-p", certDir}, true); err != nil {
+			errs.WriteString(fmt.Sprintf("mkdir cert dir failed: %s\n%s\n", err.Error(), output))
+		}
+	}
 
 	if output, err := s.runCommand([]string{"cp", "-f", s.CertFile, certPath}, true); err != nil {
 		errs.WriteString(fmt.Sprintf("copy cert failed: %s\n%s\n", err.Error(), output))
@@ -115,9 +115,10 @@ func (s *SystemSetup) installCert() (string, error) {
 
 	if distro == "deepin" {
 		confPath := "/etc/ca-certificates.conf"
-		checkCmd := []string{"grep", "-qxF", certName, confPath}
+		entry := appOnce.AppName + "/" + appOnce.AppName + ".crt"
+		checkCmd := []string{"grep", "-qxF", entry, confPath}
 		if _, err := s.runCommand(checkCmd, true); err != nil {
-			echoCmd := []string{"bash", "-c", fmt.Sprintf("echo '%s/%s' >> %s", appOnce.AppName, certName, confPath)}
+			echoCmd := []string{"bash", "-c", fmt.Sprintf("echo '%s' >> %s", entry, confPath)}
 			if output, err := s.runCommand(echoCmd, true); err != nil {
 				errs.WriteString(fmt.Sprintf("append conf failed: %s\n%s\n", err.Error(), output))
 			} else {
@@ -139,4 +140,73 @@ func (s *SystemSetup) installCert() (string, error) {
 	}
 
 	return outs.String(), fmt.Errorf("certificate installation failed:\n%s", errs.String())
+}
+
+func (s *SystemSetup) isCertInstalled() (bool, error) {
+	localCert, err := os.ReadFile(s.CertFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	distro, err := s.getLinuxDistro()
+	if err != nil {
+		return false, err
+	}
+
+	targetPath, _ := s.linuxCertTarget(distro)
+	systemCert, err := os.ReadFile(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return bytes.Equal(localCert, systemCert), nil
+}
+
+func (s *SystemSetup) removeCert() error {
+	distro, err := s.getLinuxDistro()
+	if err != nil {
+		return err
+	}
+
+	targetPath, updateCmd := s.linuxCertTarget(distro)
+	var errs strings.Builder
+	changed := false
+
+	if _, err := os.Stat(targetPath); err == nil {
+		if output, err := s.runCommand([]string{"rm", "-f", targetPath}, true); err != nil {
+			errs.WriteString(fmt.Sprintf("remove cert file failed: %s\n%s\n", err.Error(), output))
+		} else {
+			changed = true
+		}
+	}
+
+	if distro == "deepin" {
+		confPath := "/etc/ca-certificates.conf"
+		entry := appOnce.AppName + "/" + appOnce.AppName + ".crt"
+		cmd := []string{"bash", "-c", fmt.Sprintf("grep -vxF '%s' %s > %s.tmp || true; mv %s.tmp %s", entry, confPath, confPath, confPath, confPath)}
+		if output, err := s.runCommand(cmd, true); err == nil {
+			changed = true
+			_ = output
+		}
+	}
+
+	if !changed && errs.Len() == 0 {
+		return nil
+	}
+
+	if output, err := s.runCommand(updateCmd, true); err != nil {
+		errs.WriteString(fmt.Sprintf("refresh trust store failed: %s\n%s\n", err.Error(), output))
+	}
+
+	if errs.Len() > 0 {
+		return fmt.Errorf("remove trusted cert failed:\n%s", errs.String())
+	}
+
+	return nil
 }

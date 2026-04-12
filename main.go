@@ -9,6 +9,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"log"
+	"os"
 	"res-downloader/core"
 	"runtime"
 
@@ -27,6 +28,14 @@ var icon []byte
 var wailsJson string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--cleanup-system" {
+		if err := core.CleanupSystemState(wailsJson); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Create an instance of the app structure
 	app := core.GetApp(assets, wailsJson)
 	bind := core.NewBind()
@@ -63,7 +72,7 @@ func main() {
 
 			log.Println(logo)
 			fmt.Println("version:", app.Version)
-			fmt.Println("lockfile:", app.LockFile)
+			fmt.Println("certfile:", core.GetSystemCertFile())
 			app.Startup(ctx)
 		},
 		OnShutdown: func(ctx context.Context) {
