@@ -330,6 +330,8 @@ test('task package logs the queued task labels and pending task labels', () => {
   const decryptPs1 = pack.files.find(file => file.path === 'decrypt.ps1').content
 
   assert.match(decryptPs1, /function TaskLabel/)
+  assert.match(decryptPs1, /foreach \(\$item in \$tasks\)/)
+  assert.doesNotMatch(decryptPs1, /\$items = @\(\$tasks\)/)
   assert.match(decryptPs1, /Log \(\$reason \+ " " \+ \(TaskLabel \$task \$index \$total\) \+ " -> " \+ \$targetFile\)/)
   assert.match(decryptPs1, /pending tasks: " \+ \(FormatTaskList \$next 5\)/)
 })
