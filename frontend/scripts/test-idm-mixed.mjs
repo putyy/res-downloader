@@ -110,6 +110,21 @@ test('mixed BAT carries image set audio into the direct export path', () => {
   assert.match(bat, /\/p "%AUDIO_DIR%" \/f "bgm\.m4a"/)
 })
 
+test('image set folders use the title first like video filenames', () => {
+  const pack = generateIdmTaskPackage({
+    items: [imageSetItem('named', 2)],
+    saveDirectory: 'G:\\下载总\\res-downloader',
+    batchNum: 1,
+    totalBatches: 1,
+    mixed: true,
+  })
+  const tasks = JSON.parse(pack.files.find(file => file.path === 'idm_tasks.json').content)
+  const folder = tasks.imageSets[0].folder
+
+  assert.match(folder, /^image set named_set001_[a-f0-9]{8}$/)
+  assert.doesNotMatch(folder, /^\d{14}_set001_/)
+})
+
 test('ordinary IDM BAT downloads to the BAT directory and starts the IDM queue', () => {
   const bat = generateIdmBat({
     items: [videoItem('plain')],

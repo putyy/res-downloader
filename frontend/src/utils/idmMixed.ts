@@ -441,7 +441,7 @@ const parseImageSetUrls = (item: MixedMediaItem): string[] => {
 const buildImageSetFolderName = (item: MixedMediaItem, setId: string): string => {
   const rawName = item.Description || item.UrlSign || 'image_set'
   const safeName = sanitizeWindowsName(rawName).slice(0, 70) || 'image_set'
-  return `${currentTimestamp()}_${setId}_${safeName}`
+  return `${safeName}_${setId}`
 }
 
 const buildImageSetId = (item: MixedMediaItem, exportIndex: number): string => {
