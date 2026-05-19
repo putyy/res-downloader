@@ -64,6 +64,8 @@ func HandleApi(w http.ResponseWriter, r *http.Request) bool {
 			httpServerOnce.wxFileDecode(w, r)
 		case "/api/batch-export":
 			httpServerOnce.batchExport(w, r)
+		case "/api/batch-export-package":
+			httpServerOnce.batchExportPackage(w, r)
 		case "/api/cert":
 			httpServerOnce.downCert(w, r)
 		}

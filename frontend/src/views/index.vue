@@ -99,6 +99,22 @@
                   </template>
                   {{ t('index.export_url') }}
                 </NButton>
+                <NButton tertiary type="success" @click.stop="batchExport('idm')" class="my-1">
+                  <template #icon>
+                    <n-icon>
+                      <ArrowRedoCircleOutline/>
+                    </n-icon>
+                  </template>
+                  {{ t('index.export_idm') }}
+                </NButton>
+                <NButton tertiary type="success" @click.stop="batchExportIdmMixed" class="my-1">
+                  <template #icon>
+                    <n-icon>
+                      <ArrowRedoCircleOutline/>
+                    </n-icon>
+                  </template>
+                  {{ t('index.export_idm_mixed') }}
+                </NButton>
               </div>
             </NPopover>
           </NButton>
@@ -166,6 +182,11 @@ import * as bind from "../../wailsjs/go/core/Bind"
 import {Quit} from "../../wailsjs/runtime"
 import {DialogOptions} from "naive-ui/es/dialog/src/DialogProvider"
 import {formatSize} from "@/func"
+import {
+  chunkMixedItems,
+  generateIdmTaskPackage,
+  getMixedTaskCount,
+} from "@/utils/idmMixed"
 
 const {t} = useI18n()
 const eventStore = useEventStore()
@@ -204,6 +225,7 @@ const classifyAlias: { [key: string]: any } = {
   image: computed(() => t("index.image")),
   audio: computed(() => t("index.audio")),
   video: computed(() => t("index.video")),
+  image_set: computed(() => t("index.image_set")),
   m3u8: computed(() => t("index.m3u8")),
   live: computed(() => t("index.live")),
   xls: computed(() => t("index.xls")),
@@ -228,7 +250,7 @@ const maxConcurrentDownloads = computed(() => {
   return store.globalConfig.DownNumber
 })
 
-const classify = ref([
+const classify = ref<any[]>([
   {
     value: "all",
     label: computed(() => t("index.all")),
@@ -316,6 +338,16 @@ const columns = ref<any[]>([
           lazy: true,
           "render-toolbar": renderToolbar,
           src: row.Url
+        }))
+      }
+      if (row.Classify === "image_set") {
+        return h("div", {
+          style: "width: 100%;max-height:80px;overflow:hidden;"
+        }, h(NImage, {
+          objectFit: "contain",
+          lazy: true,
+          "render-toolbar": renderToolbar,
+          src: row.CoverUrl || row.Url
         }))
       }
       return [
@@ -414,6 +446,16 @@ const columns = ref<any[]>([
     key: "Description",
     width: 150,
     render: (row: appType.MediaInfo, index: number) => {
+      if (row.Classify === "image_set") {
+        const count = row.OtherData?.image_set_count || "0"
+        return h(ShowOrEdit, {
+          value: `[${t('index.image_set_count', {count})}] ${row.Description || ''}`,
+          onUpdateValue(v: string) {
+            data.value[index].Description = v
+            cacheData()
+          }
+        })
+      }
       return h(ShowOrEdit, {
         value: row.Description,
         onUpdateValue(v: string) {
@@ -625,6 +667,9 @@ const buildClassify = () => {
           label: classifyAlias[Type] ?? Type,
         })),
   ]
+  if (!classify.value.some(item => item.value === "image_set")) {
+    classify.value.push({value: "image_set", label: computed(() => t("index.image_set"))})
+  }
 }
 
 const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
@@ -713,9 +758,20 @@ const rowKey = (row: appType.MediaInfo) => {
   return row.Id
 }
 
-const handleCheck = (rowKeys: DataTableRowKey[]) => {
-  checkedRowKeysValue.value = rowKeys
+const getVisibleRowKeys = () => new Set<DataTableRowKey>(filteredData.value.map((item: appType.MediaInfo) => rowKey(item)))
+
+const normalizeCheckedRows = (rowKeys: DataTableRowKey[]) => {
+  const visibleRowKeys = getVisibleRowKeys()
+  return Array.from(new Set(rowKeys)).filter(key => visibleRowKeys.has(key))
 }
+
+const handleCheck = (rowKeys: DataTableRowKey[]) => {
+  checkedRowKeysValue.value = normalizeCheckedRows(rowKeys)
+}
+
+watch(filteredData, () => {
+  checkedRowKeysValue.value = normalizeCheckedRows(checkedRowKeysValue.value)
+})
 
 const updateFilters = (filters: DataTableFilterState, initiatorColumn: DataTableBaseColumn) => {
   filterClassify.value = filters.Classify as string[]
@@ -780,6 +836,63 @@ const batchCancel = async () => {
   cacheData()
 }
 
+const buildFileName = (item: appType.MediaInfo): string => {
+  let name = item.UrlSign || 'unknown'
+  if (item.Description) {
+    name = item.Description
+  }
+
+  // 提取视频上传时间（从 URL 的 svrnonce 参数）
+  let timestamp = ''
+  if (store.globalConfig.FilenameTime) {
+    try {
+      const url = new URL(item.Url)
+      const svrnonce = url.searchParams.get('svrnonce')
+      if (svrnonce) {
+        // svrnonce 是 Unix 时间戳（秒），转换为文件名格式
+        const date = new Date(parseInt(svrnonce) * 1000)
+        timestamp = [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, '0'),
+          String(date.getDate()).padStart(2, '0'),
+          String(date.getHours()).padStart(2, '0'),
+          String(date.getMinutes()).padStart(2, '0'),
+          String(date.getSeconds()).padStart(2, '0')
+        ].join('')
+      } else {
+        // 降级：如果没有 svrnonce，使用当前时间
+        const now = new Date()
+        timestamp = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, '0'),
+          String(now.getDate()).padStart(2, '0'),
+          String(now.getHours()).padStart(2, '0'),
+          String(now.getMinutes()).padStart(2, '0'),
+          String(now.getSeconds()).padStart(2, '0')
+        ].join('')
+      }
+    } catch (e) {
+      // URL 解析失败，使用当前时间
+      const now = new Date()
+      timestamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0'),
+        String(now.getSeconds()).padStart(2, '0')
+      ].join('')
+    }
+    name = name + '_' + timestamp
+  }
+
+  const suffix = item.Suffix || '.mp4'
+  if (!name.endsWith(suffix)) {
+    name = name + suffix
+  }
+  return name
+}
+
 const batchExport = (type?: string) => {
   if (checkedRowKeysValue.value.length <= 0) {
     window?.$message?.error(t("index.use_data"))
@@ -791,18 +904,223 @@ const batchExport = (type?: string) => {
     return
   }
 
+  const selectedItems = data.value.filter(item => checkedRowKeysValue.value.includes(item.Id))
+
+  // IDM 分批导出：每批最多 100 个
+  if (type === "idm") {
+    const batchSize = 100
+    const totalBatches = Math.ceil(selectedItems.length / batchSize)
+
+    if (totalBatches > 1) {
+      // 询问用户是否分批
+      window?.$dialog?.warning({
+        title: '数量较多',
+        content: `共 ${selectedItems.length} 个视频，建议分批导出（每批 ${batchSize} 个，共 ${totalBatches} 批）。\n\n分批导出可避免 IDM 卡死。`,
+        positiveText: `分批导出（${totalBatches} 个任务包）`,
+        negativeText: '全部导出（1 个任务包）',
+        onPositiveClick: () => {
+          exportIdmBatches(selectedItems, batchSize)
+        },
+        onNegativeClick: () => {
+          exportIdmSingle(selectedItems)
+        }
+      })
+      return
+    }
+  }
+
   loadingText.value = t("common.loading")
   loading.value = true
 
-  let jsonData = data.value.filter(item => checkedRowKeysValue.value.includes(item.Id))
+  let content = ''
+  let ext = '.txt'
 
-  if (type === "url") {
-    jsonData = jsonData.map(item => item.Url)
+  if (type === "idm") {
+    exportIdmSingle(selectedItems)
+    return
+  } else if (type === "url") {
+    content = selectedItems.map(item => item.Url).join("\n")
   } else {
-    jsonData = jsonData.map(item => encodeURIComponent(JSON.stringify(item)))
+    content = selectedItems.map(item => encodeURIComponent(JSON.stringify(item))).join("\n")
   }
 
-  appApi.batchExport({content: jsonData.join("\n")}).then((res: appType.Res) => {
+  appApi.batchExport({content, ext, batch_index: 0, open_folder: true}).then((res: appType.Res) => {
+    loading.value = false
+    if (res.code === 0) {
+      window?.$message?.error(res.message)
+      return
+    }
+    window?.$message?.success(t("index.import_success"))
+    window?.$message?.info(t("index.save_path") + "：" + res.data?.file_name, {
+      duration: 5000
+    })
+  })
+}
+
+const batchExportIdmMixed = () => {
+  if (checkedRowKeysValue.value.length <= 0) {
+    window?.$message?.error(t("index.use_data"))
+    return
+  }
+
+  if (!store.globalConfig.SaveDirectory) {
+    window?.$message?.error(t("index.save_path_empty"))
+    return
+  }
+
+  const selectedItems = data.value.filter(item => checkedRowKeysValue.value.includes(item.Id))
+  const batchSize = 100
+  const taskCount = getMixedTaskCount(selectedItems)
+  const batches = chunkMixedItems(selectedItems, batchSize)
+
+  if (batches.length > 1) {
+    window?.$dialog?.warning({
+      title: '数量较多',
+      content: `共选中 ${selectedItems.length} 条，预计处理 ${taskCount} 个下载任务，建议分批导出（每批约 ${batchSize} 个任务，共 ${batches.length} 批）。\n\n图集不会被拆到不同 BAT，避免图片和 metadata 分散。`,
+      positiveText: `分批导出（${batches.length} 个任务包）`,
+      negativeText: '全部导出（1 个任务包）',
+      onPositiveClick: () => {
+        exportIdmMixedBatches(selectedItems, batchSize)
+      },
+      onNegativeClick: () => {
+        exportIdmMixedSingle(selectedItems)
+      }
+    })
+    return
+  }
+
+  exportIdmMixedSingle(selectedItems)
+}
+
+const exportIdmMixedBatches = async (items: appType.MediaInfo[], batchSize: number) => {
+  loadingText.value = t("common.loading")
+  loading.value = true
+
+  const exportItems = buildIdmExportItems(items)
+  const batches = chunkMixedItems(exportItems, batchSize)
+  const results: any[] = []
+
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i]
+    const pack = generateIdmTaskPackage({
+      items: batch.items,
+      saveDirectory: store.globalConfig.SaveDirectory,
+      batchNum: i + 1,
+      totalBatches: batches.length,
+      filenameTime: store.globalConfig.FilenameTime,
+      buildFileName: item => buildFileName(item as appType.MediaInfo),
+      mixed: true,
+      quality: store.globalConfig.Quality,
+    })
+    const isLast = i === batches.length - 1
+
+    try {
+      const res = await appApi.batchExportPackage({...pack, open_folder: isLast})
+      results.push(res)
+    } catch (error) {
+      results.push({code: 0})
+    }
+  }
+
+  loading.value = false
+
+  const successCount = results.filter(res => res.code === 1).length
+  if (successCount === batches.length) {
+    window?.$message?.success(`成功导出 ${batches.length} 个图文/混合任务包`)
+  } else {
+    window?.$message?.warning(`部分导出失败：${successCount}/${batches.length}`)
+  }
+}
+
+const exportIdmMixedSingle = (items: appType.MediaInfo[]) => {
+  loadingText.value = t("common.loading")
+  loading.value = true
+
+  const pack = generateIdmTaskPackage({
+    items: buildIdmExportItems(items),
+    saveDirectory: store.globalConfig.SaveDirectory,
+    batchNum: 1,
+    totalBatches: 1,
+    filenameTime: store.globalConfig.FilenameTime,
+    buildFileName: item => buildFileName(item as appType.MediaInfo),
+    mixed: true,
+    quality: store.globalConfig.Quality,
+  })
+
+  appApi.batchExportPackage({...pack, open_folder: true}).then((res: appType.Res) => {
+    loading.value = false
+    if (res.code === 0) {
+      window?.$message?.error(res.message)
+      return
+    }
+    window?.$message?.success(t("index.import_success"))
+    window?.$message?.info(t("index.save_path") + "：" + res.data?.file_name, {
+      duration: 5000
+    })
+  })
+}
+
+// 分批导出 IDM
+const exportIdmBatches = async (items: appType.MediaInfo[], batchSize: number) => {
+  loadingText.value = t("common.loading")
+  loading.value = true
+
+  const exportItems = buildIdmExportItems(items)
+  const totalBatches = Math.ceil(exportItems.length / batchSize)
+  const results: any[] = []
+
+  // 顺序导出，文件名通过 batch_index 区分，只在最后一批打开文件夹
+  for (let i = 0; i < totalBatches; i++) {
+    const start = i * batchSize
+    const end = Math.min(start + batchSize, exportItems.length)
+    const batchItems = exportItems.slice(start, end)
+    const pack = generateIdmTaskPackage({
+      items: batchItems,
+      saveDirectory: store.globalConfig.SaveDirectory,
+      batchNum: i + 1,
+      totalBatches,
+      filenameTime: store.globalConfig.FilenameTime,
+      buildFileName: item => buildFileName(item as appType.MediaInfo),
+      mixed: false,
+      quality: store.globalConfig.Quality,
+    })
+    const isLast = i === totalBatches - 1
+
+    try {
+      const res = await appApi.batchExportPackage({...pack, open_folder: isLast})
+      results.push(res)
+    } catch (error) {
+      results.push({code: 0})
+    }
+  }
+
+  loading.value = false
+
+  const successCount = results.filter(res => res.code === 1).length
+  if (successCount === totalBatches) {
+    window?.$message?.success(`成功导出 ${totalBatches} 个 IDM 任务包`)
+  } else {
+    window?.$message?.warning(`部分导出失败：${successCount}/${totalBatches}`)
+  }
+}
+
+// 单文件导出 IDM
+const exportIdmSingle = (items: appType.MediaInfo[]) => {
+  loadingText.value = t("common.loading")
+  loading.value = true
+
+  const pack = generateIdmTaskPackage({
+    items: buildIdmExportItems(items),
+    saveDirectory: store.globalConfig.SaveDirectory,
+    batchNum: 1,
+    totalBatches: 1,
+    filenameTime: store.globalConfig.FilenameTime,
+    buildFileName: item => buildFileName(item as appType.MediaInfo),
+    mixed: false,
+    quality: store.globalConfig.Quality,
+  })
+
+  appApi.batchExportPackage({...pack, open_folder: true}).then((res: appType.Res) => {
     loading.value = false
     if (res.code === 0) {
       window?.$message?.error(res.message)
@@ -817,6 +1135,15 @@ const batchExport = (type?: string) => {
 
 const uint8ArrayToBase64 = (bytes: any) => {
   return window.btoa(Array.from(bytes, (byte: any) => String.fromCharCode(byte)).join(''))
+}
+
+const buildIdmExportItems = (items: appType.MediaInfo[]) => {
+  return items.map(item => ({
+    ...item,
+    DecodeStr: item.DecodeKey
+        ? uint8ArrayToBase64(getDecryptionArray(item.DecodeKey))
+        : ''
+  }))
 }
 
 const download = (row: appType.MediaInfo, index: number) => {

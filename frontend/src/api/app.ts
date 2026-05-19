@@ -120,4 +120,11 @@ export default {
             data: data
         })
     },
+    batchExportPackage(data: object) {
+        return request({
+            url: 'api/batch-export-package',
+            method: 'post',
+            data: data
+        })
+    },
 }

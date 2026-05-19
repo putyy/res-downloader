@@ -31,12 +31,42 @@ type Resource struct {
 
 // DownloadRecord 下载历史记录
 type DownloadRecord struct {
-	URLSign     string  `json:"url_sign"`     // URL 的 MD5 签名（主键）
-	URL         string  `json:"url"`          // 原始 URL
-	Description string  `json:"description"`  // 文件描述（标题#话题）
-	SavePath    string  `json:"save_path"`    // 保存路径
-	DownloadAt  int64   `json:"download_at"`  // 下载时间戳（Unix timestamp）
-	FileSize    float64 `json:"file_size"`    // 文件大小
+	URLSign     string  `json:"url_sign"`    // URL 的 MD5 签名（主键）
+	URL         string  `json:"url"`         // 原始 URL
+	Description string  `json:"description"` // 文件描述（标题#话题）
+	SavePath    string  `json:"save_path"`   // 保存路径
+	DownloadAt  int64   `json:"download_at"` // 下载时间戳（Unix timestamp）
+	FileSize    float64 `json:"file_size"`   // 文件大小
+}
+
+type ImageSetFile struct {
+	Index    int     `json:"index"`
+	FileName string  `json:"file_name"`
+	URL      string  `json:"url"`
+	Size     float64 `json:"size"`
+}
+
+type ImageSetAudioFile struct {
+	FileName string  `json:"file_name"`
+	Path     string  `json:"path"`
+	URL      string  `json:"url"`
+	Size     float64 `json:"size"`
+	Name     string  `json:"name"`
+}
+
+type ImageSetMetadata struct {
+	Type        string             `json:"type"`
+	Title       string             `json:"title"`
+	Description string             `json:"description"`
+	Topic       string             `json:"topic"`
+	SourceURL   string             `json:"source_url"`
+	PublishTime string             `json:"publish_time"`
+	OriginalID  string             `json:"original_id"`
+	ImageCount  int                `json:"image_count"`
+	Cover       string             `json:"cover"`
+	Images      []ImageSetFile     `json:"images"`
+	Audio       *ImageSetAudioFile `json:"audio,omitempty"`
+	CapturedAt  string             `json:"captured_at"`
 }
 
 // DownloadHistory 历史记录管理器
@@ -106,6 +136,30 @@ func (h *DownloadHistory) isMarked(urlSign string) bool {
 	return exists
 }
 
+// isDownloaded 检查 URL 是否已下载且文件仍存在
+func (h *DownloadHistory) isDownloaded(urlSign string) bool {
+	h.mu.RLock()
+	record, exists := h.Records[urlSign]
+	h.mu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	// 检查文件或目录是否还存在
+	if _, err := os.Stat(record.SavePath); err == nil {
+		return true
+	}
+
+	// 文件被删除了，从历史记录中移除，允许重新下载
+	h.mu.Lock()
+	delete(h.Records, urlSign)
+	h.mu.Unlock()
+	go h.save()
+
+	return false
+}
+
 // add 添加下载记录
 func (h *DownloadHistory) add(record DownloadRecord) {
 	h.mu.Lock()
@@ -141,7 +195,8 @@ func initResource() *Resource {
 
 func (r *Resource) buildResType(mime map[string]MimeInfo) map[string]bool {
 	t := map[string]bool{
-		"all": true,
+		"all":       true,
+		"image_set": true,
 	}
 
 	for _, item := range mime {
@@ -212,6 +267,17 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 		return
 	}
 	go func(mediaInfo shared.MediaInfo) {
+		// 首先检查是否已在历史记录中且文件仍存在
+		if r.history.isDownloaded(mediaInfo.UrlSign) {
+			r.progressEventsEmit(mediaInfo, "已下载过，跳过", shared.DownloadStatusDone)
+			return
+		}
+
+		if mediaInfo.Classify == "image_set" {
+			r.downloadImageSet(mediaInfo)
+			return
+		}
+
 		rawUrl := mediaInfo.Url
 		fileName := shared.Md5(rawUrl)
 
@@ -225,6 +291,7 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 			fileName = mediaInfo.Description
 		}
 
+		// 应用时间戳（如果启用）
 		if globalConfig.FilenameTime {
 			mediaInfo.SavePath = filepath.Join(globalConfig.SaveDirectory, fileName+"_"+shared.GetCurrentDateTimeFormatted())
 		} else {
@@ -233,12 +300,6 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 
 		if !strings.HasSuffix(mediaInfo.SavePath, mediaInfo.Suffix) {
 			mediaInfo.SavePath = mediaInfo.SavePath + mediaInfo.Suffix
-		}
-
-		// 新增：检查文件是否已存在
-		if shared.FileExist(mediaInfo.SavePath) {
-			r.progressEventsEmit(mediaInfo, "文件已存在，跳过下载", shared.DownloadStatusDone)
-			return
 		}
 
 		if strings.Contains(rawUrl, "qq.com") {
@@ -297,6 +358,240 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 			FileSize:    mediaInfo.Size,
 		})
 	}(mediaInfo)
+}
+
+func (r *Resource) downloadImageSet(mediaInfo shared.MediaInfo) {
+	urls, err := parseImageSetURLs(mediaInfo)
+	if err != nil {
+		r.progressEventsEmit(mediaInfo, err.Error())
+		return
+	}
+
+	dirName := imageSetDirName(mediaInfo)
+	saveDir := uniqueDir(filepath.Join(globalConfig.SaveDirectory, dirName))
+	imagesDir := filepath.Join(saveDir, "images")
+	if err := os.MkdirAll(imagesDir, os.ModePerm); err != nil {
+		r.progressEventsEmit(mediaInfo, "create image set directory failed: "+err.Error())
+		return
+	}
+
+	headers, _ := r.parseHeaders(mediaInfo)
+	files := make([]ImageSetFile, 0, len(urls))
+
+	for index, rawUrl := range urls {
+		fileName := fmt.Sprintf("%03d%s", index+1, imageSuffixFromURL(rawUrl))
+		savePath := filepath.Join(imagesDir, fileName)
+		downloader := NewFileDownloader(rawUrl, savePath, 1, headers)
+		r.tasks.Store(mediaInfo.Id, downloader)
+		if err := downloader.Start(); err != nil {
+			r.progressEventsEmit(mediaInfo, fmt.Sprintf("download image %d failed: %v", index+1, err))
+			return
+		}
+
+		size := float64(0)
+		if stat, err := os.Stat(downloader.FileName); err == nil {
+			size = float64(stat.Size())
+		}
+		files = append(files, ImageSetFile{
+			Index:    index + 1,
+			FileName: filepath.Base(downloader.FileName),
+			URL:      rawUrl,
+			Size:     size,
+		})
+		r.progressEventsEmit(mediaInfo, fmt.Sprintf("%d/%d", index+1, len(urls)), shared.DownloadStatusRunning)
+	}
+
+	audio := r.downloadImageSetAudio(mediaInfo, saveDir, headers)
+	metadata := buildImageSetMetadata(mediaInfo, files, audio)
+	metadataBytes, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		r.progressEventsEmit(mediaInfo, "build metadata failed: "+err.Error())
+		return
+	}
+	if err := os.WriteFile(filepath.Join(saveDir, "metadata.json"), metadataBytes, 0644); err != nil {
+		r.progressEventsEmit(mediaInfo, "write metadata failed: "+err.Error())
+		return
+	}
+
+	mediaInfo.SavePath = saveDir
+	r.progressEventsEmit(mediaInfo, "complete", shared.DownloadStatusDone)
+
+	r.history.add(DownloadRecord{
+		URLSign:     mediaInfo.UrlSign,
+		URL:         mediaInfo.Url,
+		Description: mediaInfo.Description,
+		SavePath:    mediaInfo.SavePath,
+		DownloadAt:  time.Now().Unix(),
+		FileSize:    mediaInfo.Size,
+	})
+}
+
+func parseImageSetURLs(mediaInfo shared.MediaInfo) ([]string, error) {
+	rawURLs := strings.TrimSpace(mediaInfo.OtherData["image_set_urls"])
+	if rawURLs == "" {
+		return nil, errors.New("image set urls is empty")
+	}
+
+	var urls []string
+	if err := json.Unmarshal([]byte(rawURLs), &urls); err != nil {
+		return nil, fmt.Errorf("parse image set urls failed: %w", err)
+	}
+
+	result := make([]string, 0, len(urls))
+	for _, rawURL := range urls {
+		if strings.TrimSpace(rawURL) != "" {
+			result = append(result, rawURL)
+		}
+	}
+	if len(result) == 0 {
+		return nil, errors.New("image set urls is empty")
+	}
+	return result, nil
+}
+
+func (r *Resource) downloadImageSetAudio(mediaInfo shared.MediaInfo, saveDir string, headers map[string]string) *ImageSetAudioFile {
+	rawURL := strings.TrimSpace(mediaInfo.OtherData["image_set_audio_url"])
+	if rawURL == "" {
+		return nil
+	}
+
+	fileName := strings.TrimSpace(mediaInfo.OtherData["image_set_audio_file_name"])
+	if fileName == "" {
+		fileName = "bgm" + audioSuffixFromURL(rawURL)
+	}
+	fileName = sanitizePathName(fileName)
+	if filepath.Ext(fileName) == "" {
+		fileName += audioSuffixFromURL(rawURL)
+	}
+
+	audioDir := filepath.Join(saveDir, "audio")
+	if err := os.MkdirAll(audioDir, os.ModePerm); err != nil {
+		r.progressEventsEmit(mediaInfo, "create audio directory failed: "+err.Error())
+		return nil
+	}
+
+	savePath := filepath.Join(audioDir, fileName)
+	downloader := NewFileDownloader(rawURL, savePath, 1, headers)
+	r.tasks.Store(mediaInfo.Id, downloader)
+	if err := downloader.Start(); err != nil {
+		r.progressEventsEmit(mediaInfo, "download audio failed: "+err.Error())
+		return nil
+	}
+
+	size := float64(0)
+	if stat, err := os.Stat(downloader.FileName); err == nil {
+		size = float64(stat.Size())
+	}
+	baseName := filepath.Base(downloader.FileName)
+
+	return &ImageSetAudioFile{
+		FileName: baseName,
+		Path:     filepath.ToSlash(filepath.Join("audio", baseName)),
+		URL:      rawURL,
+		Size:     size,
+		Name:     mediaInfo.OtherData["image_set_audio_name"],
+	}
+}
+
+func buildImageSetMetadata(mediaInfo shared.MediaInfo, files []ImageSetFile, audio *ImageSetAudioFile) ImageSetMetadata {
+	cover := ""
+	if len(files) > 0 {
+		cover = filepath.ToSlash(filepath.Join("images", files[0].FileName))
+	}
+
+	var audioMeta *ImageSetAudioFile
+	if audio != nil {
+		copyAudio := *audio
+		if copyAudio.Path == "" && copyAudio.FileName != "" {
+			copyAudio.Path = filepath.ToSlash(filepath.Join("audio", copyAudio.FileName))
+		}
+		audioMeta = &copyAudio
+	}
+
+	return ImageSetMetadata{
+		Type:        "wechat_channels_image_set",
+		Title:       mediaInfo.Description,
+		Description: mediaInfo.OtherData["image_set_description"],
+		Topic:       mediaInfo.OtherData["image_set_topic"],
+		SourceURL:   mediaInfo.OtherData["image_set_source_url"],
+		PublishTime: mediaInfo.OtherData["image_set_publish_time"],
+		OriginalID:  mediaInfo.OtherData["image_set_original_id"],
+		ImageCount:  len(files),
+		Cover:       cover,
+		Images:      files,
+		Audio:       audioMeta,
+		CapturedAt:  mediaInfo.OtherData["image_set_captured_at"],
+	}
+}
+
+func imageSetDirName(mediaInfo shared.MediaInfo) string {
+	name := strings.TrimSpace(mediaInfo.Description)
+	if name == "" {
+		name = mediaInfo.UrlSign
+	}
+	name = sanitizePathName(name)
+	if globalConfig.FilenameTime {
+		return shared.GetCurrentDateTimeFormatted() + "_" + name
+	}
+	return name
+}
+
+func sanitizePathName(name string) string {
+	name = strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`<>:"/\|?*`, r) {
+			return '_'
+		}
+		return r
+	}, name)
+	name = strings.ReplaceAll(name, "\n", " ")
+	name = strings.ReplaceAll(name, "\r", " ")
+	name = strings.ReplaceAll(name, "\t", " ")
+	name = strings.Join(strings.Fields(name), " ")
+	name = strings.Trim(name, ". ")
+	if name == "" {
+		return "image_set"
+	}
+	runes := []rune(name)
+	if len(runes) > 80 {
+		return string(runes[:80])
+	}
+	return name
+}
+
+func uniqueDir(dir string) string {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return dir
+	}
+	for index := 1; ; index++ {
+		next := fmt.Sprintf("%s(%d)", dir, index)
+		if _, err := os.Stat(next); os.IsNotExist(err) {
+			return next
+		}
+	}
+}
+
+func imageSuffixFromURL(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err == nil {
+		ext := strings.ToLower(filepath.Ext(parsedURL.Path))
+		switch ext {
+		case ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif":
+			return ext
+		}
+	}
+	return ".jpg"
+}
+
+func audioSuffixFromURL(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err == nil {
+		ext := strings.ToLower(filepath.Ext(parsedURL.Path))
+		switch ext {
+		case ".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac", ".amr", ".mp4":
+			return ext
+		}
+	}
+	return ".m4a"
 }
 
 func (r *Resource) parseHeaders(mediaInfo shared.MediaInfo) (map[string]string, error) {

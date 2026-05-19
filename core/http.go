@@ -388,21 +388,128 @@ func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpServer) batchExport(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		Content string `json:"content"`
+		Content    string `json:"content"`
+		Ext        string `json:"ext"`
+		BatchIndex int    `json:"batch_index"` // 批次序号，0 表示不分批
+		OpenFolder bool   `json:"open_folder"` // 是否打开文件夹
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		h.error(w, err.Error())
 		return
 	}
-	fileName := filepath.Join(globalConfig.SaveDirectory, "res-downloader-"+shared.GetCurrentDateTimeFormatted()+".txt")
+	ext := ".txt"
+	if data.Ext != "" {
+		ext = data.Ext
+	}
+	// 文件名：有批次序号时加上序号，避免同秒覆盖
+	name := "res-downloader-" + shared.GetCurrentDateTimeFormatted()
+	if data.BatchIndex > 0 {
+		name = fmt.Sprintf("res-downloader-%s-%d", shared.GetCurrentDateTimeFormatted(), data.BatchIndex)
+	}
+	fileName := filepath.Join(globalConfig.SaveDirectory, name+ext)
 	err := os.WriteFile(fileName, []byte(data.Content), 0644)
 	if err != nil {
 		h.error(w, err.Error())
 		return
 	}
 
-	_ = shared.OpenFolder(fileName)
+	if data.OpenFolder {
+		_ = shared.OpenFolder(fileName)
+	}
 	h.success(w, respData{
 		"file_name": fileName,
 	})
+}
+
+func (h *HttpServer) batchExportPackage(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Name       string `json:"name"`
+		OpenFolder bool   `json:"open_folder"`
+		Files      []struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		} `json:"files"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	if len(data.Files) == 0 {
+		h.error(w, "导出任务包为空")
+		return
+	}
+
+	name := safeExportPackageName(data.Name)
+	if name == "" {
+		name = "res-downloader-" + shared.GetCurrentDateTimeFormatted()
+	}
+	dirName := filepath.Join(globalConfig.SaveDirectory, name)
+	packageDir := uniqueExportPackageDir(dirName)
+	if err := os.MkdirAll(packageDir, 0755); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+
+	for _, file := range data.Files {
+		relPath, err := safeExportPackagePath(file.Path)
+		if err != nil {
+			h.error(w, err.Error())
+			return
+		}
+		fileName := filepath.Join(packageDir, relPath)
+		if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
+			h.error(w, err.Error())
+			return
+		}
+		if err := os.WriteFile(fileName, []byte(file.Content), 0644); err != nil {
+			h.error(w, err.Error())
+			return
+		}
+	}
+
+	if data.OpenFolder {
+		_ = shared.OpenFolder(packageDir)
+	}
+	h.success(w, respData{
+		"file_name": packageDir,
+	})
+}
+
+func safeExportPackageName(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`<>:"/\|?*`, r) || r < 32 {
+			return '_'
+		}
+		return r
+	}, name)
+	name = strings.Trim(name, ". ")
+	return name
+}
+
+func uniqueExportPackageDir(dirName string) string {
+	if _, err := os.Stat(dirName); os.IsNotExist(err) {
+		return dirName
+	}
+	for i := 1; i < 1000; i++ {
+		candidate := fmt.Sprintf("%s-%d", dirName, i)
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+	}
+	return fmt.Sprintf("%s-%s", dirName, shared.GetCurrentDateTimeFormatted())
+}
+
+func safeExportPackagePath(rawPath string) (string, error) {
+	if strings.TrimSpace(rawPath) == "" {
+		return "", fmt.Errorf("任务包文件路径为空")
+	}
+	cleanPath := filepath.Clean(filepath.FromSlash(rawPath))
+	if filepath.IsAbs(cleanPath) || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) || cleanPath == ".." {
+		return "", fmt.Errorf("任务包文件路径不安全: %s", rawPath)
+	}
+	if filepath.VolumeName(cleanPath) != "" {
+		return "", fmt.Errorf("任务包文件路径不安全: %s", rawPath)
+	}
+	return cleanPath, nil
 }
