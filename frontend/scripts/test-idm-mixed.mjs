@@ -247,7 +247,8 @@ test('task package uses safe temporary filenames for IDM video downloads', () =>
   assert.equal(tasks.downloads[0].tempFilename, tasks.downloads[0].filename)
   assert.equal(tasks.downloads[1].tempFilename, tasks.downloads[1].filename)
   assert.match(tasks.downloads[1].filename, /#cooladmin\.mp4$/)
-  assert.match(decryptPs1, /Move-Item -LiteralPath \$downloadFile -Destination \$targetFile -Force/)
+  assert.match(decryptPs1, /function Move-CandidateToTarget/)
+  assert.match(decryptPs1, /Move-CandidateToTarget \$candidateFile \$targetFile/)
   assert.match(decryptPs1, /\/f \$downloadName/)
 })
 
@@ -318,6 +319,43 @@ test('task package sends all IDM downloads to a short staging directory', () => 
   assert.match(decryptPs1, /FullPath \$task\.downloadDirectory/)
 })
 
+test('task package logs the queued task labels and pending task labels', () => {
+  const pack = generateIdmTaskPackage({
+    items: [encryptedVideoItem('secret'), videoItem('plain')],
+    saveDirectory: 'G:\\下载总\\res-downloader',
+    batchNum: 1,
+    totalBatches: 1,
+    mixed: false,
+  })
+  const decryptPs1 = pack.files.find(file => file.path === 'decrypt.ps1').content
+
+  assert.match(decryptPs1, /function TaskLabel/)
+  assert.match(decryptPs1, /Log \(\$reason \+ " " \+ \(TaskLabel \$task \$index \$total\) \+ " -> " \+ \$targetFile\)/)
+  assert.match(decryptPs1, /pending tasks: " \+ \(FormatTaskList \$next 5\)/)
+})
+
+test('task package assigns stable task ids and type metadata for recovery', () => {
+  const pack = generateIdmTaskPackage({
+    items: [encryptedVideoItem('secret'), videoItem('plain')],
+    saveDirectory: 'G:\\下载总\\res-downloader',
+    batchNum: 1,
+    totalBatches: 1,
+    mixed: false,
+  })
+  const tasks = JSON.parse(pack.files.find(file => file.path === 'idm_tasks.json').content)
+  const decryptPs1 = pack.files.find(file => file.path === 'decrypt.ps1').content
+
+  assert.match(tasks.downloads[0].taskId, /^task001_[a-f0-9]{8}$/)
+  assert.match(tasks.downloads[1].taskId, /^task002_[a-f0-9]{8}$/)
+  assert.equal(tasks.downloads[0].type, 'video')
+  assert.match(decryptPs1, /function Find-TaskCandidate/)
+  assert.match(decryptPs1, /function Recover-Task/)
+  assert.match(decryptPs1, /function Queue-IdmTask/)
+  assert.match(decryptPs1, /function Is-FailedTask/)
+  assert.match(decryptPs1, /skip failed task/)
+  assert.match(decryptPs1, /failed task summary/)
+})
+
 test('task package downloads image sets directly and only waits on IDM videos', () => {
   const pack = generateIdmTaskPackage({
     items: [imageSetItem('pkg', 2)],
@@ -338,7 +376,8 @@ test('task package downloads image sets directly and only waits on IDM videos', 
   assert.match(decryptPs1, /Log "no IDM video tasks"/)
   assert.match(decryptPs1, /function Resolve-Download/)
   assert.match(decryptPs1, /function Test-StableFile/)
-  assert.match(decryptPs1, /Move-Item -LiteralPath \$downloadFile -Destination \$targetFile -Force/)
+  assert.match(decryptPs1, /function Find-TaskCandidate/)
+  assert.match(decryptPs1, /function Recover-Task/)
   assert.match(decryptPs1, /while \(\$pending.Count -gt 0\)/)
   assert.match(decryptPs1, /\$pending = New-Object System\.Collections\.Generic\.List\[object\]/)
   assert.match(decryptPs1, /foreach \(\$task in \$next\) \{ \$pending\.Add\(\$task\) \| Out-Null \}/)

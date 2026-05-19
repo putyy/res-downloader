@@ -45,6 +45,8 @@ export interface GenerateIdmTaskPackageOptions extends GenerateIdmMixedBatOption
 }
 
 interface PackageDownload {
+  taskId: string
+  type: string
   url: string
   originalUrl: string
   downloadDirectory: string
@@ -163,6 +165,8 @@ const buildTaskPayload = (options: GenerateIdmTaskPackageOptions) => {
     const filename = options.buildFileName ? options.buildFileName(item) : defaultFileName(item)
     const encrypted = Boolean(item.DecodeStr)
     downloads.push({
+      taskId: buildDownloadTaskId(item, index),
+      type: item.Classify || 'video',
       url: applyWechatQualityUrl(item, options.quality || 0),
       originalUrl: item.Url,
       downloadDirectory: packageDownloadDirectory,
@@ -235,6 +239,16 @@ const buildPackageImageSet = (item: MixedMediaItem, exportIndex: number): Packag
     images,
     audio,
   }
+}
+
+const buildDownloadTaskId = (item: MixedMediaItem, index: number): string => {
+  return `task${String(index + 1).padStart(3, '0')}_${shortHash([
+    item.Id || '',
+    item.UrlSign || '',
+    item.Description || '',
+    item.Url || '',
+    item.Classify || '',
+  ].join('|'))}`
 }
 
 const buildPackageName = (batchNum: number): string => {
