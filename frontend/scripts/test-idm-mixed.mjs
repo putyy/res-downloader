@@ -358,6 +358,22 @@ test('task package assigns stable task ids and type metadata for recovery', () =
   assert.match(decryptPs1, /failed task summary/)
 })
 
+test('task package recovery does not add duplicate IDM tasks', () => {
+  const pack = generateIdmTaskPackage({
+    items: [encryptedVideoItem('secret')],
+    saveDirectory: 'G:\\下载总\\res-downloader',
+    batchNum: 1,
+    totalBatches: 1,
+    mixed: false,
+  })
+  const decryptPs1 = pack.files.find(file => file.path === 'decrypt.ps1').content
+  const recoverBody = decryptPs1.match(/function Recover-Task\(\$task, \[string\]\$idman\) \{([\s\S]*?)\r?\n\}/)?.[1] || ''
+
+  assert.doesNotMatch(recoverBody, /Queue-IdmTask/)
+  assert.match(recoverBody, /direct fallback attempt/)
+  assert.match(recoverBody, /\$attempt -lt \$maxRecoveryAttempts/)
+})
+
 test('task package downloads image sets directly and only waits on IDM videos', () => {
   const pack = generateIdmTaskPackage({
     items: [imageSetItem('pkg', 2)],
@@ -400,9 +416,24 @@ test('task package carries image set audio into metadata and direct downloads', 
 
   assert.equal(tasks.imageSets[0].audio.url, 'https://wx.example.com/bgm.m4a')
   assert.equal(tasks.imageSets[0].audio.fileName, 'bgm.m4a')
+  assert.equal(tasks.imageSets[0].metadata.audio_status, 'pending')
   assert.match(decryptPs1, /function Download-ImageSets/)
   assert.match(decryptPs1, /audio/)
   assert.match(decryptPs1, /Write-ImageSetMetadata/)
+})
+
+test('task package records when an image set has no captured audio', () => {
+  const pack = generateIdmTaskPackage({
+    items: [imageSetItem('silent', 2)],
+    saveDirectory: 'G:\\下载总\\res-downloader',
+    batchNum: 1,
+    totalBatches: 1,
+    mixed: true,
+  })
+  const tasks = JSON.parse(pack.files.find(file => file.path === 'idm_tasks.json').content)
+
+  assert.equal(tasks.imageSets[0].audio, undefined)
+  assert.equal(tasks.imageSets[0].metadata.audio_status, 'no_audio_found')
 })
 
 test('image sets with the same title still use different save targets', () => {

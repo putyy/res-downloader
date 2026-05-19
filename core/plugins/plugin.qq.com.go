@@ -491,54 +491,42 @@ func (p *QqPlugin) sanitizeFilename(s string) string {
 }
 
 func (p *QqPlugin) extractImageSetAudio(result map[string]interface{}) (string, string) {
-	for _, key := range []string{
-		"music", "musicInfo", "bgm", "bgmInfo", "backgroundMusic", "song", "songInfo",
-		"audio", "audioInfo", "sound", "soundTrack", "voice", "voiceInfo",
-	} {
-		if audioURL, audioName := p.extractAudioFromValue(result[key]); audioURL != "" {
-			return audioURL, audioName
-		}
-	}
+	return p.extractAudioFromValue(result, false)
+}
 
-	for key, value := range result {
-		if isAudioLikeKey(key) {
-			if audioURL, audioName := p.extractAudioFromValue(value); audioURL != "" {
+func (p *QqPlugin) extractAudioFromValue(value interface{}, force bool) (string, string) {
+	switch data := value.(type) {
+	case map[string]interface{}:
+		if force {
+			audioURL := firstString(data, "url", "audioUrl", "audio_url", "musicUrl", "music_url", "bgmUrl", "bgm_url", "playUrl", "play_url", "src")
+			if token := firstString(data, "urlToken", "url_token"); audioURL != "" && token != "" && !strings.Contains(audioURL, token) {
+				audioURL += token
+			}
+			audioName := firstString(data, "name", "title", "songName", "song_name", "musicName", "music_name")
+			if audioURL != "" {
 				return audioURL, audioName
 			}
 		}
-	}
-	return "", ""
-}
-
-func (p *QqPlugin) extractAudioFromValue(value interface{}) (string, string) {
-	switch data := value.(type) {
-	case map[string]interface{}:
-		audioURL := firstString(data, "url", "audioUrl", "audio_url", "musicUrl", "music_url", "bgmUrl", "bgm_url", "playUrl", "play_url", "src")
-		if token := firstString(data, "urlToken", "url_token"); audioURL != "" && token != "" && !strings.Contains(audioURL, token) {
-			audioURL += token
-		}
-		audioName := firstString(data, "name", "title", "songName", "song_name", "musicName", "music_name")
-		if audioURL != "" {
-			return audioURL, audioName
-		}
 		for key, nested := range data {
 			if isAudioLikeKey(key) {
-				if nestedURL, nestedName := p.extractAudioFromValue(nested); nestedURL != "" {
-					if nestedName == "" {
-						nestedName = audioName
-					}
-					return nestedURL, nestedName
+				if audioURL, audioName := p.extractAudioFromValue(nested, true); audioURL != "" {
+					return audioURL, audioName
 				}
+			}
+		}
+		for _, nested := range data {
+			if audioURL, audioName := p.extractAudioFromValue(nested, false); audioURL != "" {
+				return audioURL, audioName
 			}
 		}
 	case []interface{}:
 		for _, item := range data {
-			if audioURL, audioName := p.extractAudioFromValue(item); audioURL != "" {
+			if audioURL, audioName := p.extractAudioFromValue(item, force); audioURL != "" {
 				return audioURL, audioName
 			}
 		}
 	case string:
-		if strings.HasPrefix(data, "http://") || strings.HasPrefix(data, "https://") {
+		if force && (strings.HasPrefix(data, "http://") || strings.HasPrefix(data, "https://")) {
 			return data, ""
 		}
 	}

@@ -66,6 +66,7 @@ type ImageSetMetadata struct {
 	Cover       string             `json:"cover"`
 	Images      []ImageSetFile     `json:"images"`
 	Audio       *ImageSetAudioFile `json:"audio,omitempty"`
+	AudioStatus string             `json:"audio_status"`
 	CapturedAt  string             `json:"captured_at"`
 }
 
@@ -520,8 +521,19 @@ func buildImageSetMetadata(mediaInfo shared.MediaInfo, files []ImageSetFile, aud
 		Cover:       cover,
 		Images:      files,
 		Audio:       audioMeta,
+		AudioStatus: imageSetAudioStatus(mediaInfo, audio),
 		CapturedAt:  mediaInfo.OtherData["image_set_captured_at"],
 	}
+}
+
+func imageSetAudioStatus(mediaInfo shared.MediaInfo, audio *ImageSetAudioFile) string {
+	if audio != nil {
+		return "downloaded"
+	}
+	if strings.TrimSpace(mediaInfo.OtherData["image_set_audio_url"]) != "" {
+		return "download_failed"
+	}
+	return "no_audio_found"
 }
 
 func imageSetDirName(mediaInfo shared.MediaInfo) string {

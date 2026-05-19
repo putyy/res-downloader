@@ -131,6 +131,43 @@ func TestQqPluginHandleMediaExtractsImageSetAudio(t *testing.T) {
 	}
 }
 
+func TestQqPluginHandleMediaExtractsNestedImageSetAudio(t *testing.T) {
+	sent := make(chan shared.MediaInfo, 1)
+	plugin := newTestQqPlugin(sent)
+
+	body := map[string]interface{}{
+		"mediaType":   float64(2),
+		"description": "嵌套音频图集",
+		"media": []interface{}{
+			map[string]interface{}{
+				"url": "https://wx.example.com/first",
+			},
+		},
+		"feedInfo": map[string]interface{}{
+			"objectDesc": map[string]interface{}{
+				"soundTrack": map[string]interface{}{
+					"playUrl": "https://wx.example.com/nested-bgm.m4a?token=music",
+					"title":   "嵌套背景音乐",
+				},
+			},
+		},
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+
+	plugin.handleMedia(raw)
+	media := waitMediaInfo(t, sent)
+
+	if media.OtherData["image_set_audio_url"] != "https://wx.example.com/nested-bgm.m4a?token=music" {
+		t.Fatalf("image_set_audio_url = %q, want nested audio url", media.OtherData["image_set_audio_url"])
+	}
+	if media.OtherData["image_set_audio_name"] != "嵌套背景音乐" {
+		t.Fatalf("image_set_audio_name = %q", media.OtherData["image_set_audio_name"])
+	}
+}
+
 func TestQqPluginHandleMediaKeepsWechatVideoAsVideo(t *testing.T) {
 	sent := make(chan shared.MediaInfo, 1)
 	plugin := newTestQqPlugin(sent)

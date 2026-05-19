@@ -214,6 +214,7 @@ const buildPackageImageSet = (item: MixedMediaItem, exportIndex: number): Packag
     export_index: exportIndex,
     image_count: images.length,
     cover: images.length > 0 ? `images/${images[0].filename}` : '',
+    audio_status: audio ? 'pending' : 'no_audio_found',
     images: images.map((image, index) => ({
       index: index + 1,
       file_name: image.filename,
@@ -329,6 +330,7 @@ const generateImageSetIdmCommands = (item: MixedMediaItem, exportIndex: number):
     export_index: exportIndex,
     image_count: files.length,
     cover: files.length > 0 ? `images/${files[0].file_name}` : '',
+    audio_status: audio ? 'pending' : 'no_audio_found',
     images: files,
     ...(audio ? {
       audio: {

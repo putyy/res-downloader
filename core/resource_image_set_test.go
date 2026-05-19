@@ -66,6 +66,9 @@ func TestBuildImageSetMetadata(t *testing.T) {
 	if metadata.ImageCount != 1 {
 		t.Fatalf("ImageCount = %d", metadata.ImageCount)
 	}
+	if metadata.AudioStatus != "downloaded" {
+		t.Fatalf("AudioStatus = %q", metadata.AudioStatus)
+	}
 	if metadata.Images[0].FileName != "001.jpg" {
 		t.Fatalf("Images[0].FileName = %q", metadata.Images[0].FileName)
 	}
@@ -77,5 +80,42 @@ func TestBuildImageSetMetadata(t *testing.T) {
 	}
 	if metadata.Audio.Path != "audio/bgm.m4a" {
 		t.Fatalf("Audio.Path = %q", metadata.Audio.Path)
+	}
+}
+
+func TestBuildImageSetMetadataMarksMissingAudio(t *testing.T) {
+	mediaInfo := shared.MediaInfo{
+		Description: "无背景音乐图集",
+		OtherData:   map[string]string{},
+	}
+	files := []ImageSetFile{
+		{Index: 1, FileName: "001.jpg", URL: "https://wx.example.com/001.jpg", Size: 12},
+	}
+
+	metadata := buildImageSetMetadata(mediaInfo, files, nil)
+
+	if metadata.Audio != nil {
+		t.Fatal("Audio should be nil")
+	}
+	if metadata.AudioStatus != "no_audio_found" {
+		t.Fatalf("AudioStatus = %q", metadata.AudioStatus)
+	}
+}
+
+func TestBuildImageSetMetadataMarksFailedAudio(t *testing.T) {
+	mediaInfo := shared.MediaInfo{
+		Description: "背景音乐下载失败图集",
+		OtherData: map[string]string{
+			"image_set_audio_url": "https://wx.example.com/bgm.m4a",
+		},
+	}
+	files := []ImageSetFile{
+		{Index: 1, FileName: "001.jpg", URL: "https://wx.example.com/001.jpg", Size: 12},
+	}
+
+	metadata := buildImageSetMetadata(mediaInfo, files, nil)
+
+	if metadata.AudioStatus != "download_failed" {
+		t.Fatalf("AudioStatus = %q", metadata.AudioStatus)
 	}
 }
