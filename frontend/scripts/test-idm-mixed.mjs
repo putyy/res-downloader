@@ -7,6 +7,11 @@ import {
   generateIdmTaskPackage,
   getMaxLineLength,
 } from '../tmp-test/idmMixed.js'
+import {
+  formatImageSetDescription,
+  formatMediaTypeLabel,
+  hasCapturedImageSetAudio,
+} from '../tmp-test/mediaDisplay.js'
 
 const longUrl = `https://finder.video.qq.com/251/20304/stodownload?token=${'a'.repeat(900)}`
 
@@ -481,4 +486,35 @@ test('each image set writes metadata through its explicit json path and verifies
   assert.match(bat, /WriteAllText\(\$env:META_JSON,/)
   assert.doesNotMatch(bat, /Join-Path \$env:SET_DIR 'metadata\.json'/)
   assert.equal((bat.match(/if not exist "%META_JSON%"/g) || []).length, 2)
+})
+
+test('image set description shows audio badge only when audio url is present', () => {
+  const withAudio = {
+    Classify: 'image_set',
+    Description: '图集标题',
+    OtherData: {
+      image_set_count: '7',
+      image_set_audio_url: 'https://wx.example.com/bgm.m4a',
+    },
+  }
+  const withoutAudio = {
+    Classify: 'image_set',
+    Description: '图集标题',
+    OtherData: {
+      image_set_count: '7',
+    },
+  }
+  const t = (key, params = {}) => {
+    if (key === 'index.image_set_with_audio') return '图集+音频'
+    if (key === 'index.image_set_count_with_audio') return `图集 ${params.count} 张｜含音频`
+    if (key === 'index.image_set_count') return `图集 ${params.count} 张`
+    return key
+  }
+
+  assert.equal(hasCapturedImageSetAudio(withAudio), true)
+  assert.equal(hasCapturedImageSetAudio(withoutAudio), false)
+  assert.equal(formatMediaTypeLabel(withAudio, '图集', t), '图集+音频')
+  assert.equal(formatMediaTypeLabel(withoutAudio, '图集', t), '图集')
+  assert.equal(formatImageSetDescription(withAudio, t), '[图集 7 张｜含音频] 图集标题')
+  assert.equal(formatImageSetDescription(withoutAudio, t), '[图集 7 张] 图集标题')
 })

@@ -498,11 +498,18 @@ func (p *QqPlugin) extractAudioFromValue(value interface{}, force bool) (string,
 	switch data := value.(type) {
 	case map[string]interface{}:
 		if force {
-			audioURL := firstString(data, "url", "audioUrl", "audio_url", "musicUrl", "music_url", "bgmUrl", "bgm_url", "playUrl", "play_url", "src")
-			if token := firstString(data, "urlToken", "url_token"); audioURL != "" && token != "" && !strings.Contains(audioURL, token) {
+			audioURL := firstString(data,
+				"url", "Url", "audioUrl", "audio_url", "musicUrl", "music_url",
+				"bgmUrl", "bgm_url", "playUrl", "play_url", "mediaStreamingUrl",
+				"media_streaming_url", "streamingUrl", "streaming_url", "src",
+			)
+			if token := firstString(data, "urlToken", "url_token", "UrlToken"); audioURL != "" && token != "" && !strings.Contains(audioURL, token) {
 				audioURL += token
 			}
-			audioName := firstString(data, "name", "title", "songName", "song_name", "musicName", "music_name")
+			audioName := firstString(data,
+				"name", "Name", "title", "Title", "songName", "song_name",
+				"SongName", "musicName", "music_name", "MusicName",
+			)
 			if audioURL != "" {
 				return audioURL, audioName
 			}

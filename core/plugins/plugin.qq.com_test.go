@@ -168,6 +168,74 @@ func TestQqPluginHandleMediaExtractsNestedImageSetAudio(t *testing.T) {
 	}
 }
 
+func TestQqPluginHandleMediaExtractsImageSetBgmStreamingURL(t *testing.T) {
+	sent := make(chan shared.MediaInfo, 1)
+	plugin := newTestQqPlugin(sent)
+
+	body := map[string]interface{}{
+		"mediaType":   float64(2),
+		"description": "带背景音乐的图集",
+		"media": []interface{}{
+			map[string]interface{}{
+				"url": "https://wx.example.com/first",
+			},
+		},
+		"imgFeedBgmInfo": map[string]interface{}{
+			"mediaStreamingUrl": "https://wx.example.com/streaming-bgm.m4a?token=music",
+			"songName":          "图集背景音乐",
+		},
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+
+	plugin.handleMedia(raw)
+	media := waitMediaInfo(t, sent)
+
+	if media.OtherData["image_set_audio_url"] != "https://wx.example.com/streaming-bgm.m4a?token=music" {
+		t.Fatalf("image_set_audio_url = %q, want mediaStreamingUrl", media.OtherData["image_set_audio_url"])
+	}
+	if media.OtherData["image_set_audio_name"] != "图集背景音乐" {
+		t.Fatalf("image_set_audio_name = %q", media.OtherData["image_set_audio_name"])
+	}
+}
+
+func TestQqPluginHandleMediaExtractsFollowPostMusicInfo(t *testing.T) {
+	sent := make(chan shared.MediaInfo, 1)
+	plugin := newTestQqPlugin(sent)
+
+	body := map[string]interface{}{
+		"mediaType":   float64(2),
+		"description": "转发音乐图集",
+		"media": []interface{}{
+			map[string]interface{}{
+				"url": "https://wx.example.com/first",
+			},
+		},
+		"followPostInfo": map[string]interface{}{
+			"musicInfo": map[string]interface{}{
+				"mediaStreamingUrl": "https://wx.example.com/follow-bgm.m4a",
+				"musicName":         "转发背景音乐",
+			},
+		},
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+
+	plugin.handleMedia(raw)
+	media := waitMediaInfo(t, sent)
+
+	if media.OtherData["image_set_audio_url"] != "https://wx.example.com/follow-bgm.m4a" {
+		t.Fatalf("image_set_audio_url = %q, want followPostInfo music url", media.OtherData["image_set_audio_url"])
+	}
+	if media.OtherData["image_set_audio_name"] != "转发背景音乐" {
+		t.Fatalf("image_set_audio_name = %q", media.OtherData["image_set_audio_name"])
+	}
+}
+
 func TestQqPluginHandleMediaKeepsWechatVideoAsVideo(t *testing.T) {
 	sent := make(chan shared.MediaInfo, 1)
 	plugin := newTestQqPlugin(sent)

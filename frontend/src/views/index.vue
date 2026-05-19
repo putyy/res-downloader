@@ -187,6 +187,7 @@ import {
   generateIdmTaskPackage,
   getMixedTaskCount,
 } from "@/utils/idmMixed"
+import {formatImageSetDescription, formatMediaTypeLabel} from "@/utils/mediaDisplay"
 
 const {t} = useI18n()
 const eventStore = useEventStore()
@@ -322,7 +323,8 @@ const columns = ref<any[]>([
     },
     render: (row: appType.MediaInfo) => {
       const item = classify.value.find(item => item.value === row.Classify)
-      return item ? item.label : row.Classify
+      const fallback = item ? item.label : row.Classify
+      return formatMediaTypeLabel(row, fallback, (key, params) => t(key, params || {}))
     }
   },
   {
@@ -447,9 +449,8 @@ const columns = ref<any[]>([
     width: 150,
     render: (row: appType.MediaInfo, index: number) => {
       if (row.Classify === "image_set") {
-        const count = row.OtherData?.image_set_count || "0"
         return h(ShowOrEdit, {
-          value: `[${t('index.image_set_count', {count})}] ${row.Description || ''}`,
+          value: formatImageSetDescription(row, (key, params) => t(key, params || {})),
           onUpdateValue(v: string) {
             data.value[index].Description = v
             cacheData()

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test:idm-mixed": "tsc src/utils/downloadPackageRunner.ts src/utils/idmMixed.ts --outDir tmp-test --target ES2020 --module ES2020 --moduleResolution node --skipLibCheck && node --test scripts/test-idm-mixed.mjs"
+    "test:idm-mixed": "tsc src/utils/downloadPackageRunner.ts src/utils/idmMixed.ts src/utils/mediaDisplay.ts --outDir tmp-test --target ES2020 --module ES2020 --moduleResolution node --skipLibCheck && node --test scripts/test-idm-mixed.mjs"
   },
   "dependencies": {
     "@vicons/ionicons5": "^0.12.0",
