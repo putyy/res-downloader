@@ -77,6 +77,12 @@ mv -f build/bin/res-downloader build/bin/res-downloader_$(jq -r '.info.productVe
 ```bash
 yay -Syu res-downloader 
 ```
+
+> Arch Linux 自 2024 年起仅提供 `webkit2gtk-4.1`，不再提供 `webkit2gtk-4.0`。
+> 因此 PKGBUILD 需要：
+> 1. `depends` / `makedepends` 中将 `webkit2gtk-4.0` 改为 `webkit2gtk-4.1`；
+> 2. `build()` 中的 `wails build` 加上 `-tags webkit2_41` 构建标签，
+>    例如：`wails build -platform "linux/amd64" -tags webkit2_41 -upx`。
 ### Linux 本地编译
 
 ```bash
@@ -87,6 +93,9 @@ cd res-downloader
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn,direct
 # -- Go Proxy --
+# Arch Linux 请使用 webkit2gtk-4.1：
+#   wails build -tags webkit2_41
+# 其余发行版（提供 webkit2gtk-4.0）直接：
 wails build
 cd build
 sudo install -Dvm755 bin/res-downloader -t /usr/bin
