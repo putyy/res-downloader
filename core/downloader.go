@@ -359,7 +359,7 @@ func (fd *FileDownloader) doDownloadTask(progressChan chan ProgressChan, task *D
 
 	if fd.IsMultiPart && resp.StatusCode != http.StatusPartialContent {
 		return fmt.Errorf("server does not support range requests, status: %d", resp.StatusCode)
-	} else if !fd.IsMultiPart && resp.StatusCode != http.StatusOK {
+	} else if !fd.IsMultiPart && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -404,10 +404,21 @@ func (fd *FileDownloader) verifyDownload() error {
 		}
 	}
 
+	var written int64
+	for _, task := range fd.DownloadTaskList {
+		written += task.downloadedSize
+	}
+
 	if fd.TotalSize > 0 {
 		_, err := fd.File.Stat()
 		if err != nil {
 			return fmt.Errorf("get file info failed: %w", err)
+		}
+		// 服务器返回不足预期长度时, 去掉预分配的空白尾部, 避免留下打不开的空壳文件
+		if written > 0 && written < fd.TotalSize {
+			if err := fd.File.Truncate(written); err != nil {
+				return fmt.Errorf("truncate file failed: %w", err)
+			}
 		}
 	}
 
