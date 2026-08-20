@@ -27,6 +27,26 @@ func (p *DefaultPlugin) OnRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http
 	return r, nil
 }
 
+// responseSize returns the size of the complete resource. For a 206 response,
+// Content-Length is only the size of the requested range, while Content-Range
+// carries the full object size (for example: "bytes 0-65535/1234567").
+func responseSize(resp *http.Response) float64 {
+	if resp.StatusCode == http.StatusPartialContent {
+		contentRange := resp.Header.Get("Content-Range")
+		if slash := strings.LastIndex(contentRange, "/"); slash >= 0 {
+			total := strings.TrimSpace(contentRange[slash+1:])
+			if total != "" && total != "*" {
+				if value, err := strconv.ParseFloat(total, 64); err == nil {
+					return value
+				}
+			}
+		}
+	}
+
+	value, _ := strconv.ParseFloat(resp.Header.Get("Content-Length"), 64)
+	return value
+}
+
 func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
 	if resp == nil || resp.Request == nil || (resp.StatusCode != 200 && resp.StatusCode != 206 && resp.StatusCode != 304) {
 		return resp
@@ -50,7 +70,7 @@ func (p *DefaultPlugin) OnResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *
 
 	urlSign := shared.Md5(rawUrl)
 	if ok := p.bridge.MediaIsMarked(urlSign); !ok && (isAll || isClassify) {
-		value, _ := strconv.ParseFloat(resp.Header.Get("content-length"), 64)
+		value := responseSize(resp)
 		id, err := gonanoid.New()
 		if err != nil {
 			id = urlSign

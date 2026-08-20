@@ -85,6 +85,8 @@ func (fd *FileDownloader) buildClient() *http.Client {
 var forbiddenDownloadHeaders = map[string]struct{}{
 	"accept-encoding":   {},
 	"content-length":    {},
+	"range":             {},
+	"if-range":          {},
 	"host":              {},
 	"connection":        {},
 	"keep-alive":        {},
@@ -108,15 +110,16 @@ var forbiddenDownloadHeaders = map[string]struct{}{
 
 func (fd *FileDownloader) setHeaders(request *http.Request) {
 	for key, value := range fd.Headers {
+		lk := strings.ToLower(key)
+		if _, forbidden := forbiddenDownloadHeaders[lk]; forbidden {
+			continue
+		}
+
 		if globalConfig.UseHeaders == "default" {
-			lk := strings.ToLower(key)
-			if _, forbidden := forbiddenDownloadHeaders[lk]; forbidden {
-				continue
-			}
 			request.Header.Set(key, value)
 			continue
 		}
-		
+
 		if strings.Contains(globalConfig.UseHeaders, key) {
 			request.Header.Set(key, value)
 		}
