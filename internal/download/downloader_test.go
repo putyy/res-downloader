@@ -140,6 +140,51 @@ func TestDownloaderDoesNotReuseBrowserPlaybackRange(t *testing.T) {
 	}
 }
 
+func TestDownloaderFallsBackToRangeProbeWhenHeadFails(t *testing.T) {
+	config, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("mcdn-audio-data"), 128)
+	var headCount, rangeProbeCount, downloadCount int
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			headCount++
+			w.Header().Set("Content-Length", "18")
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("Range") == "bytes=0-0" {
+			rangeProbeCount++
+			w.Header().Set("Accept-Ranges", "bytes")
+			w.Header().Set("Content-Length", "1")
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-0/%d", len(body)))
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(body[:1])
+			return
+		}
+		downloadCount++
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "audio.m4a")
+	fd := NewFileDownloader(srv.URL, out, 1, nil, config, logger)
+	if err := fd.Start(); err != nil {
+		t.Fatalf("download failed: %v", err)
+	}
+
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("downloaded content differs: got %d bytes, want %d", len(got), len(body))
+	}
+	if headCount != 1 || rangeProbeCount != 1 || downloadCount != 1 {
+		t.Fatalf("request counts = HEAD %d, range probe %d, download %d; want 1 each", headCount, rangeProbeCount, downloadCount)
+	}
+}
+
 func TestDownloaderContinuesUnexpectedPartialResponse(t *testing.T) {
 	config, logger := setupDownloaderTest()
 	body := bytes.Repeat([]byte("complete-video-data"), 1024)

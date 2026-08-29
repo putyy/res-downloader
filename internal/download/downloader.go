@@ -221,6 +221,10 @@ func contentRangeTotal(value string) int64 {
 	return total
 }
 
+func successfulHTTPStatus(statusCode int) bool {
+	return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
+}
+
 func (fd *FileDownloader) rangeProbe() (*http.Response, error) {
 	request, err := http.NewRequestWithContext(fd.ctx, http.MethodGet, fd.Url, nil)
 	if err != nil {
@@ -264,11 +268,15 @@ func (fd *FileDownloader) init() error {
 	var resp *http.Response
 	for retries := 0; retries < MaxRetries; retries++ {
 		resp, err = fd.buildClient().Do(request)
-		if err == nil {
-			if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotImplemented {
-				_ = resp.Body.Close()
-				resp, err = fd.rangeProbe()
-			}
+		if err == nil && !successfulHTTPStatus(resp.StatusCode) {
+			_ = resp.Body.Close()
+			resp, err = fd.rangeProbe()
+		}
+		if err == nil && !successfulHTTPStatus(resp.StatusCode) {
+			statusErr := &downloadHTTPStatusError{statusCode: resp.StatusCode}
+			_ = resp.Body.Close()
+			resp = nil
+			err = statusErr
 		}
 		if err == nil {
 			break
