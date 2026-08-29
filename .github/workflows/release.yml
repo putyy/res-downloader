@@ -1,0 +1,149 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "[0-9]*"
+      - "v[0-9]*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要构建并发布的标签（例如 4.0.0-beta.1）"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare draft release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      product_version: ${{ steps.metadata.outputs.product_version }}
+      release_version: ${{ steps.metadata.outputs.release_version }}
+      package_version: ${{ steps.metadata.outputs.package_version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Validate release metadata
+        id: metadata
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          product_version="$(jq -r '.info.productVersion' wails.json)"
+          if [[ -z "$product_version" || "$product_version" == "null" ]]; then
+            echo "wails.json 中缺少 info.productVersion" >&2
+            exit 1
+          fi
+
+          if [[ ! "$product_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "wails.json 产品版本必须是纯数字三段版本，当前为 $product_version" >&2
+            exit 1
+          fi
+
+          release_version="${RELEASE_TAG#v}"
+          if [[ ! "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
+            echo "发布标签格式无效：$RELEASE_TAG" >&2
+            echo "支持 4.0.0、4.0.0-beta.1、4.0.0-rc.1 等格式，也兼容 v 前缀" >&2
+            exit 1
+          fi
+
+          release_base="${release_version%%-*}"
+          if [[ "$release_base" != "$product_version" ]]; then
+            echo "标签主版本 $release_base 与 wails.json 产品版本 $product_version 不一致" >&2
+            exit 1
+          fi
+
+          prerelease=false
+          package_version="$product_version"
+          if [[ "$release_version" != "$product_version" ]]; then
+            prerelease=true
+            prerelease_suffix="${release_version#"$product_version-"}"
+            package_version="${product_version}~${prerelease_suffix}"
+          fi
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "product_version=$product_version" >> "$GITHUB_OUTPUT"
+          echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ steps.metadata.outputs.prerelease }}
+          RELEASE_TAG: ${{ steps.metadata.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG 已存在，将覆盖上传同名文件"
+          else
+            release_args=(
+              --draft
+              --generate-notes
+              --title "res-downloader $RELEASE_VERSION"
+            )
+            if [[ "$IS_PRERELEASE" == "true" ]]; then
+              release_args+=(--prerelease --latest=false)
+            fi
+            gh release create "$RELEASE_TAG" "${release_args[@]}"
+          fi
+
+  macos:
+    name: macOS
+    needs: prepare
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      product_version: ${{ needs.prepare.outputs.product_version }}
+      release_version: ${{ needs.prepare.outputs.release_version }}
+
+  windows:
+    name: Windows
+    needs: prepare
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      release_version: ${{ needs.prepare.outputs.release_version }}
+
+  linux:
+    name: Linux
+    needs: prepare
+    uses: ./.github/workflows/release-linux.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      package_version: ${{ needs.prepare.outputs.package_version }}
+      release_version: ${{ needs.prepare.outputs.release_version }}
+
+  publish:
+    name: Publish release
+    needs:
+      - prepare
+      - macos
+      - windows
+      - linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft release
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release edit "$RELEASE_TAG" --draft=false

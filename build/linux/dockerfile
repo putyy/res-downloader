@@ -24,6 +24,10 @@ RUN apt-get update && \
 RUN curl -sL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
-RUN go install github.com/wailsapp/wails/v2/cmd/wails@latest
+COPY go.mod go.sum /tmp/res-downloader-module/
+
+RUN cd /tmp/res-downloader-module \
+    && wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)" \
+    && go install "github.com/wailsapp/wails/v2/cmd/wails@$wails_version"
 
 RUN wails doctor

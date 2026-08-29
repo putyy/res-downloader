@@ -1,0 +1,42 @@
+{
+  "id": "example.wasm-xor",
+  "name": "WASM XOR example",
+  "author": {
+    "name": "Example Developer",
+    "url": "https://example.com"
+  },
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "runtime": "javascript",
+  "entry": "main.js",
+  "permissions": {
+    "domains": ["api.example.com"],
+    "capabilities": [
+      "observe-response",
+      "read-response-body",
+      "emit-resource",
+      "process-download"
+    ]
+  },
+  "match": [
+    {
+      "stage": "response",
+      "host": "api.example.com",
+      "path": "/encrypted/*",
+      "contentTypes": ["application/json"],
+      "readBody": true
+    }
+  ],
+  "resourceKinds": [{
+    "id": "media.video",
+    "icon": "video",
+    "locales": {"zh": {"name": "视频"}, "en": {"name": "Video"}}
+  }],
+  "processors": {
+    "xor": {
+      "runtime": "wasm",
+      "entry": "decrypt.wasm",
+      "apiVersion": 1
+    }
+  }
+}

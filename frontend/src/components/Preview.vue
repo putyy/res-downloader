@@ -4,47 +4,46 @@
       :show="showModal"
       :on-update:show="changeShow"
       preset="card"
-      class="w-[540px] h-auto"
+      class="w-[720px] h-auto"
       :title="t('index.preview')"
       display-directive="show"
       :on-after-enter="onAfterEnter"
       :on-after-leave="onAfterLeave"
   >
-    <div class="flex justify-center w-full h-[80vh]">
-      <video
-          class="video-js vjs-default-skin w-full h-full"
-          ref="videoPlayer"
-          controls
-          preload="auto"
-      ></video>
+    <div class="flex flex-col justify-center items-center gap-3 w-full h-[80vh] overflow-auto">
+      <NAlert v-if="previewError" type="error" :show-icon="false" class="w-full shrink-0 break-all">{{ previewError }}</NAlert>
+      <NImage v-if="renderer === 'image'" :src="imageContentURL" object-fit="contain" class="max-w-full max-h-full" @error="onImagePreviewError"/>
+      <audio v-else-if="renderer === 'audio'" ref="audioPlayer" class="w-full" controls preload="metadata"/>
+      <iframe v-else-if="renderer === 'pdf'" :src="previewURL()" class="w-full h-full border-0" sandbox="allow-same-origin"/>
+      <pre v-else-if="renderer === 'text'" class="w-full h-full whitespace-pre-wrap break-words overflow-auto p-3">{{ textContent }}</pre>
+      <video v-else class="w-full h-full min-h-0 bg-black" ref="videoPlayer" controls playsinline preload="auto"></video>
     </div>
   </NModal>
 </template>
 
 <script setup lang="ts">
-import { ref} from "vue"
-import "video.js/dist/video-js.css"
-import videojs from "video.js"
-import flvjs from "flv.js"
+import {computed, onUnmounted, ref} from "vue"
+import mpegts from "mpegts.js"
+import Hls, {ErrorTypes} from "hls.js"
 import axios from "axios"
-// @ts-ignore
-import { getDecryptionArray } from '@/assets/js/decrypt.js'
-import type Player from "video.js/dist/types/player"
 import {useI18n} from 'vue-i18n'
+import {resourcePreviewURL} from '@/services/resources'
 
 const {t} = useI18n()
-const videoPlayer = ref<HTMLElement | any>(null)
-let player: Player | null = null
-let flvPlayer: flvjs.Player | null = null
-let sourceBuffer: SourceBuffer | null = null
-let isLoading = false
-let isOver = false
-let startByte = 0
-const chunkSize = 5 * 1024 * 1024
-let endByte = startByte + chunkSize - 1
-let decodeArr: any = null
-let mediaSource: MediaSource
-let rowUrl = ''
+const videoPlayer = ref<HTMLVideoElement | null>(null)
+const audioPlayer = ref<HTMLAudioElement | null>(null)
+const textContent = ref("")
+const imageContentURL = ref("")
+const previewError = ref("")
+let mpegtsPlayer: mpegts.Player | null = null
+let hlsPlayer: Hls | null = null
+let hlsMediaRecoveryAttempted = false
+let hlsNetworkRecoveryAttempted = false
+let nativeHLSFallbackAttempted = false
+let imageProxyAttempted = false
+let imageObjectURL = ""
+let imageLoadMode: 'idle' | 'direct' | 'proxy' = 'idle'
+let imageLoadGeneration = 0
 
 const props = defineProps<{
   showModal: boolean
@@ -52,152 +51,248 @@ const props = defineProps<{
 }>()
 const emits = defineEmits(["update:showModal"])
 
+const renderer = computed(() => props.previewRow?.preview?.renderer || 'video')
+const previewMIME = computed(() => props.previewRow?.preview?.mime || '')
+const previewTrack = computed(() => {
+  const trackID = props.previewRow?.preview?.trackId
+  const tracks = Array.isArray(props.previewRow?.tracks) ? props.previewRow.tracks : []
+  return tracks.find((track: any) => track?.id === trackID) || (tracks.length === 1 ? tracks[0] : null)
+})
+const isHLS = computed(() =>
+    props.previewRow?.kind === 'stream.hls' ||
+    props.previewRow?.metadata?.['stream.protocol'] === 'hls' ||
+    previewMIME.value.toLowerCase().includes('mpegurl'),
+)
+
 const changeShow = (value: boolean) => emits("update:showModal", value)
 
 const onAfterEnter = () => {
-  if (props.previewRow.DecodeKey) {
-    playVideoWithoutTotalLength()
-  } else if (props.previewRow.Classify === "live") {
-    playFlvStream()
-  } else {
-    setupVideoJsPlayer()
+  previewError.value = ""
+  if (renderer.value === 'image') {
+    loadImagePreview()
+    return
   }
+  if (renderer.value === 'audio') {
+    if (audioPlayer.value) {
+      audioPlayer.value.src = previewURL()
+      audioPlayer.value.load()
+    }
+    return
+  }
+  if (renderer.value === 'text') {
+    axios.get(previewURL(), {responseType: 'text'})
+        .then(response => textContent.value = String(response.data ?? ''))
+        .catch(() => textContent.value = '')
+    return
+  }
+  if (renderer.value !== 'video') return
+  if (previewMIME.value.includes('flv') || props.previewRow?.preview?.mode === 'flv') {
+    playFlvStream()
+    return
+  }
+  if (isHLS.value) {
+    playHLSStream()
+    return
+  }
+  playNativeVideo()
 }
 
 const onAfterLeave = () => {
-  if (props.previewRow.Classify === "live" && flvPlayer) {
-    flvPlayer.unload()
-    flvPlayer.detachMediaElement()
-    flvPlayer.destroy()
-    flvPlayer = null
-  } else if (player) {
-    player.pause()
+  cleanupVideoPlayback()
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
+    audioPlayer.value.removeAttribute('src')
+    audioPlayer.value.load()
   }
-  if (startByte){
-    videoPlayer.value?.pause()
-    videoPlayer.value?.removeEventListener("seeking", handleSeeking)
-    videoPlayer.value?.removeEventListener("timeupdate", handleTimeupdate)
+  textContent.value = ""
+  resetImagePreview()
+  previewError.value = ""
+}
+
+const loadImagePreview = () => {
+  imageLoadGeneration++
+  revokeImageContentURL()
+  imageProxyAttempted = false
+  const source = previewTrack.value?.url || props.previewRow?.Url || ''
+  const processors = previewTrack.value?.processors
+  if (source && (!Array.isArray(processors) || processors.length === 0)) {
+    imageLoadMode = 'direct'
+    imageContentURL.value = source
+    return
   }
+  loadProxiedImage()
+}
+
+const onImagePreviewError = () => {
+  if (imageLoadMode === 'idle' || !imageContentURL.value) return
+  if (!imageProxyAttempted) {
+    loadProxiedImage()
+    return
+  }
+  previewError.value = t('index.preview_load_failed', {message: 'image'})
+}
+
+const loadProxiedImage = () => {
+  imageProxyAttempted = true
+  imageLoadMode = 'proxy'
+  const generation = ++imageLoadGeneration
+  revokeImageContentURL()
+  axios.get(previewURL(), {responseType: 'blob'})
+      .then(response => {
+        if (generation !== imageLoadGeneration || imageLoadMode !== 'proxy') return
+        imageObjectURL = URL.createObjectURL(response.data)
+        imageContentURL.value = imageObjectURL
+      })
+      .catch(error => {
+        if (generation !== imageLoadGeneration || imageLoadMode !== 'proxy') return
+        const status = error?.response?.status ? `HTTP ${error.response.status}` : error?.message || 'image'
+        previewError.value = t('index.preview_load_failed', {message: status})
+      })
+}
+
+const revokeImageContentURL = () => {
+  if (imageObjectURL) {
+    URL.revokeObjectURL(imageObjectURL)
+    imageObjectURL = ""
+  }
+  imageContentURL.value = ""
+}
+
+const resetImagePreview = () => {
+  imageLoadGeneration++
+  imageLoadMode = 'idle'
+  imageProxyAttempted = false
+  revokeImageContentURL()
 }
 
 const playFlvStream = () => {
-  try {
-    if (!flvjs.isSupported() || !videoPlayer.value) return
-
-    flvPlayer = flvjs.createPlayer({ type: "flv", url: window?.$baseUrl + "/api/preview?url=" + encodeURIComponent(props.previewRow.Url) })
-    flvPlayer.attachMediaElement(videoPlayer.value)
-    flvPlayer.load()
-    flvPlayer.play()
-  }catch (e) {
-
+  const features = mpegts.getFeatureList()
+  if (!mpegts.isSupported() || !features.mseLivePlayback || !videoPlayer.value) {
+    previewError.value = t('index.preview_unsupported')
+    return
   }
-}
-
-const setupVideoJsPlayer = () => {
-  if (!videoPlayer.value) return
-
-  if (!player) {
-    player = videojs(videoPlayer.value, {
-      controls: true,
-      autoplay: false,
-      preload: "auto",
-    })
-  }
-
-  player.src({
-    src: window?.$baseUrl + "/api/preview?url=" + encodeURIComponent(props.previewRow.Url),
-    type: props.previewRow.ContentType,
-    withCredentials: true,
+  mpegtsPlayer = mpegts.createPlayer({
+    type: "flv",
+    isLive: true,
+    url: previewURL(),
+  }, {
+    enableStashBuffer: false,
+    lazyLoad: false,
+    liveBufferLatencyChasing: true,
   })
-  player.play()
-}
-
-const playVideoWithoutTotalLength = () => {
-  rowUrl = window?.$baseUrl + "/api/preview?url=" + encodeURIComponent(buildUrlWithParams(props.previewRow.Url))
-  mediaSource = new MediaSource()
-  videoPlayer.value.src = URL.createObjectURL(mediaSource)
-  videoPlayer.value.play()
-  isOver = false
-  startByte = 0
-  endByte = startByte + chunkSize - 1
-  decodeArr = getDecryptionArray(props.previewRow.DecodeKey)
-  sourceBuffer = null
-  mediaSource.addEventListener("sourceopen", () => {
-    sourceBuffer = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')
-    downloadChunk()
-  })
-
-  videoPlayer.value.addEventListener("seeking", handleSeeking)
-  videoPlayer.value.addEventListener("timeupdate", handleTimeupdate)
-}
-
-const buildUrlWithParams = (url: string) => {
-  const parsedUrl = new URL(url)
-  const queryParams = parsedUrl.searchParams
-  if (queryParams.has("encfilekey") && queryParams.has("token")) {
-    return `${parsedUrl.origin}${parsedUrl.pathname}?encfilekey=${queryParams.get("encfilekey")}&token=${queryParams.get("token")}`
-  }
-  return url
-}
-
-const handleSeeking = () => {
-  const currentTime = videoPlayer.value.currentTime
-  const bufferedEnd = videoPlayer.value.buffered.end(videoPlayer.value.buffered.length - 1)
-
-  if (currentTime > bufferedEnd && !isLoading && !isOver) {
-    downloadChunk()
-  }
-}
-
-const handleTimeupdate = () => {
-  if (videoPlayer.value.buffered.length > 0) {
-    const bufferedEnd = videoPlayer.value.buffered.end(videoPlayer.value.buffered.length - 1);
-    const timeToEnd = bufferedEnd - videoPlayer.value.currentTime;
-
-    // 如果剩余播放时间不足10秒，加载更多数据
-    if (timeToEnd < 10 && !isLoading && !isOver) {
-      downloadChunk()
+  mpegtsPlayer.on(mpegts.Events.ERROR, (_type, detail) => {
+    if (detail === mpegts.ErrorDetails.MEDIA_CODEC_UNSUPPORTED) {
+      previewError.value = t('index.preview_unsupported')
+      return
     }
+    previewError.value = t('index.preview_load_failed', {message: detail || 'FLV'})
+  })
+  mpegtsPlayer.attachMediaElement(videoPlayer.value)
+  mpegtsPlayer.load()
+  playMedia(videoPlayer.value)
+}
+
+const playHLSStream = () => {
+  if (!videoPlayer.value) return
+  const media = videoPlayer.value
+  const source = previewURL()
+  hlsMediaRecoveryAttempted = false
+  hlsNetworkRecoveryAttempted = false
+  nativeHLSFallbackAttempted = false
+
+  // Prefer hls.js in WebView. Video.js may choose WebKit's native HLS path and
+  // fail with MEDIA_ERR_SRC_NOT_SUPPORTED without falling back to its VHS engine.
+  if (Hls.isSupported()) {
+    hlsPlayer = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+    })
+    hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => playMedia(media))
+    hlsPlayer.on(Hls.Events.ERROR, (_event, data) => {
+      if (!data.fatal || !hlsPlayer) return
+      if (data.type === ErrorTypes.NETWORK_ERROR && !hlsNetworkRecoveryAttempted) {
+        hlsNetworkRecoveryAttempted = true
+        hlsPlayer.startLoad()
+        return
+      }
+      if (data.type === ErrorTypes.MEDIA_ERROR && !hlsMediaRecoveryAttempted) {
+        hlsMediaRecoveryAttempted = true
+        hlsPlayer.recoverMediaError()
+        return
+      }
+      const status = data.response?.code ? `HTTP ${data.response.code}` : data.details
+      hlsPlayer.destroy()
+      hlsPlayer = null
+      if (playNativeHLS(media, source)) return
+      previewError.value = t('index.preview_load_failed', {message: status})
+    })
+    hlsPlayer.loadSource(source)
+    hlsPlayer.attachMedia(media)
+    return
+  }
+
+  if (playNativeHLS(media, source)) return
+  previewError.value = t('index.preview_unsupported')
+}
+
+const playNativeHLS = (media: HTMLVideoElement, source: string) => {
+  if (nativeHLSFallbackAttempted || !media.canPlayType('application/vnd.apple.mpegurl')) return false
+  nativeHLSFallbackAttempted = true
+  media.onerror = () => {
+    const code = media.error?.code
+    previewError.value = t('index.preview_load_failed', {message: code ? `MEDIA_ERR_${code}` : 'HLS'})
+  }
+  media.src = source
+  media.load()
+  playMedia(media)
+  return true
+}
+
+const playNativeVideo = () => {
+  if (!videoPlayer.value) return
+  videoPlayer.value.onerror = () => {
+    const code = videoPlayer.value?.error?.code
+    previewError.value = t('index.preview_load_failed', {message: code ? `MEDIA_ERR_${code}` : 'media'})
+  }
+  videoPlayer.value.src = previewURL()
+  videoPlayer.value.load()
+  playMedia(videoPlayer.value)
+}
+
+const playMedia = (media: HTMLMediaElement) => {
+  media.play().catch(error => {
+    // Autoplay restrictions still leave the native play button available.
+    if (error?.name !== 'NotAllowedError' && error?.name !== 'AbortError') {
+      previewError.value = t('index.preview_load_failed', {message: error?.message || error?.name || 'media'})
+    }
+  })
+}
+
+const cleanupVideoPlayback = () => {
+  if (hlsPlayer) {
+    hlsPlayer.destroy()
+    hlsPlayer = null
+  }
+  if (mpegtsPlayer) {
+    mpegtsPlayer.unload()
+    mpegtsPlayer.detachMediaElement()
+    mpegtsPlayer.destroy()
+    mpegtsPlayer = null
+  }
+  if (videoPlayer.value) {
+    videoPlayer.value.onerror = null
+    videoPlayer.value.pause()
+    videoPlayer.value.removeAttribute('src')
+    videoPlayer.value.load()
   }
 }
 
-const downloadChunk = () => {
-  if (sourceBuffer?.updating) return;
+onUnmounted(() => {
+  cleanupVideoPlayback()
+  resetImagePreview()
+})
 
-  isLoading = true
-  try {
-    axios.get(rowUrl, { headers: { Range: `bytes=${startByte}-${endByte}` }, responseType: "arraybuffer" })
-        .then(response => {
-          let chunk = new Uint8Array(response.data)
-
-          // 解密前 13702 字节
-          for (let i = 0; i < chunk.byteLength && startByte + i < decodeArr.length; i++) {
-            chunk[i] ^= decodeArr[startByte + i]
-          }
-
-          // 更新字节范围，准备请求下一个分片
-          startByte = endByte + 1
-          endByte = startByte + chunkSize - 1
-
-          if (sourceBuffer && !sourceBuffer.updating) {
-            sourceBuffer.appendBuffer(chunk);
-          } else {
-            console.error("SourceBuffer is updating, cannot append buffer right now.");
-          }
-          isLoading = false
-          if (response.data.byteLength === 0) {
-            isOver = true
-            mediaSource?.endOfStream()
-          }
-        })
-        .catch(() => {
-          isLoading = false
-          isOver = true
-        })
-  }catch (e) {
-    isLoading = false
-    isOver = true
-  }
+const previewURL = () => {
+  return resourcePreviewURL(props.previewRow)
 }
-
 </script>

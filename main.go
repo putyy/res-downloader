@@ -9,7 +9,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"log"
-	"res-downloader/core"
+	"os"
+	"path/filepath"
+	application "res-downloader/internal/app"
+	"res-downloader/internal/plugin"
 	"runtime"
 
 	"github.com/wailsapp/wails/v2"
@@ -27,9 +30,20 @@ var icon []byte
 var wailsJson string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "plugin" {
+		if err := plugin.RunPluginCLI(os.Args[2:], os.Stdout); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "plugin command failed:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	// Create an instance of the app structure
-	app := core.GetApp(assets, wailsJson)
-	bind := core.NewBind()
+	appRuntime, runtimeErr := application.NewRuntime(assets, wailsJson)
+	if runtimeErr != nil {
+		log.Fatal(runtimeErr)
+	}
+	app := appRuntime.App
+	bind := application.NewBind(appRuntime)
 	isMac := runtime.GOOS == "darwin"
 	// menu
 	appMenu := menu.NewMenu()
@@ -51,7 +65,7 @@ func main() {
 		EnableDefaultContextMenu: true,
 		AssetServer: &assetserver.Options{
 			Assets:     assets,
-			Middleware: core.Middleware,
+			Middleware: appRuntime.HTTP.Middleware,
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup: func(ctx context.Context) {
@@ -63,7 +77,6 @@ func main() {
 
 			log.Println(logo)
 			fmt.Println("version:", app.Version)
-			fmt.Println("lockfile:", app.LockFile)
 			app.Startup(ctx)
 		},
 		OnShutdown: func(ctx context.Context) {
@@ -86,6 +99,7 @@ func main() {
 			WebviewIsTransparent:              false,
 			WindowIsTranslucent:               false,
 			DisableFramelessWindowDecorations: false,
+			WebviewBrowserPath:                bundledWebView2Path(),
 		},
 		Linux: &linux.Options{
 			ProgramName:         app.AppName,
@@ -98,4 +112,22 @@ func main() {
 	if err != nil {
 		println("Error:", err.Error())
 	}
+}
+
+func bundledWebView2Path() string {
+	if runtime.GOOS != "windows" {
+		return ""
+	}
+
+	executablePath, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+
+	runtimePath := filepath.Join(filepath.Dir(executablePath), "WebView2Runtime")
+	if _, err := os.Stat(filepath.Join(runtimePath, "msedgewebview2.exe")); err != nil {
+		return ""
+	}
+
+	return runtimePath
 }

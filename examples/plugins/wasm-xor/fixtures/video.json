@@ -1,0 +1,24 @@
+{
+  "observation": {
+    "stage": "response",
+    "request": {
+      "method": "GET",
+      "url": "https://api.example.com/encrypted/42",
+      "host": "api.example.com",
+      "path": "/encrypted/42",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "contentType": "application/json",
+      "headers": {"Content-Type": ["application/json"]},
+      "body": "{\"url\":\"https://cdn.example.com/encrypted.mp4\",\"title\":\"Demo\",\"key\":90}"
+    }
+  },
+  "expected": {
+    "resourceCount": 1,
+    "resourceUrls": ["https://cdn.example.com/encrypted.mp4"],
+    "processorTypes": ["plugin-wasm"],
+    "decision": "continue"
+  }
+}

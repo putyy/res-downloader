@@ -1,0 +1,26 @@
+id: test.declarative
+name: Declarative fixture
+version: 1.0.0
+apiVersion: 1
+runtime: declarative
+permissions:
+  domains: [api.example.com]
+  capabilities: [observe-response, read-response-body, emit-resource]
+match:
+  - stage: response
+    host: api.example.com
+    path: /videos
+extractors:
+  - stage: response
+    format: json
+    root: $.data.items[*]
+    resource:
+      url: {path: $.playUrl}
+      title: {path: $.title}
+      kind: {value: media.video}
+      role: {value: video}
+      preview: {value: video}
+      contentType: {value: video/mp4}
+      extension: {value: .mp4}
+resourceKinds:
+  - id: media.video

@@ -1,7 +1,13 @@
 <template>
-  <NConfigProvider class="h-full" :theme="theme" :locale="uiLocale">
+  <NConfigProvider
+      class="h-full"
+      :theme="activeTheme.naiveTheme"
+      :theme-overrides="activeTheme.overrides"
+      :locale="uiLocale"
+  >
     <NaiveProvider>
       <RouterView/>
+      <CertificateSetupGuide/>
     </NaiveProvider>
     <NGlobalStyle/>
     <NModalProvider/>
@@ -10,25 +16,25 @@
 
 <script setup lang="ts">
 import NaiveProvider from '@/components/NaiveProvider.vue'
-import {darkTheme, lightTheme, zhCN, enUS} from 'naive-ui'
+import {enUS, zhCN} from 'naive-ui'
 import {useIndexStore} from "@/stores"
-import {computed, onMounted} from "vue"
+import {computed, onMounted, watch} from "vue"
 import {useEventStore} from "@/stores/event"
 import type {appType} from "@/types/app"
 import {useI18n} from 'vue-i18n'
+import {resolveAppTheme} from '@/themes'
+import CertificateSetupGuide from '@/components/settings/CertificateSetupGuide.vue'
 
 const store = useIndexStore()
 const eventStore = useEventStore()
 const {locale} = useI18n()
 
-const theme = computed(() => {
-  if (store.globalConfig.Theme === "darkTheme") {
-    document.documentElement.classList.add('dark');
-    return darkTheme
-  }
-  document.documentElement.classList.remove('dark');
-  return lightTheme
-})
+const activeTheme = computed(() => resolveAppTheme(store.globalConfig.Theme))
+
+watch(activeTheme, (theme) => {
+  document.documentElement.classList.toggle('dark', theme.dark)
+  document.documentElement.dataset.appTheme = theme.id
+}, {immediate: true})
 
 const uiLocale = computed(() => {
   locale.value = store.globalConfig.Locale
@@ -38,9 +44,7 @@ const uiLocale = computed(() => {
   return enUS
 })
 
-onMounted(async () => {
-  await store.init()
-
+onMounted(() => {
   eventStore.init()
   eventStore.addHandle({
     type: "message",

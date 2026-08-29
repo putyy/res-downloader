@@ -1,0 +1,23 @@
+{
+  "observation": {
+    "stage": "response",
+    "request": {
+      "method": "GET",
+      "url": "https://api.example.com/api/videos/42",
+      "host": "api.example.com",
+      "path": "/api/videos/42",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["application/json"]},
+      "contentType": "application/json",
+      "body": "{\"id\":\"42\",\"url\":\"https://cdn.example.com/42.mp4\",\"title\":\"Example\",\"size\":1024}"
+    }
+  },
+  "expected": {
+    "resourceCount": 1,
+    "resourceUrls": ["https://cdn.example.com/42.mp4"],
+    "decision": "continue"
+  }
+}

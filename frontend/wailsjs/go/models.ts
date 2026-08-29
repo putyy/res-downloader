@@ -1,4 +1,4 @@
-export namespace core {
+export namespace httpapi {
 	
 	export class ResponseData {
 	    code: number;

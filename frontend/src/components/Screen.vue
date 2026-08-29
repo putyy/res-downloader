@@ -56,6 +56,3 @@ const maximizeWindow = () => {
   }
 }
 </script>
-
-<style scoped>
-</style>

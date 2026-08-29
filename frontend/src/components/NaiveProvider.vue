@@ -4,7 +4,7 @@
       <NNotificationProvider>
         <NMessageProvider>
           <slot></slot>
-          <NaiveProviderContent />
+          <NaiveProviderContent/>
         </NMessageProvider>
       </NNotificationProvider>
     </NDialogProvider>
@@ -33,6 +33,6 @@ const NaiveProviderContent = defineComponent({
   },
   render() {
     return h('div')
-  },
+  }
 })
 </script>

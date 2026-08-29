@@ -6,6 +6,7 @@ interface RequestOptions {
     method: 'get' | 'post' | 'put' | 'delete'
     params?: Record<string, any>
     data?: Record<string, any>
+    timeout?: number
 }
 
 const instance = axios.create({
@@ -15,6 +16,9 @@ const instance = axios.create({
 
 instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig<any>) => {
+        if (window.$apiToken) {
+            config.headers.set('Authorization', `Bearer ${window.$apiToken}`)
+        }
         return config
     },
     (error) => {
@@ -31,8 +35,8 @@ instance.interceptors.response.use(
     }
 )
 
-const request = ({url, method, params, data}: RequestOptions): Promise<any> => {
-    return instance({url, method, params, data, baseURL: window.$baseUrl})
+const request = ({url, method, params, data, timeout}: RequestOptions): Promise<any> => {
+    return instance({url, method, params, data, timeout, baseURL: window.$baseUrl})
 }
 
 export default request

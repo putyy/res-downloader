@@ -17,15 +17,11 @@
       </div>
       <div class="mt-3">
         <n-input
-            v-model:value="formValue.password"
+            v-model:value="password"
             type="password"
             :placeholder="t('components.password_placeholder')"
             class="w-full"
         />
-      </div>
-      <div class="mt-3 text-base">
-        <label>{{ t("components.password_cache") }}</label>
-        <NSwitch class="pl-1" v-model:value="formValue.cache" :aria-placeholder="t('components.password_cache')"/>
       </div>
     </div>
     <template #action>
@@ -35,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import {reactive} from 'vue'
+import {ref} from 'vue'
 import {NButton, NInput, NModal} from 'naive-ui'
 import {useI18n} from 'vue-i18n'
 
@@ -45,19 +41,17 @@ defineProps({
   showModal: Boolean,
 })
 
-const formValue = reactive({
-  password: "",
-  cache: false,
-})
+const password = ref("")
 
 const emits = defineEmits(["update:showModal", "submit"])
 const changeShow = (value: boolean) => emits("update:showModal", value)
 
 const submit = () => {
-  if (!formValue.password) {
+  if (!password.value) {
     window.$message?.error(t("components.password_empty"))
     return
   }
-  emits('submit', formValue.password, formValue.cache)
+  emits('submit', password.value)
+  password.value = ''
 }
 </script>

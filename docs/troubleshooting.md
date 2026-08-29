@@ -1,78 +1,50 @@
-## 视频号拦截了一大堆 找不到想要的
-> 设置里面关闭全量拦截，将视频转发好友后打开
+# 常见问题
 
-## 某某网址拦截不了？
-> 本软件并非万能的，所以有一些应用拦截不了很正常，实现原理 & 初衷如下，
-```
-本工具通过代理方式实现网络抓包，并筛选可用资源。与 Fiddler、Charles、浏览器 DevTools 原理类似，但对资源进行了更友好的筛选、展示和处理，大幅度降低了使用门槛，更适合大众用户使用。
-```
+## 视频号资源太多
 
-## 软件打不开了？之前可以打开
-> 删除对应目录, 然后重启
-```
-## Mac终端执行
-rm -rf /Users/$(whoami)/Library/Preferences/res-downloader
+在“插件管理”中关闭微信视频号插件的“完整抓取模式”，清空列表后重新打开目标详情页。
 
-## Windows手动删除以下目录，Administrator为用户名 通常如下：
-C:\Users\Administrator\AppData\Roaming\res-downloader
+## 某个网站或应用无法捕获
 
-## Linux手动删除以下目录
-/home/user/.config/res-downloader/home/user/.config/res-downloader
-```
+部分应用不支持代理抓取，或需要专用插件。先确认抓取已开启、证书已安装，目标域名没有设置为“直接透传”。
 
-## 某应用只支持手机打开 如何拦截？
-> 这里需要注意的是 应用使用http协议通讯才能拦截，且安卓7.0以上系统不再信任用户CA证书 所以没法拦截，解决方案自行查找，
-```
-1. 将手机和电脑处于同一个网络
-2. 在手机端安装res-downloader的证书
-3. 将手机网络代理设置为res-downloader的代理
-4. 正常使用
-```
+## 安装证书后仍提示未安装
 
-## Mac 提示“已损坏，无法打开”, 打开命令行执行如下命令：
-> sudo xattr -d com.apple.quarantine /Applications/res-downloader.app
+进入“系统设置 → 证书”，重新安装证书并刷新状态。Windows 请允许 UAC 授权；手机上的旧证书需要手动删除后重新安装。
 
-## 打开本软件，无法正常拦截获取
-> 检查系统证书是否安装  
-> 关闭网络防火墙  
-> 系统代理是否正确设置(代理地址：127.0.0.1 端口：8899)
+## 手机如何接入
 
-## 关闭软件后无法正常上网
-> 手动关闭系统代理设置
+1. 手机和电脑连接同一网络。
+2. 将监听地址设为 `0.0.0.0`，重启应用并开启抓取。
+3. 手机代理填写电脑的局域网 IP 和应用端口。
+4. 在手机上下载安装当前证书并开启信任。
 
-## 链接不是私密链接
-> 通常是证书未正确安装，最新版证书下载：软件左下角 ？点击后有下载地址  
-> 根据自己系统进行安装证书操作(不懂的自行百度)，手动安装需安装到受信任的根证书  
+部分手机应用即使完成设置也可能无法捕获。
 
-- Mac手动安装证书(V3+版本支持)，打开终端复制以下命令 粘贴到终端回车 按照提示输入密码，完成后再打开软件：
-```shell
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /Users/$(whoami)/Library/Preferences/res-downloader/cert.crt && touch /Users/$(whoami)/Library/Preferences/res-downloader/install.lock && echo "安装完成"
+## 应用退出后无法上网
+
+在系统网络设置中关闭 HTTP / HTTPS 代理，然后重新启动应用。
+
+## 应用无法启动或配置异常
+
+使用“清理缓存并重启”，并按提示授权。该操作不会删除已下载文件和已安装插件。
+
+## macOS 提示“已损坏，无法打开”
+
+确认安装包来自项目官方发布页后，在“系统设置 → 隐私与安全性”中允许打开。仍无法打开时执行：
+
+```bash
+sudo xattr -d com.apple.quarantine /Applications/res-downloader.app
 ```
 
-## 拦截不到小程序中的资源
-清理微信缓存，删除小程序后，重新打开
-> 1.设置->存储空间->缓存  
-> 2.删除小程序相关缓存目录(自行搜索)
+## 下载慢或大文件失败
 
-## 只拦截打开的视频号视频
-关闭全量拦截，打开视频号视频详情，通常分享好友后打开的页面属于详情页
+检查保存空间、链接是否过期和下载代理是否可用。视频号链接过期时需要重新抓取。
 
-## 拦截视频号账号视频
-打开对应作者个人主页，浏览即可
+## 直播录制无法使用
 
-## 下载慢、大视频下载失败
-推荐使用如下工具加速下载，视频号可以下载完成后再到对应视频操作项选择 “视频解密” 按钮  
-> [Neat Download Manager](https://www.neatdownloadmanager.com/index.php/en/)、[Motrix](https://motrix.app/download)等软件进行下载
+先安装 FFmpeg，再到“系统设置 → 媒体处理”中点击检测。
 
-## 直播流: 预览和录制：
-> [使用obs进行预览和录制 使用教程自行百度， 点击下载obs]( https://obsproject.com/)
+## 仍然无法解决
 
-## m3u8: 预览和下载：
-> [在线下载](https://m3u8-down.gowas.cn/)、[在线预览](https://m3u8play.com/)
-
-## 安装证书后还会提示安装
-使用命令行打开本软件，查看 “lockfile:” 这串字符后面的锁文件路径，然后创建该文件即可  
-例如 mac系统下终端执行如下命令即可创建  
-> touch /Users/你的用户名/Library/Preferences/res-downloader/install.lock
-
-## 更多问题 请前往github进行[反馈](https://github.com/putyy/res-downloader/issues)
+请前往 [GitHub Issues](https://github.com/putyy/res-downloader/issues) 反馈，并附上系统、应用版本、复现步骤和错误信息。请先隐藏账号、Cookie 等隐私数据。

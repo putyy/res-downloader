@@ -1,0 +1,18 @@
+{
+  "observation": {
+    "stage": "request",
+    "request": {
+      "method": "POST",
+      "url": "https://wxapp.tc.qq.com/res-downloader/wechat?type=1",
+      "host": "wxapp.tc.qq.com",
+      "path": "/res-downloader/wechat",
+      "headers": {"Content-Type": ["application/json"]},
+      "body": "{\"description\":\"示例图片\",\"media\":[{\"mediaType\":9,\"url\":\"https://finder.video.qq.com/example.png\",\"fileSize\":\"567\"}]}"
+    }
+  },
+  "expected": {
+    "resourceCount": 1,
+    "resourceUrls": ["https://finder.video.qq.com/example.png"],
+    "decision": "stop"
+  }
+}

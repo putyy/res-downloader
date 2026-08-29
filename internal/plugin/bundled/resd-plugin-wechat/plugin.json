@@ -1,0 +1,174 @@
+{
+  "id": "official.wechat",
+  "name": "WeChat Channels",
+  "author": {
+    "name": "putyy",
+    "url": "https://github.com/putyy/resd-plugin-wechat"
+  },
+  "locales": {
+    "zh-CN": {
+      "name": "微信视频号",
+      "description": "捕获微信视频号资源，并使用插件自带 WASM 处理加密媒体。"
+    },
+    "zh": {
+      "name": "微信视频号",
+      "description": "捕获微信视频号资源，并使用插件自带 WASM 处理加密媒体。"
+    },
+    "en": {
+      "name": "WeChat Channels",
+      "description": "Captures WeChat Channels resources and processes encrypted media with plugin-bundled WASM."
+    }
+  },
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "runtime": "javascript",
+  "entry": "main.js",
+  "priority": 1000,
+  "permissions": {
+    "domains": ["*.qq.com", "*.weixin.qq.com"],
+    "capabilities": [
+      "observe-request",
+      "observe-response",
+      "read-request-body",
+      "read-response-body",
+      "modify-response",
+      "intercept-request",
+      "emit-resource",
+      "process-download"
+    ],
+    "bodyLimit": 16777216
+  },
+  "match": [
+    {
+      "stage": "request",
+      "host": "*.qq.com",
+      "path": "*/res-downloader/wechat*",
+      "readBody": true
+    },
+    {
+      "stage": "response",
+      "host": "finder.video.qq.com",
+      "contentTypes": ["video/*"],
+      "readBody": false
+    },
+    {
+      "stage": "response",
+      "host": "channels.weixin.qq.com",
+      "path": "*/web/pages/feed*",
+      "readBody": true
+    },
+    {
+      "stage": "response",
+      "host": "channels.weixin.qq.com",
+      "path": "*/web/pages/home*",
+      "readBody": true
+    },
+    {
+      "stage": "response",
+      "host": "res.wx.qq.com",
+      "url": "*.js?v=1.0.0",
+      "readBody": true
+    },
+    {
+      "stage": "response",
+      "host": "res.wx.qq.com",
+      "path": "*web/web-finder/res/js/virtual_svg-icons-register.publish*",
+      "readBody": true
+    }
+  ],
+  "resourceKinds": [
+    {
+      "id": "media.video",
+      "icon": "video",
+      "color": "#2080f0",
+      "locales": {
+        "zh": {"name": "视频"},
+        "en": {"name": "Video"}
+      }
+    },
+    {
+      "id": "media.image",
+      "icon": "image",
+      "color": "#18a058",
+      "locales": {
+        "zh": {"name": "图片"},
+        "en": {"name": "Image"}
+      }
+    }
+  ],
+  "processors": {
+    "isaac64-prefix": {
+      "runtime": "wasm",
+      "entry": "decrypt.wasm",
+      "apiVersion": 1
+    }
+  },
+  "actions": {
+    "decrypt-local-file": {
+      "kind": "process-file",
+      "processor": "isaac64-prefix",
+      "inputExtensions": [".mp4"],
+      "outputExtension": ".mp4",
+      "locales": {
+        "zh": {
+          "name": "解密本地视频",
+          "description": "处理通过复制链接并使用其他工具下载的微信视频号加密文件。"
+        },
+        "en": {
+          "name": "Decrypt Local Video",
+          "description": "Process an encrypted WeChat Channels file downloaded with another tool."
+        }
+      }
+    }
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "fullIntercept": {
+        "type": "boolean",
+        "default": true,
+        "x-locales": {
+          "zh": {
+            "name": "完整抓取模式",
+            "description": "开启时从页面媒体对象捕获资源；关闭时仅从详情捕获。通常建议保持开启。"
+          },
+          "en": {
+            "name": "Full capture mode",
+            "description": "Capture from page media objects when enabled; capture only from details when disabled. Usually keep this enabled."
+          }
+        }
+      },
+      "quality": {
+        "type": "string",
+        "enum": ["default", "ultra", "high", "medium", "low"],
+        "default": "default",
+        "x-locales": {
+          "zh": {
+            "name": "下载画质",
+            "description": "选择下载时使用的清晰度策略。实际可用画质取决于当前视频号资源。"
+          },
+          "en": {
+            "name": "Download quality",
+            "description": "Select the quality strategy used for downloads. Available qualities depend on the current Channels resource."
+          }
+        },
+        "x-enumLabels": {
+          "zh": {
+            "default": "默认",
+            "ultra": "超清",
+            "high": "高清",
+            "medium": "中等",
+            "low": "低清"
+          },
+          "en": {
+            "default": "Default",
+            "ultra": "Ultra",
+            "high": "High",
+            "medium": "Medium",
+            "low": "Low"
+          }
+        }
+      }
+    }
+  }
+}

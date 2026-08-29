@@ -4,13 +4,14 @@
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">
           <span class="inline-block w-1.5 h-1.5 bg-red-600 rounded-full mr-1 animate-pulse"></span>
-          {{ t("index.close_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count: data.length})}` : '' }}
+          {{ t("index.close_grab") }}{{ resourceTotal > 0 ? `&nbsp;${t('index.total_resources', {count: resourceTotal})}` : '' }}
         </NButton>
         <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">
-          {{ t("index.open_grab") }}{{ data.length > 0 ? `&nbsp;${t('index.total_resources', {count: data.length})}` : '' }}
+          {{ t("index.open_grab") }}{{ resourceTotal > 0 ? `&nbsp;${t('index.total_resources', {count: resourceTotal})}` : '' }}
         </NButton>
-        <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')" v-model:value="resourcesType" multiple clearable
-                 :max-tag-count="3" :options="classify"></NSelect>
+        <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')"
+                 :value="resourcesType" multiple clearable
+                 :max-tag-count="3" :options="captureTypeOptions" @update:value="updateResourceTypes"></NSelect>
         <NButtonGroup style="--wails-draggable:no-drag">
 
           <NButton v-if="rememberChoice" tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">
@@ -46,7 +47,7 @@
               <NCheckbox
                   v-model:checked="rememberChoiceTmp"
               >
-                <span class="text-gray-400">{{ t('index.remember_clear_choice') }}</span>
+                <span class="app-muted-text">{{ t('index.remember_clear_choice') }}</span>
               </NCheckbox>
             </div>
           </n-popconfirm>
@@ -103,26 +104,34 @@
             </NPopover>
           </NButton>
         </NButtonGroup>
+		<NButton v-if="nextResourceOffset > 0" secondary :loading="loadingMoreResources" @click="loadMoreResources">
+		  {{ t('index.load_more', {loaded: data.length, total: resourceTotal}) }}
+		</NButton>
       </NSpace>
     </div>
-    <div class="flex-1">
+    <div class="min-h-0 flex-1">
       <NDataTable
+          class="resource-table"
           :columns="columns"
           :data="filteredData"
           :bordered="false"
           :max-height="tableHeight"
           :row-key="rowKey"
-          :virtual-scroll="true"
+          :virtual-scroll="expandedRowKeys.length === 0"
           :header-height="48"
           :height-for-row="()=> 48"
           :checked-row-keys="checkedRowKeysValue"
+          :expanded-row-keys="expandedRowKeys"
+          :row-class-name="resourceRowClassName"
           @update:checked-row-keys="handleCheck"
+          @update:expanded-row-keys="(keys: any) => expandedRowKeys = keys"
           @update:filters="updateFilters"
           style="--wails-draggable:no-drag"
       />
     </div>
-    <div class="flex justify-center items-center text-blue-400" id="bottom">
+    <div class="resource-footer flex items-center justify-center" id="bottom">
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL(certUrl)">{{ t('footer.cert_download') }}</span>
+      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://res.putyy.com')">{{ t('footer.documentation') }}</span>
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</span>
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/issues')">{{ t('footer.help') }}</span>
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/releases')">{{ t('footer.update_log') }}</span>
@@ -135,72 +144,78 @@
 </template>
 
 <script lang="ts" setup>
-import {NButton, NIcon, NImage, NInput, NSpace, NTooltip, NPopover, NGradientText} from "naive-ui"
-import {computed, h, onMounted, ref, watch} from "vue"
+import type {DataTableBaseColumn, DataTableFilterState, DataTableRowKey} from "naive-ui"
+import {NButton, NDataTable, NIcon, NPopover, NSpace} from "naive-ui"
+import {computed, onMounted, onUnmounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
-import type {DataTableRowKey, ImageRenderToolbarProps, DataTableFilterState, DataTableBaseColumn} from "naive-ui"
 import Preview from "@/components/Preview.vue"
 import ShowLoading from "@/components/ShowLoading.vue"
-// @ts-ignore
-import {getDecryptionArray} from '@/assets/js/decrypt.js'
 import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
-import Action from "@/components/Action.vue"
-import ActionDesc from "@/components/ActionDesc.vue"
+import {useResourceTableColumns} from '@/components/resource/useResourceTableColumns'
+import {exportableResource, findResourceInTree, mergeResourceRuntime, primaryURL, removeResourceFromTree, resourceSome, visitResource} from '@/services/resources'
 import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 import Password from "@/components/Password.vue"
-import ShowOrEdit from "@/components/ShowOrEdit.vue"
 import {useI18n} from 'vue-i18n'
-import {
-  DownloadOutline,
-  ArrowRedoCircleOutline,
-  ServerOutline,
-  SearchOutline,
-  Apps,
-  TrashOutline, CloseOutline
-} from "@vicons/ionicons5"
-import {useDialog} from 'naive-ui'
-import * as bind from "../../wailsjs/go/core/Bind"
-import {Quit} from "../../wailsjs/runtime"
-import {DialogOptions} from "naive-ui/es/dialog/src/DialogProvider"
-import {formatSize} from "@/func"
+import {Apps, ArrowRedoCircleOutline, CloseOutline, DownloadOutline, ServerOutline, TrashOutline} from "@vicons/ionicons5"
+import {useCertificateStore} from '@/stores/certificate'
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const eventStore = useEventStore()
-const dialog = useDialog()
 const isProxy = computed(() => {
   return store.isProxy
 })
 const certUrl = computed(() => {
-  return store.baseUrl + "/api/cert"
+  return store.baseUrl + "/api/certificate/download"
 })
-const data = ref<any[]>([])
-const filterClassify = ref<string[]>([])
+const data = ref<appType.ResourceView[]>([])
+const resourceTotal = ref(0)
+const nextResourceOffset = ref(0)
+const loadingMoreResources = ref(false)
+const resourcePageSize = 1000
+const filterKinds = ref<string[]>([])
 const filteredData = computed(() => {
   let result = data.value
 
-  if (filterClassify.value.length > 0) {
-    result = result.filter(item => filterClassify.value.includes(item.Classify))
+  if (filterKinds.value.length > 0) {
+    result = result.filter(item => resourceSome(item, child =>
+        (!!child.primaryType && filterKinds.value.includes(child.primaryType)) ||
+        (!!child.kind && filterKinds.value.includes(child.kind)),
+    ))
   }
 
   if (descriptionSearchValue.value) {
-    result = result.filter(item => item.Description?.toLowerCase().includes(descriptionSearchValue.value.toLowerCase()))
+    const expected = descriptionSearchValue.value.toLowerCase()
+    result = result.filter(item => resourceSome(item, child => !!child.title?.toLowerCase().includes(expected)))
   }
 
   if (urlSearchValue.value) {
-    result = result.filter(item => item.Url?.toLowerCase().includes(urlSearchValue.value.toLowerCase()))
+    const expected = urlSearchValue.value.toLowerCase()
+    result = result.filter(item => resourceSome(item, child => primaryURL(child).toLowerCase().includes(expected)))
   }
 
   return result
 })
 
 const store = useIndexStore()
+const certificateStore = useCertificateStore()
 const tableHeight = ref(800)
 const resourcesType = ref<string[]>(["all"])
+const pluginResourceKinds = ref<appType.ResourceKindDefinition[]>([])
+const pluginActionDefinitions = ref<Record<string, Record<string, appType.PluginActionDefinition>>>({})
 
 const classifyAlias: { [key: string]: any } = {
+  "media.image": computed(() => t("index.image")),
+  "media.audio": computed(() => t("index.audio")),
+  "media.video": computed(() => t("index.video")),
+  "media.collection": computed(() => t("index.collection")),
+  "stream.hls": computed(() => t("index.m3u8")),
+  "stream.live": computed(() => t("index.live")),
+  "document.xls": computed(() => t("index.xls")),
+  "document.doc": computed(() => t("index.doc")),
+  "document.pdf": computed(() => t("index.pdf")),
   image: computed(() => t("index.image")),
   audio: computed(() => t("index.audio")),
   video: computed(() => t("index.video")),
@@ -216,6 +231,7 @@ const classifyAlias: { [key: string]: any } = {
 const dwStatus = computed<any>(() => {
   return {
     ready: t("index.ready"),
+    partial: t("index.partial"),
     pending: t("index.pending"),
     running: t("index.running"),
     error: t("index.error"),
@@ -224,376 +240,204 @@ const dwStatus = computed<any>(() => {
   }
 })
 
-const maxConcurrentDownloads = computed(() => {
-  return store.globalConfig.DownNumber
-})
-
-const classify = ref([
-  {
-    value: "all",
-    label: computed(() => t("index.all")),
-  },
-])
+const classify = ref<any[]>([])
+const captureTypeOptions = ref<any[]>([])
 
 const descriptionSearchValue = ref("")
 const urlSearchValue = ref("")
 const rememberChoice = ref(false)
 const rememberChoiceTmp = ref(false)
 
-const columns = ref<any[]>([
-  {
-    type: "selection",
-  },
-  {
-    title: () => {
-      if (checkedRowKeysValue.value.length > 0) {
-        return h(NGradientText, {type: "success"}, t("index.choice") + `(${checkedRowKeysValue.value.length})`)
-      }
-      return h('div', {class: 'flex items-center'}, [
-        t('index.domain'),
-        h(NPopover, {
-          style: "--wails-draggable:no-drag",
-          trigger: 'click',
-          placement: 'bottom',
-          showArrow: true,
-        }, {
-          trigger: () => h(NIcon, {
-            size: "18",
-            class: `ml-1 cursor-pointer ${urlSearchValue.value ? "text-green-600": "text-gray-500"}`,
-            onClick: (e: MouseEvent) => e.stopPropagation()
-          }, h(SearchOutline)),
-          default: () => h('div', {class: 'p-2 w-64'}, [
-            h(NInput, {
-              value: urlSearchValue.value,
-              'onUpdate:value': (val: string) => urlSearchValue.value = val,
-              placeholder: t('index.search_description'),
-              clearable: true
-            }, {
-              prefix: () => h(NIcon, {component: SearchOutline})
-            })
-          ])
-        })
-      ])
-    },
-    key: "Domain",
-    width: 90,
-    render: (row: appType.MediaInfo) => {
-      return h(NTooltip, {
-        trigger: 'hover',
-        placement: 'top'
-      }, {
-        trigger: () => h('span', {
-          class: 'cursor-default'
-        }, row.Domain),
-        default: () => row.Url
-      })
-    }
-  },
-  {
-    title: computed(() => t("index.type")),
-    key: "Classify",
-    width: 80,
-    filterOptions: computed(() => Array.from(classify.value).slice(1)),
-    filterMultiple: true,
-    filter: (value: string, row: appType.MediaInfo) => {
-      return !!~row.Classify.indexOf(String(value))
-    },
-    render: (row: appType.MediaInfo) => {
-      const item = classify.value.find(item => item.value === row.Classify)
-      return item ? item.label : row.Classify
-    }
-  },
-  {
-    title: computed(() => t("index.preview")),
-    key: "Url",
-    width: 80,
-    render: (row: appType.MediaInfo) => {
-      if (row.Classify === "image") {
-        return h("div", {
-          style: "width: 100%;max-height:80px;overflow:hidden;"
-        }, h(NImage, {
-          objectFit: "contain",
-          lazy: true,
-          "render-toolbar": renderToolbar,
-          src: row.Url
-        }))
-      }
-      return [
-        h(
-            NButton,
-            {
-              strong: true,
-              tertiary: true,
-              type: "info",
-              size: "small",
-              style: {
-                margin: "2px"
-              },
-              onClick: () => {
-                if (row.Classify === "audio" || row.Classify === "video" || row.Classify === "m3u8" || row.Classify === "live") {
-                  previewRow.value = row
-                  showPreviewRow.value = true
-                }
-              }
-            },
-            {
-              default: () => {
-                if (row.Classify === "audio" || row.Classify === "video" || row.Classify === "m3u8" || row.Classify === "live") {
-                  return t("index.preview")
-                }
-                return t("index.preview_tip")
-              }
-            }
-        ),
-      ]
-    }
-  },
-  {
-    title: computed(() => t("index.status")),
-    key: "Status",
-    width: 80,
-    render: (row: appType.MediaInfo, index: number) => {
-      let status = "info"
-      if (row.Status === "done" || row.Status === "running") {
-        status = "success"
-      } else if (row.Status === "pending") {
-        status = "warning"
-      }
-
-      return h(
-          NButton,
-          {
-            tertiary: true,
-            type: status as any,
-            size: "small",
-            style: {
-              margin: "2px"
-            },
-            onClick: () => {
-              if (row.SavePath && row.Status === "done") {
-                appApi.openFolder({filePath: row.SavePath})
-              } else if (row.Status === "ready") {
-                download(row, index)
-              }
-            }
-          },
-          {
-            default: () => {
-              return row.Status === "running" ? row.SavePath : dwStatus.value[row.Status as keyof typeof dwStatus]
-            }
-          }
-      )
-    }
-  },
-  {
-    title: () => h('div', {class: 'flex items-center'}, [
-      t('index.description'),
-      h(NPopover, {
-        style: "--wails-draggable:no-drag",
-        trigger: 'click',
-        placement: 'bottom',
-        showArrow: true,
-      }, {
-        trigger: () => h(NIcon, {
-          size: "18",
-          class: `ml-1 cursor-pointer ${descriptionSearchValue.value ? "text-green-600": "text-gray-500"}`,
-          onClick: (e: MouseEvent) => e.stopPropagation()
-        }, h(SearchOutline)),
-        default: () => h('div', {class: 'p-2 w-64'}, [
-          h(NInput, {
-            value: descriptionSearchValue.value,
-            'onUpdate:value': (val: string) => descriptionSearchValue.value = val,
-            placeholder: t('index.search_description'),
-            clearable: true
-          }, {
-            prefix: () => h(NIcon, {component: SearchOutline})
-          })
-        ])
-      })
-    ]),
-    key: "Description",
-    width: 150,
-    render: (row: appType.MediaInfo, index: number) => {
-      return h(ShowOrEdit, {
-        value: row.Description,
-        onUpdateValue(v: string) {
-          data.value[index].Description = v
-          cacheData()
-        }
-      })
-    }
-  },
-  {
-    title: computed(() => t("index.resource_size")),
-    key: "Size",
-    width: 120,
-    sorter: (row1: appType.MediaInfo, row2: appType.MediaInfo) => row1.Size - row2.Size,
-    render(row: appType.MediaInfo, index: number) {
-      return formatSize(row.Size)
-    }
-  },
-  {
-    title: computed(() => t("index.save_path")),
-    key: "SavePath",
-    render(row: appType.MediaInfo, index: number) {
-      return h("a",
-          {
-            href: "javascript:;",
-            class: "ellipsis-2",
-            style: {
-              color: "#5a95d0"
-            },
-            onClick: () => {
-              if (row.SavePath && row.Status === "done") {
-                appApi.openFolder({filePath: row.SavePath})
-              }
-            }
-          },
-          row.Status === "running" ? "" : row.SavePath
-      )
-    }
-  },
-  {
-    key: "actions",
-    width: 130,
-    render(row: appType.MediaInfo, index: number) {
-      return h(Action, {key: index, row: row, index: index, onAction: dataAction})
-    },
-    title() {
-      return h(ActionDesc)
-    }
-  }
-])
-
 const checkedRowKeysValue = ref<DataTableRowKey[]>([])
+const expandedRowKeys = ref<DataTableRowKey[]>([])
 const showPreviewRow = ref(false)
-const previewRow = ref<appType.MediaInfo>()
+const previewRow = ref<appType.ResourceView>()
 const loading = ref(false)
 const loadingText = ref("")
 const showImport = ref(false)
 const showPassword = ref(false)
-const downloadQueue = ref<appType.MediaInfo[]>([])
-let activeDownloads = 0
-let isOpenProxy = false
-let isInstall = false
+const proxyAction = ref<'enable' | 'disable'>('enable')
+const disposers: Array<() => void> = []
+const handleWindowResize = () => resetTableHeight()
 
 onMounted(() => {
   try {
-    window.addEventListener("resize", () => {
-      resetTableHeight()
-    })
-    loading.value = true
-    handleInstall().then((is: boolean) => {
-      isInstall = true
-      loading.value = false
-    })
-
-    checkLoading()
-    watch(showPassword, () => {
-      if (!showPassword.value) {
-        checkLoading()
-      }
-    })
+    window.addEventListener("resize", handleWindowResize)
   } catch (e) {
     window.$message?.error(JSON.stringify(e), {duration: 5000})
   }
 
   buildClassify()
+  restoreResourceTypes()
+  appApi.plugins().then((res: appType.Res) => {
+    if (res.code !== 1) return
+    const loadedPlugins = (res.data.plugins ?? []).filter((plugin: appType.PluginStatus) => plugin.loaded)
+    pluginResourceKinds.value = loadedPlugins
+        .flatMap((plugin: appType.PluginStatus) => plugin.manifest.resourceKinds ?? [])
+    pluginActionDefinitions.value = Object.fromEntries(
+        loadedPlugins.map((plugin: appType.PluginStatus) => [plugin.manifest.id, plugin.manifest.actions ?? {}]),
+    )
+    buildClassify()
+    removeUnavailableResourceTypes()
+  })
 
-  const temp = localStorage.getItem("resources-type")
-  if (temp) {
-    resourcesType.value = JSON.parse(temp).res
-  } else {
-    appApi.setType(resourcesType.value)
-  }
-
-  const cache = localStorage.getItem("resources-data")
-  if (cache) {
-    data.value = JSON.parse(cache)
-  }
-
+  appApi.listResources({offset: 0, limit: resourcePageSize}).then((res: appType.Res) => {
+    if (res.code !== 1) {
+      window?.$message?.error(res.message)
+      return
+    }
+    appendResourcePage(res.data?.items ?? [])
+    resourceTotal.value = Number(res.data?.total ?? data.value.length)
+    nextResourceOffset.value = Number(res.data?.nextOffset ?? 0)
+    data.value.forEach(item => visitResource(item, child => ensureResourceKind(child.kind)))
+    appApi.downloadTasks().then((tasksResponse: appType.Res<appType.DownloadTaskRecord[]>) => {
+      if (tasksResponse.code !== 1) return
+      const restored = new Set<string>()
+      for (const task of tasksResponse.data ?? []) {
+        if (restored.has(task.resourceId)) continue
+        restored.add(task.resourceId)
+        applyTaskStatus(task)
+      }
+    })
+  })
+  if (store.globalConfig.AutoProxy) void open()
   const choiceCache = localStorage.getItem("remember-clear-choice")
   if (choiceCache === "1") {
     rememberChoice.value = true
   }
 
-  watch(rememberChoice, (n, o) => {
+  disposers.push(watch(rememberChoice, () => {
     if (rememberChoice.value) {
       localStorage.setItem("remember-clear-choice", "1")
     } else {
       localStorage.removeItem("remember-clear-choice")
     }
-  })
+  }))
 
   resetTableHeight()
 
-  eventStore.addHandle({
-    type: "newResources",
-    event: (res: appType.MediaInfo) => {
-      if (store.globalConfig.InsertTail) {
-        data.value.push(res)
-      } else {
-        data.value.unshift(res)
-      }
-      cacheData()
+  disposers.push(eventStore.addHandle({
+    type: "resourceAdded",
+    event: (res: appType.ResourceView) => {
+	  const exists = data.value.some(item => item.id === res.id)
+	  upsertResourceRoot(res)
+	  if (!exists) resourceTotal.value++
     }
-  })
+  }))
 
-  eventStore.addHandle({
-    type: "downloadProgress",
-    event: (res: { Id: string, SavePath: string, Status: string, Message: string }) => {
-      switch (res.Status) {
-        case "running":
-          updateItem(res.Id, item => {
-            item.SavePath = res.Message
-            item.Status = 'running'
-          })
-          break
-        case "done":
-          updateItem(res.Id, item => {
-            item.SavePath = res.SavePath
-            item.Status = 'done'
-          })
-          if (activeDownloads > 0) {
-            activeDownloads--
-          }
-          cacheData()
-          checkQueue()
-          break
-        case "error":
-          updateItem(res.Id, item => {
-            item.SavePath = res.Message
-            item.Status = 'error'
-          })
-          if (activeDownloads > 0) {
-            activeDownloads--
-          }
-          cacheData()
-          checkQueue()
-          break
+  disposers.push(eventStore.addHandle({
+    type: "resourceUpdated",
+    event: (res: appType.ResourceView) => {
+	  upsertResourceRoot(res)
+    }
+  }))
+
+  disposers.push(eventStore.addHandle({
+    type: 'resourcesBatch',
+    event: (payload: {items?: appType.ResourceView[], total?: number}) => {
+      for (const resource of payload?.items ?? []) upsertResourceRoot(resource)
+      const nextTotal = Number(payload?.total ?? Math.max(resourceTotal.value, data.value.length))
+      if (nextResourceOffset.value > 0 && nextTotal > resourceTotal.value) {
+        nextResourceOffset.value += nextTotal - resourceTotal.value
+      }
+      resourceTotal.value = nextTotal
+    },
+  }))
+
+  disposers.push(eventStore.addHandle({
+    type: 'downloadTaskUpdated',
+    event: (task: appType.DownloadTaskRecord) => applyTaskStatus(task),
+  }))
+
+  disposers.push(eventStore.addHandle({
+    type: "resourceActionProgress",
+    event: (res: { status: string, outputPath?: string, message?: string }) => {
+      if (res.status === 'done') {
+        window?.$message?.success(t('index.plugin_action_done', {path: res.outputPath || ''}), {duration: 5000})
+      } else if (res.status === 'error') {
+        window?.$message?.error(t('index.plugin_action_failed', {message: res.message || ''}), {duration: 5000})
       }
     }
-  })
+  }))
 })
 
-watch(() => {
-  return store.globalConfig.MimeMap
-}, () => {
-  buildClassify()
+onUnmounted(() => {
+  window.removeEventListener('resize', handleWindowResize)
+  disposers.splice(0).forEach(dispose => dispose())
 })
+
+const loadMoreResources = async () => {
+	if (nextResourceOffset.value <= 0 || loadingMoreResources.value) return
+	loadingMoreResources.value = true
+	try {
+	  const response = await appApi.listResources({offset: nextResourceOffset.value, limit: resourcePageSize}) as appType.Res
+	  if (response.code !== 1) {
+		window.$message?.error(response.message)
+		return
+	  }
+	  appendResourcePage(response.data?.items ?? [])
+	  resourceTotal.value = Number(response.data?.total ?? data.value.length)
+	  nextResourceOffset.value = Number(response.data?.nextOffset ?? 0)
+	} finally {
+	  loadingMoreResources.value = false
+	}
+}
+
+const upsertResourceRoot = (resource: appType.ResourceView) => {
+	visitResource(resource, child => ensureResourceKind(child.kind))
+	const index = data.value.findIndex(item => item.id === resource.id)
+	if (index >= 0) {
+	  data.value[index] = mergeResourceRuntime(resource, data.value[index])
+	  return
+	}
+	if (store.globalConfig.InsertTail) data.value.push(resource)
+	else data.value.unshift(resource)
+}
+
+const appendResourcePage = (resources: appType.ResourceView[]) => {
+  for (const resource of resources) {
+    visitResource(resource, child => ensureResourceKind(child.kind))
+    const index = data.value.findIndex(item => item.id === resource.id)
+    if (index >= 0) data.value[index] = mergeResourceRuntime(resource, data.value[index])
+    else data.value.push(resource)
+  }
+}
 
 watch(resourcesType, (n, o) => {
-  localStorage.setItem("resources-type", JSON.stringify({res: resourcesType.value}))
-  appApi.setType(resourcesType.value)
+  localStorage.setItem("resource-kind-filter", JSON.stringify({res: resourcesType.value}))
+  appApi.setResourceFilter(resourcesType.value)
 })
 
 const updateItem = (id: string, updater: (item: any) => void) => {
-  const item = data.value.find(i => i.Id === id)
+  const item = findResource(id)
   if (item) updater(item)
 }
 
-function cacheData() {
-  localStorage.setItem("resources-data", JSON.stringify(data.value))
+const applyTaskStatus = (task: appType.DownloadTaskRecord) => {
+  updateItem(task.resourceId, item => {
+    let message = task.error || ''
+    if (task.state === 'paused') message = t('tasks.paused')
+    else if ((task.items?.length ?? 0) > 0 && task.total) message = `${task.downloaded ?? 0}/${task.total}`
+    else if (task.total) message = `${Math.floor(((task.downloaded ?? 0) * 100) / task.total)}%`
+    item.download = {
+      taskId: task.id,
+      state: task.state,
+      outputPath: task.outputPath || '',
+      message,
+      downloaded: task.downloaded,
+      total: task.total,
+    }
+  })
+}
+
+const findResource = (id: string): appType.ResourceView | undefined => {
+  return findResourceInTree(data.value, id)
+}
+
+const removeResource = (id: string) => {
+  if (removeResourceFromTree(data.value, id)) {
+    expandedRowKeys.value = expandedRowKeys.value.filter(key => key !== id)
+  }
 }
 
 const resetTableHeight = () => {
@@ -610,59 +454,133 @@ const resetTableHeight = () => {
 }
 
 const buildClassify = () => {
-  const mimeMap = store.globalConfig.MimeMap ?? {}
-  const seen = new Set()
-  classify.value = [
-    {value: "all", label: computed(() => t("index.all"))},
-    ...Object.values(mimeMap)
-        .filter(({Type}) => {
-          if (seen.has(Type)) return false
-          seen.add(Type)
-          return true
-        })
-        .map(({Type}) => ({
-          value: Type,
-          label: classifyAlias[Type] ?? Type,
-        })),
+  const allOption = {value: "all", label: t("index.all")}
+  const primaryOptions = [
+    {value: 'video', label: computed(() => t('index.video'))},
+    {value: 'audio', label: computed(() => t('index.audio'))},
+    {value: 'image', label: computed(() => t('index.image'))},
+    {value: 'document', label: computed(() => t('index.document'))},
+    {value: 'archive', label: computed(() => t('index.archive'))},
+    {value: 'collection', label: computed(() => t('index.collection'))},
+    {value: 'other', label: computed(() => t('index.other'))},
+  ]
+  const primaryKindAliases = new Set([
+    'media.video', 'media.audio', 'media.image', 'media.collection', 'document.text',
+  ])
+  const seen = new Set<string>(['all', ...primaryOptions.map(option => option.value)])
+  const detailedOptions = pluginResourceKinds.value.flatMap(definition => {
+    if (!definition.id || primaryKindAliases.has(definition.id) || seen.has(definition.id)) return []
+    seen.add(definition.id)
+    return [{value: definition.id, label: localizedResourceKindName(definition)}]
+  })
+  classify.value = [allOption, ...primaryOptions, ...detailedOptions]
+  captureTypeOptions.value = [
+    allOption,
+    {type: 'group', key: 'primary-types', label: t('index.primary_types'), children: primaryOptions},
+    ...(detailedOptions.length > 0
+        ? [{type: 'group', key: 'detailed-types', label: t('index.detailed_types'), children: detailedOptions}]
+        : []),
   ]
 }
 
-const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
+const restoreResourceTypes = () => {
+  const cached = localStorage.getItem('resource-kind-filter')
+  if (!cached) {
+    appApi.setResourceFilter(resourcesType.value)
+    return
+  }
+  try {
+    const saved = JSON.parse(cached)?.res
+    resourcesType.value = Array.isArray(saved) && saved.length > 0
+        ? Array.from(new Set(saved.filter(value => typeof value === 'string')))
+        : ['all']
+  } catch {
+    resourcesType.value = ['all']
+  }
+}
+
+const removeUnavailableResourceTypes = () => {
+  const available = new Set(classify.value.map(option => option.value))
+  const next = resourcesType.value.filter(value => available.has(value))
+  if (next.length === resourcesType.value.length) return
+  resourcesType.value = next.length > 0 ? next : ['all']
+}
+
+const updateResourceTypes = (values: string[]) => {
+  const unique = Array.from(new Set(values))
+  if (unique.includes('all')) {
+    if (!resourcesType.value.includes('all')) {
+      resourcesType.value = ['all']
+      return
+    }
+    const specific = unique.filter(value => value !== 'all')
+    resourcesType.value = specific.length > 0 ? specific : ['all']
+    return
+  }
+  resourcesType.value = unique.length > 0 ? unique : ['all']
+}
+
+const localizedResourceKindName = (definition: appType.ResourceKindDefinition) => {
+  const entries = definition.locales ?? {}
+  const current = locale.value
+  const language = current.split('-')[0]
+  return entries[current]?.name || entries[language]?.name || entries.en?.name || Object.values(entries)[0]?.name || classifyAlias[definition.id]?.value || definition.id
+}
+
+const ensureResourceKind = (_kind?: string) => undefined
+
+watch(locale, buildClassify)
+
+const hasCapability = (row: appType.ResourceView, capability: string) =>
+    Array.isArray(row.capabilities) && row.capabilities.includes(capability)
+
+const canDownload = (row: appType.ResourceView) =>
+    hasCapability(row, 'download') && row.state !== 'partial'
+
+const localizedActionEntry = (definition: appType.PluginActionDefinition) => {
+  const entries = definition.locales ?? {}
+  const current = locale.value
+  const language = current.split('-')[0]
+  return entries[current] ?? entries[language] ?? entries.en ?? Object.values(entries)[0] ?? {}
+}
+
+const resourceActions = (row: appType.ResourceView): appType.DisplayResourceAction[] => {
+  const definitions = pluginActionDefinitions.value[row.source?.pluginId || ''] ?? {}
+  return (row.actions ?? []).flatMap(action => {
+    const definition = definitions[action.id]
+    if (!definition) return []
+    const localized = localizedActionEntry(definition)
+    return [{
+      id: action.id,
+      label: localized.name || action.label || action.id,
+      description: localized.description || '',
+    }]
+  })
+}
+
+const dataAction = (row: appType.ResourceView, index: number, type: string) => {
+  if (type.startsWith('plugin-action:')) {
+    const actionId = type.substring('plugin-action:'.length)
+    appApi.runResourceAction({id: row.id, actionId}).then((res: appType.Res) => {
+      if (res.code === 0) window?.$message?.error(res.message)
+      else if (!res.data?.cancelled) window?.$message?.info(t('index.plugin_action_started'))
+    })
+    return
+  }
   switch (type) {
     case "down":
       download(row, index)
       break
-    case "cancel":
-      if (row.Status === "pending") {
-        const queueIndex = downloadQueue.value.findIndex(item => item.Id === row.Id)
-        if (queueIndex !== -1) {
-          downloadQueue.value.splice(queueIndex, 1)
-        }
-        updateItem(row.Id, item => {
-          item.Status = 'ready'
-          item.SavePath = ''
-        })
-        cacheData()
-      } else if (row.Status === "running") {
-        appApi.cancel({id: row.Id}).then((res) => {
-          updateItem(row.Id, item => {
-            item.Status = 'ready'
-            item.SavePath = ''
-          })
-          if (activeDownloads > 0) {
-            activeDownloads--
-          }
-          cacheData()
-          checkQueue()
-          if (res.code === 0) {
-            window?.$message?.error(res.message)
-            return
-          }
-        })
-      }
+    case "cancel": {
+      const taskId = row.download?.taskId
+      if (taskId) appApi.cancelDownloadTask(taskId).then((res) => {
+        if (res.code === 0) window?.$message?.error(res.message)
+        else row.download = {state: 'cancelled'}
+      })
       break
+    }
     case "copy":
-      ClipboardSetText(row.Url).then((is: boolean) => {
+      ClipboardSetText(primaryURL(row)).then((is: boolean) => {
         if (is) {
           window?.$message?.success(t("common.copy_success"))
         } else {
@@ -671,7 +589,7 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       })
       break
     case "json":
-      ClipboardSetText(encodeURIComponent(JSON.stringify(row))).then((is: boolean) => {
+      ClipboardSetText(encodeURIComponent(JSON.stringify(exportableResource(row)))).then((is: boolean) => {
         if (is) {
           window?.$message?.success(t("common.copy_success"))
         } else {
@@ -680,45 +598,58 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
       })
       break
     case "open":
-      BrowserOpenURL(row.Url)
-      break
-    case "decode":
-      decodeWxFile(row, index)
+      BrowserOpenURL(primaryURL(row))
       break
     case "delete":
-      if (row.Status === "pending" || row.Status === "running") {
+      if (isActiveDownload(row)) {
         window?.$message?.error(t("index.delete_tip"))
         return
       }
-      appApi.delete({sign: [row.UrlSign]}).then(() => {
-        data.value.splice(index, 1)
-        cacheData()
+      appApi.deleteResources({ids: [row.id]}).then((res) => {
+		if (res.code === 1) {
+		  removeResource(row.id)
+		  resourceTotal.value = Math.max(0, resourceTotal.value - 1)
+		}
+        else window?.$message?.error(res.message)
       })
       break
   }
 }
 
-const renderToolbar = ({nodes}: ImageRenderToolbarProps) => {
-  return [
-    nodes.rotateCounterclockwise,
-    nodes.rotateClockwise,
-    nodes.resizeToOriginalSize,
-    nodes.zoomOut,
-    nodes.zoomIn,
-    nodes.close
-  ]
+const rowKey = (row: appType.ResourceView) => {
+  return row.id
 }
 
-const rowKey = (row: appType.MediaInfo) => {
-  return row.Id
+const resourceRowClassName = (row: appType.ResourceView) => {
+  return checkedRowKeysValue.value.includes(rowKey(row)) ? 'resource-row--checked' : ''
 }
+
+const {columns} = useResourceTableColumns({
+  t,
+  classify,
+  pluginResourceKinds,
+  resourceKindLabel: localizedResourceKindName,
+  checkedRowKeys: checkedRowKeysValue,
+  descriptionSearch: descriptionSearchValue,
+  urlSearch: urlSearchValue,
+  previewRow,
+  showPreview: showPreviewRow,
+  downloadStatuses: dwStatus,
+  rowKey,
+  hasCapability,
+  canDownload,
+  download: (row, index) => download(row, index),
+  updateDescription: (id, value) => updateItem(id, item => item.title = value),
+  resourceActions,
+  dataAction,
+})
 
 const handleCheck = (rowKeys: DataTableRowKey[]) => {
   checkedRowKeysValue.value = rowKeys
 }
 
 const updateFilters = (filters: DataTableFilterState, initiatorColumn: DataTableBaseColumn) => {
-  filterClassify.value = filters.Classify as string[]
+  filterKinds.value = filters.primaryType as string[]
 }
 
 const batchDown = async () => {
@@ -733,7 +664,7 @@ const batchDown = async () => {
   }
 
   data.value.forEach((item, index) => {
-    if (checkedRowKeysValue.value.includes(item.Id) && item.Classify !== 'live' && item.Classify !== 'm3u8') {
+    if (checkedRowKeysValue.value.includes(item.id) && canDownload(item)) {
       download(item, index)
     }
   })
@@ -748,36 +679,21 @@ const batchCancel = async () => {
   }
   loading.value = true
   const cancelTasks: Promise<any>[] = []
-  data.value.forEach((item, index) => {
-    if (!checkedRowKeysValue.value.includes(item.Id)) {
+  data.value.forEach((item) => {
+    if (!checkedRowKeysValue.value.includes(item.id)) {
       return
     }
 
-    if (item.Status === "pending") {
-      const queueIndex = downloadQueue.value.findIndex(qItem => qItem.Id === item.Id)
-      if (queueIndex !== -1) {
-        downloadQueue.value.splice(queueIndex, 1)
-      }
-      item.Status = 'ready'
-      item.SavePath = ''
-      return
-    }
-
-    if (item.Status === "running") {
-      if (activeDownloads > 0) {
-        activeDownloads--
-      }
-      cancelTasks.push(appApi.cancel({id: item.Id}).then(() => {
-        item.Status = 'ready'
-        item.SavePath = ''
-        checkQueue()
+    if (isActiveDownload(item) && item.download?.taskId) {
+      cancelTasks.push(appApi.cancelDownloadTask(item.download.taskId).then((res) => {
+        if (res.code === 1) item.download = {state: 'cancelled'}
+        else window?.$message?.error(res.message)
       }))
     }
   })
   await Promise.allSettled(cancelTasks)
   loading.value = false
   checkedRowKeysValue.value = []
-  cacheData()
 }
 
 const batchExport = (type?: string) => {
@@ -794,15 +710,15 @@ const batchExport = (type?: string) => {
   loadingText.value = t("common.loading")
   loading.value = true
 
-  let jsonData = data.value.filter(item => checkedRowKeysValue.value.includes(item.Id))
+  let jsonData: Array<object | string> = data.value.filter(item => checkedRowKeysValue.value.includes(item.id))
 
   if (type === "url") {
-    jsonData = jsonData.map(item => item.Url)
+    jsonData = (jsonData as appType.ResourceView[]).map(item => primaryURL(item))
   } else {
-    jsonData = jsonData.map(item => encodeURIComponent(JSON.stringify(item)))
+    jsonData = (jsonData as appType.ResourceView[]).map(item => encodeURIComponent(JSON.stringify(exportableResource(item))))
   }
 
-  appApi.batchExport({content: jsonData.join("\n")}).then((res: appType.Res) => {
+  appApi.exportResources({content: jsonData.join("\n")}).then((res: appType.Res) => {
     loading.value = false
     if (res.code === 0) {
       window?.$message?.error(res.message)
@@ -815,62 +731,39 @@ const batchExport = (type?: string) => {
   })
 }
 
-const uint8ArrayToBase64 = (bytes: any) => {
-  return window.btoa(Array.from(bytes, (byte: any) => String.fromCharCode(byte)).join(''))
-}
-
-const download = (row: appType.MediaInfo, index: number) => {
+const download = (row: appType.ResourceView, _index: number) => {
+  if (!canDownload(row)) {
+    window?.$message?.error(t("index.download_no_tip"))
+    return
+  }
   if (!store.globalConfig.SaveDirectory) {
     window?.$message?.error(t("index.save_path_empty"))
     return
   }
 
-  if (data.value.some(item => item.Id === row.Id && item.Status === "running")) {
+  if (isActiveDownload(row)) {
     return
   }
-
-  if (downloadQueue.value.some(item => item.Id === row.Id || item.Url === row.Url)) {
-    return
-  }
-
-  if (activeDownloads >= maxConcurrentDownloads.value) {
-    row.Status = "pending"
-    downloadQueue.value.push(row)
-    window?.$message?.info(t("index.download_queued", {count: downloadQueue.value.length}))
-    return
-  }
-
-  startDownload(row, index)
-}
-
-const startDownload = (row: appType.MediaInfo, index: number) => {
-  activeDownloads++
-
-  const decodeStr = row.DecodeKey
-      ? uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))
-      : ""
-
-  appApi.download({...row, decodeStr}).then((res: appType.Res) => {
+  row.download = {state: 'pending', message: t('index.pending')}
+  appApi.createDownload({id: row.id}).then((res: appType.Res<appType.DownloadTaskRecord>) => {
     if (res.code === 0) {
+      row.download = {state: 'ready'}
       window?.$message?.error(res.message)
+      return
     }
+    applyTaskStatus(res.data)
+  }).catch(() => {
+    row.download = {state: 'ready'}
   })
 }
 
-const checkQueue = () => {
-  if (downloadQueue.value.length > 0 && activeDownloads < maxConcurrentDownloads.value) {
-    const nextItem = downloadQueue.value.shift()
-    if (nextItem) {
-      const index = data.value.findIndex(item => item.Id === nextItem.Id)
-      if (index !== -1) {
-        startDownload(nextItem, index)
-      }
-    }
+const open = async () => {
+  const certificate = await certificateStore.refresh()
+  if (certificate.code !== 1 || !certificate.data.desktop.installed) {
+    certificateStore.showGuide('capture')
+    return
   }
-}
-
-const open = () => {
-  isOpenProxy = true
+  proxyAction.value = 'enable'
   store.openProxy().then((res: appType.Res) => {
     if (res.code === 1) {
       return
@@ -885,80 +778,52 @@ const open = () => {
 }
 
 const close = () => {
-  store.unsetProxy()
+  proxyAction.value = 'disable'
+  store.unsetProxy().then((res: appType.Res) => {
+    if (res.code === 0 && ['darwin', 'linux'].includes(store.envInfo.platform)) showPassword.value = true
+  })
 }
 
 const clear = async () => {
-  const newData = [] as any[]
-  const signs: string[] = []
+  const deletedIds: string[] = []
   if (checkedRowKeysValue.value.length > 0) {
-    data.value.forEach((item, index) => {
-      if (checkedRowKeysValue.value.includes(item.Id) && item.Status !== "pending" && item.Status !== "running") {
-        signs.push(item.UrlSign)
-      } else {
-        newData.push(item)
+    data.value.forEach(item => {
+      if (checkedRowKeysValue.value.includes(item.id) && !isActiveDownload(item)) {
+        deletedIds.push(item.id)
       }
     })
     checkedRowKeysValue.value = []
   } else {
-    data.value.forEach((item, index) => {
-      if (item.Status === "pending" || item.Status === "running") {
-        newData.push(item)
-      } else {
-        signs.push(item.UrlSign)
-      }
-    })
+	const response = await appApi.clearResources()
+	if (response.code !== 1) {
+	  window?.$message?.error(response.message)
+	  return
+	}
+	data.value = []
+	resourceTotal.value = 0
+	nextResourceOffset.value = 0
+	return
   }
-  await appApi.delete({sign: signs})
-  data.value = newData
-  cacheData()
-}
-
-const decodeWxFile = (row: appType.MediaInfo, index: number) => {
-  if (!row.DecodeKey) {
-    window?.$message?.error(t("index.video_decode_no"))
+  if (deletedIds.length === 0) return
+  const response = await appApi.deleteResources({ids: deletedIds})
+  if (response.code !== 1) {
+    window?.$message?.error(response.message)
     return
   }
-  appApi.openFileDialog().then((res: appType.Res) => {
-    if (res.code === 0) {
-      window?.$message?.error(res.message)
-      return
-    }
-    if (res.data.file) {
-      loadingText.value = t("index.video_decode_loading")
-      loading.value = true
-      appApi.wxFileDecode({
-        ...row,
-        filename: res.data.file,
-        decodeStr: uint8ArrayToBase64(getDecryptionArray(row.DecodeKey))
-      }).then((res: appType.Res) => {
-        loading.value = false
-        if (res.code === 0) {
-          window?.$message?.error(res.message)
-          return
-        }
-        data.value[index].SavePath = res.data.save_path
-        data.value[index].Status = "done"
-        cacheData()
-        window?.$message?.success(t("index.video_decode_success"))
-      })
-    }
-  })
+  deletedIds.forEach(removeResource)
+	resourceTotal.value = Math.max(0, resourceTotal.value - deletedIds.length)
 }
 
 const handleImport = (content: string) => {
   if (!content) {
-    window?.$message?.error(t("view.import_empty"))
+    window?.$message?.error(t("index.import_empty"))
     return
   }
   let newItems = [] as any[]
   content.split("\n").forEach((line, index) => {
     try {
       let res = JSON.parse(decodeURIComponent(line))
-      if (res && res?.Id) {
-        res.Id = res.Id + Math.floor(Math.random() * 100000)
-        res.SavePath = ""
-        res.Status = "ready"
+      if (res && res?.id) {
         newItems.push(res)
       }
     } catch (e) {
@@ -966,70 +831,28 @@ const handleImport = (content: string) => {
     }
   })
   if (newItems.length > 0) {
-    data.value = [...newItems, ...data.value]
-    cacheData()
+    appApi.importResources({items: newItems}).then((res: appType.Res) => {
+      if (res.code === 0) {
+        window?.$message?.error(res.message)
+        return
+      }
+	  appApi.listResources({offset: 0, limit: resourcePageSize}).then((page: appType.Res) => {
+		data.value = page.data?.items ?? []
+		resourceTotal.value = Number(page.data?.total ?? data.value.length)
+		nextResourceOffset.value = Number(page.data?.nextOffset ?? 0)
+		data.value.forEach(item => visitResource(item, child => ensureResourceKind(child.kind)))
+	  })
+    })
   }
   showImport.value = false
 }
 
-const handlePassword = async (password: string, isCache: boolean) => {
-  const res = await appApi.setSystemPassword({password, isCache})
-  if (res.code === 0) {
-    window.$message?.error(res.message)
-    return
-  }
-
-  if (isOpenProxy) {
-    showPassword.value = false
-    store.openProxy()
-    return
-  }
-
-  handleInstall().then((is: boolean) => {
-    if (is) {
-      showPassword.value = false
-    }
-  })
+const handlePassword = async (password: string) => {
+  const res = proxyAction.value === 'enable'
+      ? await store.openProxy(password)
+      : await store.unsetProxy(password)
+  if (res.code === 1) showPassword.value = false
 }
 
-const handleInstall = async () => {
-  isOpenProxy = false
-  const res = await appApi.install()
-  if (res.code === 1) {
-    store.globalConfig.AutoProxy && store.openProxy()
-    return true
-  }
-
-  window.$message?.error(res.message, {duration: 5000})
-
-  if (store.envInfo.platform === "windows" && res.message.includes("Access is denied")) {
-    window.$message?.error(t("index.win_install_tip"))
-  } else if (["darwin", "linux"].includes(store.envInfo.platform)) {
-    showPassword.value = true
-  }
-  return false
-}
-
-const checkLoading = () => {
-  setTimeout(() => {
-    if (loading.value && !isInstall && !showPassword.value) {
-      dialog.warning({
-        title: t("index.start_err_tip"),
-        content: t("index.start_err_content"),
-        positiveText: t("index.start_err_positiveText"),
-        negativeText: t("index.start_err_negativeText"),
-        draggable: false,
-        closeOnEsc: false,
-        closable: false,
-        maskClosable: false,
-        onPositiveClick: () => {
-          bind.ResetApp()
-        },
-        onNegativeClick: () => {
-          Quit()
-        }
-      } as DialogOptions)
-    }
-  }, 6000)
-}
+const isActiveDownload = (row: appType.ResourceView) => ['pending', 'resolving', 'downloading', 'processing', 'pausing'].includes(row.download?.state || '')
 </script>

@@ -1,0 +1,16 @@
+observation:
+  stage: response
+  request:
+    method: GET
+    url: https://api.example.com/videos
+    host: api.example.com
+    path: /videos
+    headers: {}
+  response:
+    statusCode: 200
+    contentType: application/json
+    headers: {Content-Type: [application/json]}
+    body: '{"data":{"items":[{"playUrl":"https://cdn.example.com/a.mp4","title":"A"}]}}'
+expected:
+  resourceCount: 1
+  resourceUrls: [https://cdn.example.com/a.mp4]

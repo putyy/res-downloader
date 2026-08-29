@@ -1,21 +1,32 @@
-## 下载安装文件
-- windows下载.exe结尾的，根据自己的系统架构下载合适的安装文件，通常下载带有“win_amd64.exe”或“x64-installer.exe”结尾的文件  
-- Mac下载.dmg结尾即可  
-- Linux根据系统类型下载对应的执行文件或安装文件  
+# 安装指南
 
-## Windows安装过程
-- 双击下载好的exe 正常安装即可，首次打开记得右键管理员运行
+请从 [GitHub Releases](https://github.com/putyy/res-downloader/releases) 下载与操作系统和 CPU 架构匹配的安装包。
 
-## Mac安装过程
-- 双击下载好的dmg文件，将res-downloader拖入应用即可，如图:  
-![installation-mac-1.png](images/installation-mac-1.png ':size=50%')
+## Windows
 
-## Linux安装过程(自行替换掉对应的安装文件目录)
-- ubuntu安装deb文件
-> sudo apt install res-downloader_3.0.2_linux_x64.deb
+下载 Windows 安装包并按提示完成安装。首次安装证书时，请允许系统显示的 UAC 授权。
 
-- 执行文件运行方式
-> chmod +x ./res-downloader_3.0.2_linux_x64
-> sudo ./res-downloader_3.0.2_linux_x64
+Windows 7 只能使用旧版归档中的 `2.3.0`。
 
+## macOS
 
+下载 `.dmg` 文件，将 `res-downloader.app` 拖入“应用程序”。
+
+首次启动如果被系统阻止，请在“系统设置 → 隐私与安全性”中允许打开。
+
+## Linux
+
+Debian、Ubuntu 等系统可以安装对应架构的 `.deb` 文件：
+
+```bash
+sudo apt install ./res-downloader_<version>_linux_amd64.deb
+```
+
+使用独立程序时，先添加执行权限后再启动：
+
+```bash
+chmod +x ./res-downloader_<version>_linux_amd64
+./res-downloader_<version>_linux_amd64
+```
+
+安装完成后，继续查看[快速开始](getting-started.md)。

@@ -1,5 +1,11 @@
 .idea
+.vscode
 build/bin
 node_modules
 frontend/dist
+test
+examples/plugins/*.zip
 .DS_Store
+
+plugins/*
+!plugins/README.md

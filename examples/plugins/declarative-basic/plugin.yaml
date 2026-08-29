@@ -1,0 +1,32 @@
+id: com.example.declarative-video
+name: Example Declarative Video
+version: 1.0.0
+apiVersion: 1
+runtime: declarative
+permissions:
+  domains: [api.example.com]
+  capabilities: [observe-response, read-response-body, emit-resource]
+match:
+  - stage: response
+    host: api.example.com
+    path: /api/list
+    contentTypes: [application/json*]
+resourceKinds:
+  - id: media.video
+    icon: video
+    locales:
+      zh: {name: 视频}
+      en: {name: Video}
+extractors:
+  - stage: response
+    format: json
+    root: $.data.items[*]
+    resource:
+      url: {path: $.url}
+      title: {path: $.title}
+      size: {path: $.size}
+      kind: {value: media.video}
+      role: {value: video}
+      preview: {value: video}
+      contentType: {value: video/mp4}
+      extension: {value: .mp4}

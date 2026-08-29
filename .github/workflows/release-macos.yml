@@ -1,0 +1,80 @@
+name: Build macOS release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      product_version:
+        required: true
+        type: string
+      release_version:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: macOS universal
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
+          go install "github.com/wailsapp/wails/v2/cmd/wails@$wails_version"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          npm install --global create-dmg
+
+      - name: Build DMG
+        shell: bash
+        env:
+          PRODUCT_VERSION: ${{ inputs.product_version }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          wails build -platform darwin/universal
+          create-dmg \
+            --overwrite \
+            --no-code-sign \
+            build/bin/res-downloader.app \
+            build/bin
+          mv -f \
+            "build/bin/res-downloader $PRODUCT_VERSION.dmg" \
+            "build/bin/res-downloader_${RELEASE_VERSION}_mac.dmg"
+
+      - name: Upload DMG to release
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: >-
+          gh release upload "$RELEASE_TAG"
+          "build/bin/res-downloader_${RELEASE_VERSION}_mac.dmg"
+          --clobber
+
+      - name: Remove local release files
+        if: always()
+        shell: bash
+        run: rm -rf build/bin/res-downloader.app build/bin/*.dmg

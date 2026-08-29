@@ -71,7 +71,11 @@ ManifestDPIAware true
 #!finalize 'signtool --file "%1"'
 
 Name "${INFO_PRODUCTNAME}"
-OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
+!ifdef ARG_WEBVIEW2_FIXED_RUNTIME
+    OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-fixed-webview2-installer.exe"
+!else
+    OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe"
+!endif
 InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
@@ -82,7 +86,39 @@ FunctionEnd
 Section
     !insertmacro wails.setShellContext
 
-    !insertmacro wails.webview2runtime
+    !ifdef ARG_WEBVIEW2_FIXED_RUNTIME
+        RMDir /r "$INSTDIR\WebView2Runtime"
+        SetOutPath "$INSTDIR\WebView2Runtime"
+        File /r "${ARG_WEBVIEW2_FIXED_RUNTIME}\*.*"
+
+        # Fixed Version 120+ needs AppContainer read and execute permissions on Windows 10.
+        nsExec::ExecToLog '"$SYSDIR\icacls.exe" "$INSTDIR\WebView2Runtime" /grant "*S-1-15-2-2:(OI)(CI)(RX)" /T /C /Q'
+        Pop $0
+        ${If} $0 != 0
+            MessageBox MB_ICONSTOP|MB_OK "Failed to configure WebView2 Runtime permissions ($0). Installation will stop."
+            RMDir /r "$INSTDIR\WebView2Runtime"
+            Abort
+        ${EndIf}
+        nsExec::ExecToLog '"$SYSDIR\icacls.exe" "$INSTDIR\WebView2Runtime" /grant "*S-1-15-2-1:(OI)(CI)(RX)" /T /C /Q'
+        Pop $0
+        ${If} $0 != 0
+            MessageBox MB_ICONSTOP|MB_OK "Failed to configure restricted WebView2 Runtime permissions ($0). Installation will stop."
+            RMDir /r "$INSTDIR\WebView2Runtime"
+            Abort
+        ${EndIf}
+    !else
+        RMDir /r "$INSTDIR\WebView2Runtime"
+        !insertmacro wails.webview2runtime
+
+        # Wails' WebView2 macro does not validate the Bootstrapper exit code.
+        # Verify the machine-level runtime before installing the application.
+        SetRegView 64
+        ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+        ${If} $0 == ""
+            MessageBox MB_ICONSTOP|MB_OK "WebView2 Runtime installation failed. Check the network or use the Fixed WebView2 release package."
+            Abort
+        ${EndIf}
+    !endif
 
     SetOutPath $INSTDIR
 

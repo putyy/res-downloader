@@ -1,0 +1,177 @@
+name: Build Windows release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_version:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  WEBVIEW2_FIXED_VERSION: 151.0.4129.101
+  WEBVIEW2_FIXED_X64_URL: >-
+    https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/d480b710-fe1e-4e4d-ae99-5b62e6391fd3/Microsoft.WebView2.FixedVersionRuntime.151.0.4129.101.x64.cab
+
+jobs:
+  build:
+    name: Windows amd64 and arm64
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
+          go install "github.com/wailsapp/wails/v2/cmd/wails@$wails_version"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          choco install nsis --yes --no-progress
+          if ($LASTEXITCODE -notin @(0, 1641, 3010)) {
+            throw "安装 NSIS 失败，退出码：$LASTEXITCODE"
+          }
+
+          $nsisRoot = Join-Path ${env:ProgramFiles(x86)} "NSIS"
+          $makensis = Get-ChildItem `
+            -Path $nsisRoot `
+            -Filter "makensis.exe" `
+            -File `
+            -Recurse `
+            -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $makensis) {
+            throw "NSIS 已安装，但未找到 makensis.exe：$nsisRoot"
+          }
+
+          $makensis.Directory.FullName | Out-File `
+            -FilePath $env:GITHUB_PATH `
+            -Encoding utf8 `
+            -Append
+          & $makensis.FullName /VERSION
+          if ($LASTEXITCODE -ne 0) {
+            throw "makensis 校验失败，退出码：$LASTEXITCODE"
+          }
+
+      - name: Build installers
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          wails build -f -nsis -platform "windows/amd64" -webview2 Embed -skipbindings
+          Move-Item -Force `
+            "build/bin/res-downloader-amd64-installer.exe" `
+            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe"
+
+          wails build -f -nsis -platform "windows/arm64" -webview2 Embed -skipbindings
+          Move-Item -Force `
+            "build/bin/res-downloader-arm64-installer.exe" `
+            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe"
+
+      - name: Build amd64 installer with Fixed Version WebView2
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $cabPath = Join-Path $env:RUNNER_TEMP `
+            "Microsoft.WebView2.FixedVersionRuntime.$env:WEBVIEW2_FIXED_VERSION.x64.cab"
+          $extractRoot = Join-Path $env:RUNNER_TEMP "webview2-fixed-x64"
+
+          Invoke-WebRequest -Uri $env:WEBVIEW2_FIXED_X64_URL -OutFile $cabPath
+          New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
+          & "$env:SystemRoot\System32\expand.exe" $cabPath "-F:*" $extractRoot
+          if ($LASTEXITCODE -ne 0) {
+            throw "解压 WebView2 Fixed Version Runtime 失败，退出码：$LASTEXITCODE"
+          }
+
+          $runtimeExecutable = Get-ChildItem `
+            -Path $extractRoot `
+            -Filter "msedgewebview2.exe" `
+            -File `
+            -Recurse | Select-Object -First 1
+          if (-not $runtimeExecutable) {
+            throw "WebView2 Fixed Version Runtime 中未找到 msedgewebview2.exe"
+          }
+          $runtimeSignature = Get-AuthenticodeSignature $runtimeExecutable.FullName
+          if (
+            $runtimeSignature.Status -ne "Valid" -or
+            $runtimeSignature.SignerCertificate.Subject -notmatch "Microsoft Corporation"
+          ) {
+            throw "WebView2 Fixed Version Runtime 签名验证失败"
+          }
+          $runtimePath = $runtimeExecutable.Directory.FullName
+
+          wails build `
+            -f `
+            -platform "windows/amd64" `
+            -webview2 Error `
+            -skipbindings `
+            -o "res-downloader-fixed-webview2.exe"
+
+          $appExecutable = (Resolve-Path `
+            "build/bin/res-downloader-fixed-webview2.exe").Path
+          $makensisExitCode = 1
+          Push-Location "build/windows/installer"
+          try {
+            makensis `
+              "-DARG_WAILS_AMD64_BINARY=$appExecutable" `
+              "-DARG_WEBVIEW2_FIXED_RUNTIME=$runtimePath" `
+              "project.nsi"
+            $makensisExitCode = $LASTEXITCODE
+          } finally {
+            Pop-Location
+          }
+          if ($makensisExitCode -ne 0) {
+            throw "构建 Fixed Version WebView2 安装包失败，退出码：$makensisExitCode"
+          }
+
+          Move-Item -Force `
+            "build/bin/res-downloader-amd64-fixed-webview2-installer.exe" `
+            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64_fixed_webview2.exe"
+
+      - name: Upload installers to release
+        shell: pwsh
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          gh release upload $env:RELEASE_TAG `
+            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe" `
+            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe" `
+            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64_fixed_webview2.exe" `
+            --clobber
+
+      - name: Remove local release files
+        if: always()
+        shell: pwsh
+        run: Remove-Item -Force -ErrorAction SilentlyContinue build/bin/*.exe

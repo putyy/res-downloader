@@ -1,12 +1,10 @@
 <div align="center">
 <a href="https://github.com/putyy/res-downloader"><img src="images/logo.png" width="120"/></a>
-<h1><strong>res-downloader</strong></h1>
+<h1><strong>res-downloader V4</strong></h1>
 </div>
 
-> 全新技术栈，更新、更小、更快、更稳
-
-### 简单、高效、轻便 (仅 ~10M)
+> 跨平台网络资源发现、插件处理与下载任务管理
 
 
-[开始使用 Let Go](/readme.md)
+[了解项目](/readme.md)
 [下载](/getting-started.md)

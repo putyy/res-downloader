@@ -1,0 +1,23 @@
+{
+  "observation": {
+    "stage": "response",
+    "request": {
+      "method": "GET",
+      "url": "https://channels.weixin.qq.com/web/pages/feed",
+      "host": "channels.weixin.qq.com",
+      "path": "/web/pages/feed",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["text/html"]},
+      "contentType": "text/html",
+      "body": "<script src=\"chunk.js\"></script>"
+    }
+  },
+  "expected": {
+    "resourceCount": 0,
+    "decision": "continue",
+    "patchBodyContains": ".js?v=1.0.0\""
+  }
+}

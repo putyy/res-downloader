@@ -7,7 +7,7 @@
         v-if="isEdit"
         ref="inputRef"
         :value="inputValue"
-        @update:value="v => inputValue = v"
+        @update:value="(v: string) => inputValue = v"
         @change="handleChange"
         @blur="handleChange"
     />
@@ -26,8 +26,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch } from 'vue'
-import type { InputInst } from 'naive-ui'
+import {nextTick, ref, watch} from 'vue'
+import type {InputInst} from 'naive-ui'
 
 interface OnUpdateValue {
   (value: string): void

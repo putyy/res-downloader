@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://res.putyy.com/plugin-sdk/plugin-v1.schema.json",
+  "title": "res-downloader plugin manifest v1",
+  "description": "Editor schema for res-downloader plugin.json. The application linter remains authoritative.",
+  "type": "object",
+  "required": ["id", "name", "version", "apiVersion", "runtime", "permissions", "match"],
+  "properties": {
+    "id": {
+      "allOf": [{"$ref": "#/$defs/identifier"}],
+      "description": "Stable plugin ID. builtin. is host-only; official. is limited to bundled plugins and store entries verified as official. Local and community packages cannot use either reserved prefix."
+    },
+    "name": {"type": "string", "minLength": 1},
+    "author": {"$ref": "#/$defs/author"},
+    "version": {"$ref": "#/$defs/semanticVersion"},
+    "apiVersion": {"const": 1},
+    "runtime": {"enum": ["javascript", "declarative"]},
+    "entry": {"type": "string", "minLength": 1, "pattern": "\\.js$"},
+    "priority": {"type": "integer"},
+    "enabled": {"type": "boolean"},
+    "permissions": {"$ref": "#/$defs/permissions"},
+    "match": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/matchRule"}
+    },
+    "pageScripts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {"$ref": "#/$defs/pageScript"}
+    },
+    "resourceKinds": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/resourceKind"}
+    },
+    "settingsSchema": {
+      "type": "object",
+      "description": "JSON-Schema-like settings definition rendered by the plugin manager."
+    },
+    "extractors": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/declarativeExtractor"}
+    },
+    "processors": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {"$ref": "#/$defs/processor"}
+    },
+    "actions": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {"$ref": "#/$defs/action"}
+    },
+    "locales": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/locale"}
+    },
+    "requires": {"$ref": "#/$defs/requirements"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"runtime": {"const": "javascript"}}, "required": ["runtime"]},
+      "then": {"required": ["entry"]}
+    },
+    {
+      "if": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "read-request-body"}}}
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "observe-request"}}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "permissions": {
+            "properties": {
+              "capabilities": {
+                "contains": {"enum": ["read-response-body", "modify-response", "capture-response-body"]}
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "observe-response"}}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "intercept-request"}}}
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "observe-request"}}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "page-bridge"}}}
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "inject-page-script"}}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "permissions": {
+            "properties": {"capabilities": {"contains": {"const": "enqueue-download"}}}
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "permissions": {
+            "properties": {
+              "capabilities": {
+                "allOf": [
+                  {"contains": {"const": "page-bridge"}},
+                  {"contains": {"const": "emit-resource"}}
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "extension": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 20,
+      "pattern": "^\\.[A-Za-z0-9._-]+$"
+    },
+    "locale": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "author": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "maxLength": 100},
+        "url": {"type": "string", "format": "uri", "pattern": "^https?://", "maxLength": 2048}
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "required": ["domains", "capabilities"],
+      "properties": {
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "observe-request",
+              "read-request-body",
+              "intercept-request",
+              "observe-response",
+              "read-response-body",
+              "modify-response",
+              "emit-resource",
+              "process-download",
+              "media.basic",
+              "media.ffmpeg",
+              "media.ffmpeg.network",
+              "inject-page-script",
+              "page-bridge",
+              "capture-response-body",
+              "enqueue-download"
+            ]
+          }
+        },
+        "bodyLimit": {"type": "integer", "minimum": 0, "maximum": 33554432}
+      }
+    },
+    "matchRule": {
+      "type": "object",
+      "properties": {
+        "stage": {"enum": ["request", "response"]},
+        "host": {"type": "string"},
+        "path": {"type": "string"},
+        "url": {"type": "string"},
+        "method": {"type": "string"},
+        "contentTypes": {"type": "array", "items": {"type": "string"}},
+        "readBody": {"type": "boolean"}
+      }
+    },
+    "pageScriptMatch": {
+      "type": "object",
+      "required": ["host"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1},
+        "path": {"type": "string"},
+        "url": {"type": "string"}
+      }
+    },
+    "pageScript": {
+      "type": "object",
+      "required": ["id", "entry", "match"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "entry": {"type": "string", "minLength": 1, "pattern": "\\.js$"},
+        "match": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/pageScriptMatch"}
+        },
+        "runAt": {"enum": ["document-start"]},
+        "frames": {"enum": ["top", "all"]},
+        "bridge": {"type": "boolean"}
+      }
+    },
+    "resourceKind": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "icon": {"$ref": "#/$defs/identifier"},
+        "color": {"type": "string", "maxLength": 32},
+        "locales": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/locale"}
+        }
+      }
+    },
+    "selector": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string"},
+        "value": {}
+      },
+      "oneOf": [{"required": ["path"]}, {"required": ["value"]}]
+    },
+    "declarativeResource": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {"$ref": "#/$defs/selector"},
+        "title": {"$ref": "#/$defs/selector"},
+        "coverUrl": {"$ref": "#/$defs/selector"},
+        "kind": {"$ref": "#/$defs/selector"},
+        "role": {"$ref": "#/$defs/selector"},
+        "executor": {"$ref": "#/$defs/selector"},
+        "contentType": {"$ref": "#/$defs/selector"},
+        "extension": {"$ref": "#/$defs/selector"},
+        "size": {"$ref": "#/$defs/selector"},
+        "preview": {"$ref": "#/$defs/selector"},
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/selector"}
+        }
+      }
+    },
+    "declarativeExtractor": {
+      "type": "object",
+      "required": ["stage", "format", "resource"],
+      "properties": {
+        "stage": {"enum": ["request", "response"]},
+        "format": {"const": "json"},
+        "root": {"type": "string"},
+        "resource": {"$ref": "#/$defs/declarativeResource"}
+      }
+    },
+    "processor": {
+      "type": "object",
+      "required": ["runtime", "entry", "apiVersion"],
+      "properties": {
+        "runtime": {"const": "wasm"},
+        "entry": {"type": "string", "minLength": 1, "pattern": "\\.wasm$"},
+        "apiVersion": {"const": 1}
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["kind", "processor"],
+      "properties": {
+        "kind": {"const": "process-file"},
+        "processor": {"type": "string", "minLength": 1},
+        "inputExtensions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/extension"}
+        },
+        "outputExtension": {"$ref": "#/$defs/extension"},
+        "locales": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/locale"}
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "ffmpeg": {"type": "string", "pattern": "^>=\\s*[0-9]+(?:\\.[0-9]+){0,2}$"}
+      }
+    }
+  }
+}

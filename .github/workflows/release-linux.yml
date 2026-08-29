@@ -1,0 +1,158 @@
+name: Build Linux release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      package_version:
+        required: true
+        type: string
+      release_version:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Build Linux environment
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          docker build \
+            --platform "linux/$ARCH" \
+            --network host \
+            --file build/linux/dockerfile \
+            --tag "res-downloader-linux-$ARCH" \
+            .
+
+      - name: Build Linux packages
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+          PACKAGE_VERSION: ${{ inputs.package_version }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          docker run --rm \
+            --platform "linux/$ARCH" \
+            --network host \
+            --privileged \
+            --env ARCH \
+            --env "HOST_GID=$(id -g)" \
+            --env "HOST_UID=$(id -u)" \
+            --env PACKAGE_VERSION \
+            --env RELEASE_VERSION \
+            --volume "$GITHUB_WORKSPACE:/www/res-downloader" \
+            "res-downloader-linux-$ARCH" \
+            bash -c '
+              set -euo pipefail
+              cd /www/res-downloader
+
+              restore_workspace_ownership() {
+                chown -R "$HOST_UID:$HOST_GID" \
+                  build/bin \
+                  build/linux/AppImage \
+                  build/linux/Debian
+              }
+              trap restore_workspace_ownership EXIT
+
+              wails build -platform "linux/$ARCH" -s -skipbindings
+
+              install -Dm755 \
+                build/bin/res-downloader \
+                build/linux/Debian/usr/local/bin/res-downloader
+              sed \
+                -e "s/{{Version}}/$PACKAGE_VERSION/g" \
+                -e "s/{{Architecture}}/$ARCH/g" \
+                build/linux/Debian/DEBIAN/.control \
+                > build/linux/Debian/DEBIAN/control
+              dpkg-deb --build \
+                build/linux/Debian \
+                "build/bin/res-downloader_${RELEASE_VERSION}_linux_${ARCH}.deb"
+
+              if [[ "$ARCH" == "amd64" ]]; then
+                install -Dm755 \
+                  build/bin/res-downloader \
+                  build/linux/AppImage/usr/bin/res-downloader
+                ln -sfn usr/bin/res-downloader build/linux/AppImage/AppRun
+                ln -sfn \
+                  usr/share/icons/hicolor/256x256/apps/res-downloader.png \
+                  build/linux/AppImage/res-downloader.png
+
+                pushd build/linux/AppImage >/dev/null
+                for file in WebKitNetworkProcess WebKitWebProcess libwebkit2gtkinjectedbundle.so; do
+                  path="$(find /usr/lib* -name "$file" 2>/dev/null | head -n 1)"
+                  if [[ -n "$path" ]]; then
+                    cp --parents "$path" .
+                  else
+                    echo "警告：未找到 $file" >&2
+                  fi
+                done
+                popd >/dev/null
+
+                curl \
+                  --fail \
+                  --location \
+                  --retry 3 \
+                  --output build/bin/appimagetool-x86_64.AppImage \
+                  https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+                chmod +x build/bin/appimagetool-x86_64.AppImage
+                APPIMAGE_EXTRACT_AND_RUN=1 \
+                  build/bin/appimagetool-x86_64.AppImage \
+                  build/linux/AppImage \
+                  "build/bin/res-downloader_${RELEASE_VERSION}_linux_amd64.AppImage"
+              fi
+
+              mv \
+                build/bin/res-downloader \
+                "build/bin/res-downloader_${RELEASE_VERSION}_linux_${ARCH}"
+            '
+
+      - name: Upload packages to release
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          assets=(
+            "build/bin/res-downloader_${RELEASE_VERSION}_linux_${ARCH}"
+            "build/bin/res-downloader_${RELEASE_VERSION}_linux_${ARCH}.deb"
+          )
+          if [[ "$ARCH" == "amd64" ]]; then
+            assets+=("build/bin/res-downloader_${RELEASE_VERSION}_linux_amd64.AppImage")
+          fi
+
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+
+      - name: Remove local release files
+        if: always()
+        shell: bash
+        run: rm -f build/bin/res-downloader_* build/bin/appimagetool-*.AppImage

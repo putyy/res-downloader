@@ -1,0 +1,23 @@
+{
+  "observation": {
+    "stage": "response",
+    "request": {
+      "method": "GET",
+      "url": "https://res.wx.qq.com/t/wx_fed/finder/web/web-finder/res/js/virtual_svg-icons-register.publish.demo.js",
+      "host": "res.wx.qq.com",
+      "path": "/t/wx_fed/finder/web/web-finder/res/js/virtual_svg-icons-register.publish.demo.js",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["application/javascript"]},
+      "contentType": "application/javascript",
+      "body": "class Feed { get media(){return this.value;} }"
+    }
+  },
+  "expected": {
+    "resourceCount": 0,
+    "decision": "continue",
+    "patchBodyContains": "res-downloader/wechat?type=1"
+  }
+}

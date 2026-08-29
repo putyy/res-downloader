@@ -1,0 +1,21 @@
+{
+  "observation": {
+    "stage": "response",
+    "request": {
+      "method": "GET",
+      "url": "https://finder.video.qq.com/example.mp4",
+      "host": "finder.video.qq.com",
+      "path": "/example.mp4",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["video/mp4"]},
+      "contentType": "video/mp4"
+    }
+  },
+  "expected": {
+    "resourceCount": 0,
+    "decision": "stop"
+  }
+}
