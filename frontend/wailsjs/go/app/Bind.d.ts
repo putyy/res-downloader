@@ -8,6 +8,10 @@ export function AppInfo():Promise<httpapi.ResponseData>;
 
 export function Config():Promise<httpapi.ResponseData>;
 
+export function LogFrontendError(arg1:string):Promise<void>;
+
+export function OpenLogDirectory():Promise<void>;
+
 export function PrepareReset(arg1:string):Promise<void>;
 
 export function ResetApp():Promise<void>;

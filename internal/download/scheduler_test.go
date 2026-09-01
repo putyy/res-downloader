@@ -12,9 +12,11 @@ import (
 )
 
 type schedulerResourceFake struct {
-	children []shared.ResourceCandidate
-	runs     []string
-	events   []shared.DownloadTaskRecord
+	children    []shared.ResourceCandidate
+	runs        []string
+	directories []string
+	executions  []shared.DownloadExecution
+	events      []shared.DownloadTaskRecord
 }
 
 type pausableSchedulerResourceFake struct {
@@ -66,8 +68,10 @@ func (f *schedulerResourceFake) SaveCandidate(shared.ResourceCandidate) error { 
 func (f *schedulerResourceFake) ChildrenOf(shared.ResourceCandidate) []shared.ResourceCandidate {
 	return append([]shared.ResourceCandidate(nil), f.children...)
 }
-func (f *schedulerResourceFake) RunDownloadPlan(_ context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, _ shared.DownloadExecution) (string, error) {
+func (f *schedulerResourceFake) RunDownloadPlan(_ context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, execution shared.DownloadExecution) (string, error) {
 	f.runs = append(f.runs, candidate.ID)
+	f.directories = append(f.directories, directory)
+	f.executions = append(f.executions, execution)
 	return filepath.Join(directory, candidate.ID+".mp4"), nil
 }
 func (f *schedulerResourceFake) CancelActive(string) error { return nil }
@@ -122,8 +126,35 @@ func newSchedulerForTest(resources ResourceService, plans PlanService, directory
 		config: &config.Config{SaveDirectory: directory}, resources: resources, plugins: plans,
 		ctx: ctx, cancel: cancel, queue: make(chan string, 4), tasks: make(map[string]shared.DownloadTaskRecord),
 		byResource: make(map[string]string), cancelFuncs: make(map[string]context.CancelCauseFunc),
-		taskRoot:     filepath.Join(directory, "download-work"),
 		lastProgress: make(map[string]time.Time),
+	}
+}
+
+func TestTaskBindsWorkspaceToSaveDirectoryAtEnqueue(t *testing.T) {
+	saveDirectory := t.TempDir()
+	resources := &schedulerResourceFake{}
+	scheduler := newSchedulerForTest(resources, schedulerPlanFake{}, saveDirectory)
+	defer scheduler.cancel()
+
+	task, err := scheduler.Enqueue(shared.ResourceCandidate{
+		ID: "video", Title: "Video", State: shared.ResourceStateReady,
+		Capabilities: []string{shared.ResourceCapabilityDownload},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantWorkspace := filepath.Join(saveDirectory, taskWorkspaceDirectory, task.ID)
+	if task.SaveDirectory != saveDirectory || task.TempPath != wantWorkspace {
+		t.Fatalf("task paths = save %q, temp %q", task.SaveDirectory, task.TempPath)
+	}
+
+	scheduler.config.SaveDirectory = t.TempDir()
+	scheduler.execute(task.ID)
+	if len(resources.directories) != 1 || resources.directories[0] != saveDirectory {
+		t.Fatalf("download directories = %#v", resources.directories)
+	}
+	if len(resources.executions) != 1 || resources.executions[0].WorkDir != wantWorkspace {
+		t.Fatalf("download executions = %#v", resources.executions)
 	}
 }
 

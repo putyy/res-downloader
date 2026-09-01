@@ -105,6 +105,8 @@ func (h *Server) HandleAPI(w http.ResponseWriter, r *http.Request) bool {
 		h.clearResources(w, r)
 	case "/api/resources/delete":
 		h.deleteResources(w, r)
+	case "/api/resources/update":
+		h.updateResource(w, r)
 	case "/api/resources/action":
 		h.resourceAction(w, r)
 	case "/api/resources/import":
@@ -167,7 +169,7 @@ func knownAPIPath(path string) bool {
 		"/api/certificate/status", "/api/certificate/install", "/api/certificate/uninstall",
 		"/api/certificate/cleanup", "/api/certificate/download", "/api/resources",
 		"/api/resources/filter", "/api/resources/clear", "/api/resources/delete",
-		"/api/resources/action", "/api/resources/import", "/api/resources/export",
+		"/api/resources/update", "/api/resources/action", "/api/resources/import", "/api/resources/export",
 		"/api/download/create", "/api/download/tasks", "/api/download/retry",
 		"/api/download/pause", "/api/download/resume", "/api/download/cancel",
 		"/api/download/stop-recording", "/api/download/delete", "/api/download/batch",

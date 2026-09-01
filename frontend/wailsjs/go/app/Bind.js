@@ -14,6 +14,14 @@ export function Config() {
   return window['go']['app']['Bind']['Config']();
 }
 
+export function LogFrontendError(arg1) {
+  return window['go']['app']['Bind']['LogFrontendError'](arg1);
+}
+
+export function OpenLogDirectory() {
+  return window['go']['app']['Bind']['OpenLogDirectory']();
+}
+
 export function PrepareReset(arg1) {
   return window['go']['app']['Bind']['PrepareReset'](arg1);
 }

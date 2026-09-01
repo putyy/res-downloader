@@ -15,8 +15,10 @@ func TestDownloadTaskStorePersistsPlanWithoutSelectedHeaders(t *testing.T) {
 	defer store.Close()
 	task := shared.DownloadTaskRecord{
 		ID: "task", ResourceID: "resource", State: shared.DownloadTaskPending,
-		Resource: shared.ResourceCandidate{ID: "resource", Tracks: []shared.ResourceTrack{{ID: "video", Headers: map[string]string{"Cookie": "secret", "Referer": "kept"}, NonPersistentHeaders: []string{"cookie"}}}},
-		Plan:     shared.DownloadPlan{Inputs: []shared.DownloadInput{{ID: "video", Headers: map[string]string{"Cookie": "secret", "Referer": "kept"}}}},
+		SaveDirectory: filepath.Join("downloads", "target"),
+		TempPath:      filepath.Join("downloads", "target", taskWorkspaceDirectory, "task"),
+		Resource:      shared.ResourceCandidate{ID: "resource", Tracks: []shared.ResourceTrack{{ID: "video", Headers: map[string]string{"Cookie": "secret", "Referer": "kept"}, NonPersistentHeaders: []string{"cookie"}}}},
+		Plan:          shared.DownloadPlan{Inputs: []shared.DownloadInput{{ID: "video", Headers: map[string]string{"Cookie": "secret", "Referer": "kept"}}}},
 	}
 	if err := store.Upsert(task); err != nil {
 		t.Fatal(err)
@@ -30,6 +32,9 @@ func TestDownloadTaskStorePersistsPlanWithoutSelectedHeaders(t *testing.T) {
 	}
 	if tasks[0].Plan.Inputs[0].Headers["Referer"] != "kept" {
 		t.Fatal("task plan removed an unmarked header")
+	}
+	if tasks[0].SaveDirectory != task.SaveDirectory || tasks[0].TempPath != task.TempPath {
+		t.Fatalf("task paths were not persisted: %#v", tasks[0])
 	}
 	if task.Plan.Inputs[0].Headers["Cookie"] != "secret" {
 		t.Fatal("in-memory task was mutated")

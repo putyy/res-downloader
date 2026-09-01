@@ -5,6 +5,9 @@ import appApi from "@/api/app"
 import {Environment} from "../../wailsjs/runtime"
 import * as bind from "../../wailsjs/go/app/Bind"
 import {httpapi} from "../../wailsjs/go/models"
+import {frontendErrorDetails, reportFrontendError} from '@/services/diagnostics'
+
+export type StartupState = 'loading' | 'ready' | 'failed'
 
 export const useIndexStore = defineStore("index-store", () => {
 	let configSaveTimer: ReturnType<typeof setTimeout> | undefined
@@ -48,24 +51,39 @@ export const useIndexStore = defineStore("index-store", () => {
 
     const isProxy = ref(false)
     const baseUrl = ref("")
+    const startupState = ref<StartupState>('loading')
+    const startupError = ref("")
 
     const init = async () => {
-		const session = await bind.APISession() as httpapi.ResponseData
-		window.$apiToken = String((session.data as { token?: string })?.token ?? '')
+		startupState.value = 'loading'
+		startupError.value = ''
+		try {
+			envInfo.value = await Environment()
 
-        envInfo.value = await Environment()
+			const session = await bind.APISession() as httpapi.ResponseData
+			if (session.code !== 1) throw new Error(session.message || 'API session initialization failed')
+			window.$apiToken = String((session.data as { token?: string })?.token ?? '')
+			if (!window.$apiToken) throw new Error('API session token is empty')
 
-        await bind.AppInfo().then((res: httpapi.ResponseData) => {
-            appInfo.value = Object.assign({}, appInfo.value, res.data)
-            isProxy.value = res.data.IsProxy
-        })
+			const info = await bind.AppInfo() as httpapi.ResponseData
+			if (info.code !== 1) throw new Error(info.message || 'Application information initialization failed')
+			appInfo.value = Object.assign({}, appInfo.value, info.data)
+			isProxy.value = info.data.IsProxy
 
-        await bind.Config().then((res: httpapi.ResponseData) => {
-            globalConfig.value = Object.assign({}, globalConfig.value, res.data)
-        })
+			const configuration = await bind.Config() as httpapi.ResponseData
+			if (configuration.code !== 1) throw new Error(configuration.message || 'Configuration initialization failed')
+			globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
 
-        baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
-        window.$baseUrl = baseUrl.value
+			baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
+			window.$baseUrl = baseUrl.value
+			const health = await appApi.appInfo() as appType.Res
+			if (health.code !== 1) throw new Error(health.message || 'Local service health check failed')
+			startupState.value = 'ready'
+		} catch (error) {
+			startupError.value = frontendErrorDetails(error)
+			startupState.value = 'failed'
+			void reportFrontendError('startup', error)
+		}
     }
 
     const setConfig = (formValue: Object) => {
@@ -107,6 +125,8 @@ export const useIndexStore = defineStore("index-store", () => {
         isProxy,
         envInfo,
         baseUrl,
+        startupState,
+        startupError,
         init,
         setConfig,
         openProxy,

@@ -161,3 +161,41 @@ func OpenFolder(filePath string) error {
 
 	return cmd.Start()
 }
+
+func OpenDirectory(directoryPath string) error {
+	info, err := os.Stat(directoryPath)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", directoryPath)
+	}
+
+	var commands [][]string
+	switch sysRuntime.GOOS {
+	case "darwin":
+		commands = [][]string{{"open", directoryPath}}
+	case "windows":
+		commands = [][]string{{"explorer", directoryPath}}
+	case "linux":
+		commands = [][]string{
+			{"xdg-open", directoryPath},
+			{"nautilus", directoryPath},
+			{"thunar", directoryPath},
+			{"dolphin", directoryPath},
+			{"pcmanfm", directoryPath},
+		}
+	default:
+		return errors.New("unsupported platform")
+	}
+
+	var lastErr error
+	for _, command := range commands {
+		if err := exec.Command(command[0], command[1:]...).Start(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	return lastErr
+}

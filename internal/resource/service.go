@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"res-downloader/internal/config"
 	downloadengine "res-downloader/internal/download"
@@ -10,6 +11,8 @@ import (
 	shared "res-downloader/internal/model"
 	"sync"
 )
+
+var ErrResourceNotFound = errors.New("resource not found")
 
 type Resource struct {
 	emit       func(string, ...interface{})
@@ -23,6 +26,8 @@ type Resource struct {
 	tasks      sync.Map
 	catalog    sync.Map
 	groupIndex sync.Map
+	outputMux  sync.Mutex
+	outputs    map[string]struct{}
 	catalogMux sync.Mutex
 	store      *Store
 	resType    map[string]bool
@@ -92,6 +97,30 @@ func (r *Resource) SaveCandidate(candidate shared.ResourceCandidate) error {
 	return nil
 }
 
+// UpdateTitle persists a user-edited resource title without replacing the
+// rest of the candidate with a potentially stale frontend copy.
+func (r *Resource) UpdateTitle(id, title string) (shared.ResourceCandidate, error) {
+	r.catalogMux.Lock()
+	defer r.catalogMux.Unlock()
+
+	stored, exists := r.catalog.Load(id)
+	if !exists {
+		return shared.ResourceCandidate{}, ErrResourceNotFound
+	}
+	candidate, ok := stored.(shared.ResourceCandidate)
+	if !ok {
+		return shared.ResourceCandidate{}, ErrResourceNotFound
+	}
+	candidate.Title = title
+	if r.store != nil {
+		if err := r.store.Upsert(candidate); err != nil {
+			return shared.ResourceCandidate{}, err
+		}
+	}
+	r.catalog.Store(id, candidate)
+	return candidate, nil
+}
+
 func (r *Resource) Clear()                  { r.clear() }
 func (r *Resource) DeleteMany(ids []string) { r.deleteMany(ids) }
 func (r *Resource) List() []shared.ResourceView {
@@ -151,7 +180,7 @@ func (r *Resource) EmitDownloadTaskRemoved(id string) {
 }
 
 func New(userDir string, config *config.Config, media *media.Engine, logger *logging.Logger, emit func(string, ...interface{})) *Resource {
-	resources := &Resource{emit: emit, config: config, media: media, logger: logger}
+	resources := &Resource{emit: emit, config: config, media: media, logger: logger, outputs: make(map[string]struct{})}
 	resources.resType = map[string]bool{
 		"all": true, shared.ResourceTypeVideo: true, shared.ResourceTypeAudio: true,
 		shared.ResourceTypeImage: true, shared.ResourceTypeDocument: true,

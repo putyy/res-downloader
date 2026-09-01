@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"res-downloader/internal/config"
 	shared "res-downloader/internal/model"
+	"runtime"
 	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (h *Server) downloadCertificate(w http.ResponseWriter, _ *http.Request) {
@@ -27,7 +28,7 @@ func (h *Server) downloadCertificate(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *Server) openDirectoryDialog(w http.ResponseWriter, _ *http.Request) {
-	folder, err := runtime.OpenDirectoryDialog(h.host.context(), runtime.OpenDialogOptions{
+	folder, err := wailsruntime.OpenDirectoryDialog(h.host.context(), wailsruntime.OpenDialogOptions{
 		DefaultDirectory: "",
 		Title:            "Select a folder",
 	})
@@ -38,16 +39,55 @@ func (h *Server) openDirectoryDialog(w http.ResponseWriter, _ *http.Request) {
 	h.success(w, respData{"folder": folder})
 }
 
-func (h *Server) openFileDialog(w http.ResponseWriter, _ *http.Request) {
-	filePath, err := runtime.OpenFileDialog(h.host.context(), runtime.OpenDialogOptions{
-		Filters: []runtime.FileFilter{{DisplayName: "Videos (*.mov;*.mp4)", Pattern: "*.mp4"}},
-		Title:   "Select a file",
-	})
+func (h *Server) openFileDialog(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Purpose string `json:"purpose"`
+	}
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil && err != io.EOF {
+			h.error(w, "invalid file dialog request")
+			return
+		}
+	}
+
+	options, err := fileDialogOptions(data.Purpose)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	filePath, err := wailsruntime.OpenFileDialog(h.host.context(), options)
 	if err != nil {
 		h.error(w, err.Error())
 		return
 	}
 	h.success(w, respData{"file": filePath})
+}
+
+func fileDialogOptions(purpose string) (wailsruntime.OpenDialogOptions, error) {
+	switch strings.ToLower(strings.TrimSpace(purpose)) {
+	case "", "video":
+		return wailsruntime.OpenDialogOptions{
+			Filters: []wailsruntime.FileFilter{{DisplayName: "MP4 video (*.mp4)", Pattern: "*.mp4"}},
+			Title:   "Select an MP4 video",
+		}, nil
+	case "ffmpeg":
+		return mediaToolDialogOptions("FFmpeg", "ffmpeg"), nil
+	case "ffprobe":
+		return mediaToolDialogOptions("ffprobe", "ffprobe"), nil
+	default:
+		return wailsruntime.OpenDialogOptions{}, fmt.Errorf("unsupported file dialog purpose %q", purpose)
+	}
+}
+
+func mediaToolDialogOptions(displayName, executableName string) wailsruntime.OpenDialogOptions {
+	options := wailsruntime.OpenDialogOptions{Title: "Select the " + displayName + " executable"}
+	if runtime.GOOS == "windows" {
+		options.Filters = []wailsruntime.FileFilter{{
+			DisplayName: displayName + " executable (" + executableName + ".exe)",
+			Pattern:     executableName + ".exe",
+		}}
+	}
+	return options
 }
 
 func (h *Server) openFolder(w http.ResponseWriter, r *http.Request) {

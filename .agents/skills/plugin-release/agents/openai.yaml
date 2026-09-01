@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plugin Release"
+  short_description: "Validate, package, and publish a site plugin"
+  default_prompt: "Use $plugin-release to lint and replay this independent plugin, package the final ZIP, prepare its release, and request explicit confirmation before Git or GitHub mutations."
+
+policy:
+  allow_implicit_invocation: true

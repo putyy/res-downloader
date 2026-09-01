@@ -1,0 +1,23 @@
+{
+  "observation": {
+    "stage": "response",
+    "request": {
+      "method": "GET",
+      "url": "https://res.wx.qq.com/t/wx_fed/finder/web/chunk.js?v=1.0.1",
+      "host": "res.wx.qq.com",
+      "path": "/t/wx_fed/finder/web/chunk.js",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["application/javascript"]},
+      "contentType": "application/javascript",
+      "body": "load(\"next.js\")"
+    }
+  },
+  "expected": {
+    "resourceCount": 0,
+    "decision": "continue",
+    "patchBodyContains": ".js?v=1.0.1\""
+  }
+}

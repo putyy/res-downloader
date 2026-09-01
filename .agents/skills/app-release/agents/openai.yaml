@@ -1,0 +1,7 @@
+interface:
+  display_name: "App Release"
+  short_description: "Prepare a tag release and its verification matrix"
+  default_prompt: "Use $app-release to prepare this application release, derive the artifact and risk-based verification matrix from the workflows and release delta, and ask before committing, tagging, or pushing."
+
+policy:
+  allow_implicit_invocation: true

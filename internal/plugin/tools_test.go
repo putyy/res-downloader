@@ -9,13 +9,17 @@ import (
 	"testing"
 )
 
-func TestPackPluginDirectoryExcludesDevelopmentDirectories(t *testing.T) {
+func TestPackPluginDirectoryExcludesDevelopmentFilesAndDirectories(t *testing.T) {
 	directory := t.TempDir()
 	manifest := `{"id":"test.pack","name":"Pack","version":"1.0.0","apiVersion":1,"runtime":"javascript","entry":"main.js","permissions":{"domains":["example.com"],"capabilities":[]},"match":[]}`
 	for name, content := range map[string]string{
 		"plugin.json":         manifest,
 		"main.js":             `function onObservation() { return {decision: "continue"} }`,
 		".git/config":         "secret",
+		".gitignore":          "dist/",
+		".DS_Store":           "finder metadata",
+		"README.md":           "development documentation",
+		"LICENSE":             "license text",
 		"dist/old.zip":        "old",
 		"tests/main.test.js":  `throw new Error("development only")`,
 		"fixtures/video.json": `{}`,
@@ -42,6 +46,11 @@ func TestPackPluginDirectoryExcludesDevelopmentDirectories(t *testing.T) {
 		seen[entry.Name] = true
 		if strings.HasPrefix(entry.Name, ".git/") || strings.HasPrefix(entry.Name, "dist/") || strings.HasPrefix(entry.Name, "tests/") {
 			t.Fatalf("pack included generated or repository metadata: %q", entry.Name)
+		}
+	}
+	for _, excluded := range []string{".gitignore", ".DS_Store", "README.md", "LICENSE"} {
+		if seen[excluded] {
+			t.Fatalf("pack included excluded file %q", excluded)
 		}
 	}
 	if !seen["plugin.json"] || !seen["main.js"] || !seen["fixtures/video.json"] {

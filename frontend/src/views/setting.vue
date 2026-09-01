@@ -64,14 +64,20 @@
           </NFormItem>
 
           <NFormItem>
-            <n-popconfirm @positive-click="resetHandle">
-              <template #trigger>
-                <NButton tertiary type="error" :loading="resetting" style="--wails-draggable:no-drag">
-                  {{ t("index.start_err_positiveText") }}
-                </NButton>
-              </template>
-              {{ t("index.reset_app_tip") }}
-            </n-popconfirm>
+            <NSpace>
+              <n-popconfirm @positive-click="resetHandle">
+                <template #trigger>
+                  <NButton tertiary type="error" :loading="resetting" style="--wails-draggable:no-drag">
+                    {{ t("index.start_err_positiveText") }}
+                  </NButton>
+                </template>
+                {{ t("index.reset_app_tip") }}
+              </n-popconfirm>
+              <NButton secondary @click="openLogDirectory" style="--wails-draggable:no-drag">
+                <template #icon><NIcon><FolderOpenOutline/></NIcon></template>
+                {{ t('setting.open_log_directory') }}
+              </NButton>
+            </NSpace>
           </NFormItem>
         </NForm>
       </NTabPane>
@@ -323,7 +329,7 @@
 </template>
 
 <script lang="ts" setup>
-import {HelpCircleOutline} from "@vicons/ionicons5"
+import {FolderOpenOutline, HelpCircleOutline} from "@vicons/ionicons5"
 import {computed, onMounted, ref, watch} from "vue"
 import {useIndexStore} from "@/stores"
 import type {appType} from "@/types/app"
@@ -499,6 +505,14 @@ const prepareReset = async () => {
   } finally {
     resetPassword.value = ''
     resetting.value = false
+  }
+}
+
+const openLogDirectory = async () => {
+  try {
+    await bind.OpenLogDirectory()
+  } catch (error: any) {
+    window.$message?.error(t('setting.open_log_directory_failed', {message: String(error?.message ?? error)}))
   }
 }
 

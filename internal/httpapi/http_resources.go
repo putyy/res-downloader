@@ -38,6 +38,27 @@ func (h *Server) deleteResources(w http.ResponseWriter, r *http.Request) {
 	h.success(w)
 }
 
+func (h *Server) updateResource(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	if data.ID == "" {
+		h.error(w, "resource id is required")
+		return
+	}
+	candidate, err := h.resources.UpdateTitle(data.ID, data.Title)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	h.success(w, respData{"id": candidate.ID, "title": candidate.Title})
+}
+
 func (h *Server) listResources(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		Offset int `json:"offset"`

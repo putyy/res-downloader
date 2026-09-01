@@ -26,6 +26,35 @@ function emptyResponse() {
   };
 }
 
+function mediaGroupKey(item, rawUrl, isImage) {
+  var identity = queryValue(rawUrl, "encfilekey");
+  var identityType = "encfilekey";
+
+  if (!identity) {
+    var idFields = ["mediaId", "id", "objectId"];
+    for (var index = 0; index < idFields.length; index++) {
+      var value = item[idFields[index]];
+      if ((typeof value === "string" || typeof value === "number") && String(value)) {
+        identity = String(value);
+        identityType = idFields[index];
+        break;
+      }
+    }
+  }
+
+  if (!identity) {
+    var baseUrl = rawUrl.split("#")[0].split("?")[0];
+    if (!endsWith(baseUrl, "/stodownload")) {
+      identity = baseUrl;
+      identityType = "url";
+    }
+  }
+
+  if (!identity) return "";
+  var groupKey = "wechat:" + (isImage ? "image" : "video") + ":" + identityType + ":" + identity;
+  return groupKey.length <= 512 ? groupKey : "";
+}
+
 function mediaResources(body, pageUrl) {
   var payload;
   try {
@@ -62,6 +91,7 @@ function mediaResources(body, pageUrl) {
     }
 
     var trackId = isImage ? "image-primary" : "video-primary";
+    var groupKey = mediaGroupKey(item, rawUrl, isImage);
     var actions = [];
     if (!isImage && processors.length) {
       actions.push({
@@ -70,6 +100,7 @@ function mediaResources(body, pageUrl) {
       });
     }
     resources.push({
+      groupKey: groupKey,
       title: typeof payload.description === "string" ? payload.description : "",
       coverUrl: typeof item.coverUrl === "string" ? item.coverUrl : "",
       kind: isImage ? "media.image" : "media.video",

@@ -13,8 +13,8 @@ export default {
     openDirectoryDialog() {
         return request({url: 'api/open-directory', method: 'post'})
     },
-    openFileDialog() {
-        return request({url: 'api/open-file', method: 'post'})
+    openFileDialog(data: { purpose?: 'video' | 'ffmpeg' | 'ffprobe' } = {}) {
+        return request({url: 'api/open-file', method: 'post', data})
     },
     openFolder(data: object) {
         return request({url: 'api/open-folder', method: 'post', data: data})
@@ -23,7 +23,7 @@ export default {
         return request({url: 'api/is-proxy', method: 'post'})
     },
     appInfo() {
-        return request({url: 'api/app-info', method: 'post',})
+        return request({url: 'api/app-info', method: 'post', timeout: 5000})
     },
     getConfig() {
         return request({url: 'api/get-config', method: 'post',})
@@ -54,6 +54,9 @@ export default {
     },
     deleteResources(data: { ids: string[] }) {
         return request({url: 'api/resources/delete', method: 'post', data: data})
+    },
+    updateResource(data: { id: string, title: string }) {
+        return request({url: 'api/resources/update', method: 'post', data})
     },
     listResources(data: { offset?: number, limit?: number } = {}) {
         return request({url: 'api/resources', method: 'post', data})

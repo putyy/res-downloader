@@ -18,6 +18,6 @@
   "expected": {
     "resourceCount": 0,
     "decision": "continue",
-    "patchBodyContains": ".js?v=1.0.0\""
+    "patchBodyContains": ".js?v=1.0.1\""
   }
 }

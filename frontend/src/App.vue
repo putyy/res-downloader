@@ -6,8 +6,11 @@
       :locale="uiLocale"
   >
     <NaiveProvider>
-      <RouterView/>
-      <CertificateSetupGuide/>
+      <StartupScreen v-if="store.startupState !== 'ready'"/>
+      <template v-else>
+        <RouterView/>
+        <CertificateSetupGuide/>
+      </template>
     </NaiveProvider>
     <NGlobalStyle/>
     <NModalProvider/>
@@ -18,12 +21,13 @@
 import NaiveProvider from '@/components/NaiveProvider.vue'
 import {enUS, zhCN} from 'naive-ui'
 import {useIndexStore} from "@/stores"
-import {computed, onMounted, watch} from "vue"
+import {computed, watch} from "vue"
 import {useEventStore} from "@/stores/event"
 import type {appType} from "@/types/app"
 import {useI18n} from 'vue-i18n'
 import {resolveAppTheme} from '@/themes'
 import CertificateSetupGuide from '@/components/settings/CertificateSetupGuide.vue'
+import StartupScreen from '@/components/StartupScreen.vue'
 
 const store = useIndexStore()
 const eventStore = useEventStore()
@@ -44,7 +48,10 @@ const uiLocale = computed(() => {
   return enUS
 })
 
-onMounted(() => {
+let eventsInitialized = false
+const initializeEvents = () => {
+  if (eventsInitialized) return
+  eventsInitialized = true
   eventStore.init()
   eventStore.addHandle({
     type: "message",
@@ -59,5 +66,9 @@ onMounted(() => {
       }
     }
   })
-})
+}
+
+watch(() => store.startupState, state => {
+  if (state === 'ready') initializeEvents()
+}, {immediate: true})
 </script>

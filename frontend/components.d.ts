@@ -72,6 +72,7 @@ declare module 'vue' {
     ShowLoading: typeof import('./src/components/ShowLoading.vue')['default']
     ShowOrEdit: typeof import('./src/components/ShowOrEdit.vue')['default']
     Sider: typeof import('./src/components/layout/Sider.vue')['default']
+    StartupScreen: typeof import('./src/components/StartupScreen.vue')['default']
     StoreExtensionCard: typeof import('./src/components/plugin/StoreExtensionCard.vue')['default']
     TaskListItem: typeof import('./src/components/task/TaskListItem.vue')['default']
   }

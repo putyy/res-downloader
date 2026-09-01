@@ -322,6 +322,9 @@ func packPluginDirectory(directory, outputPath string) error {
 		if err != nil {
 			return err
 		}
+		if excludedPluginPackageFile(entry.Name()) {
+			return nil
+		}
 		writer, err := archive.Create(filepath.ToSlash(relative))
 		if err != nil {
 			return err
@@ -350,4 +353,8 @@ func packPluginDirectory(directory, outputPath string) error {
 
 func excludedPluginDevelopmentDirectory(name string) bool {
 	return name == ".git" || name == "dist" || name == "tests"
+}
+
+func excludedPluginPackageFile(name string) bool {
+	return name == ".gitignore" || name == ".DS_Store" || name == "README.md" || name == "LICENSE"
 }

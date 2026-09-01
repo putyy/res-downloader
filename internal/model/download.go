@@ -35,6 +35,7 @@ type DownloadTaskRecord struct {
 	UpdatedAt     int64              `json:"updatedAt"`
 	StartedAt     int64              `json:"startedAt,omitempty"`
 	FinishedAt    int64              `json:"finishedAt,omitempty"`
+	SaveDirectory string             `json:"saveDirectory"`
 	TempPath      string             `json:"tempPath,omitempty"`
 	OutputPath    string             `json:"outputPath,omitempty"`
 	Error         string             `json:"error,omitempty"`

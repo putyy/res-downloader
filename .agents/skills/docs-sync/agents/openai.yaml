@@ -1,0 +1,7 @@
+interface:
+  display_name: "Docs Sync"
+  short_description: "Keep README, docs, navigation, and SDK text aligned"
+  default_prompt: "Use $docs-sync to synchronize the documentation affected by these changes and check links and SDK consistency."
+
+policy:
+  allow_implicit_invocation: true

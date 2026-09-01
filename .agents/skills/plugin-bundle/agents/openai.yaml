@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plugin Bundle"
+  short_description: "Validate, pack, and bundle an official plugin"
+  default_prompt: "Use $plugin-bundle to lint and replay the finished official plugin, generate its final ZIP, synchronize it into the host bundle, and lint the bundled result."
+
+policy:
+  allow_implicit_invocation: true

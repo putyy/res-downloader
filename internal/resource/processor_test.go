@@ -60,3 +60,27 @@ func TestDownloadProcessorChainReplacesCompletedDownload(t *testing.T) {
 		t.Fatalf("processed download = %v, expected %v", got, want)
 	}
 }
+
+func TestReplaceProcessedDownloadInstallsMissingDestination(t *testing.T) {
+	directory := t.TempDir()
+	processedPath := filepath.Join(directory, "processed.bin")
+	destinationPath := filepath.Join(directory, "download.bin")
+	want := []byte("completed download")
+	if err := os.WriteFile(processedPath, want, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := replaceProcessedDownload(processedPath, destinationPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(processedPath); !os.IsNotExist(err) {
+		t.Fatalf("processed file still exists: %v", err)
+	}
+	got, err := os.ReadFile(destinationPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("installed download = %q, expected %q", got, want)
+	}
+}

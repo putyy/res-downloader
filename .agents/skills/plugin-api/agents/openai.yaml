@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plugin API"
+  short_description: "Prove and implement a generic plugin API gap"
+  default_prompt: "Use $plugin-api to prove this host capability gap, then design and implement the minimal generic contract while synchronizing validation, SDK files, examples, and docs."
+
+policy:
+  allow_implicit_invocation: true

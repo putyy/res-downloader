@@ -239,7 +239,7 @@ func (a *App) ResetApp() error {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove %s: %w", name, err))
 		}
 	}
-	for _, name := range []string{"capture-cache", "download-work"} {
+	for _, name := range []string{"capture-cache"} {
 		if err := os.RemoveAll(filepath.Join(a.UserDir, name)); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove %s: %w", name, err))
 		}

@@ -9,6 +9,7 @@ import (
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/naming"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -37,10 +38,11 @@ func (r *Resource) runDownloadPlanContext(ctx context.Context, candidate shared.
 	if err != nil {
 		return "", errors.New("filename template error: " + err.Error())
 	}
-	savePath, err = naming.ResolveFilenameConflict(savePath, configSnapshot.FilenameConflict)
+	savePath, releaseSavePath, err := r.reserveDownloadPath(savePath, configSnapshot.FilenameConflict)
 	if err != nil {
 		return "", errors.New("filename conflict: " + err.Error())
 	}
+	defer releaseSavePath()
 	if err := os.MkdirAll(filepath.Dir(savePath), 0755); err != nil {
 		return "", errors.New("create output directory: " + err.Error())
 	}
@@ -66,6 +68,37 @@ func (r *Resource) runDownloadPlanContext(ctx context.Context, candidate shared.
 		return "", errors.New("install download error: " + err.Error())
 	}
 	return savePath, nil
+}
+
+func (r *Resource) reserveDownloadPath(path, strategy string) (string, func(), error) {
+	r.outputMux.Lock()
+	if r.outputs == nil {
+		r.outputs = make(map[string]struct{})
+	}
+	resolved, err := naming.ResolveFilenameConflictWith(path, strategy, func(candidate string) bool {
+		_, exists := r.outputs[filepath.Clean(candidate)]
+		return exists
+	})
+	if err != nil {
+		r.outputMux.Unlock()
+		return "", nil, err
+	}
+	if strategy == "overwrite" {
+		r.outputMux.Unlock()
+		return resolved, func() {}, nil
+	}
+	key := filepath.Clean(resolved)
+	r.outputs[key] = struct{}{}
+	r.outputMux.Unlock()
+
+	var once sync.Once
+	return resolved, func() {
+		once.Do(func() {
+			r.outputMux.Lock()
+			delete(r.outputs, key)
+			r.outputMux.Unlock()
+		})
+	}, nil
 }
 
 func isCancelledDownload(err error) bool {

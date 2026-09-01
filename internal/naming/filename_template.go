@@ -284,12 +284,35 @@ func positiveInt64String(value int64) string {
 }
 
 func ResolveFilenameConflict(path, strategy string) (string, error) {
+	return ResolveFilenameConflictWith(path, strategy, nil)
+}
+
+// ResolveFilenameConflictWith resolves a destination path while also treating
+// paths reported by additionalConflict as occupied. This lets callers include
+// in-flight downloads that have not created their destination files yet.
+func ResolveFilenameConflictWith(path, strategy string, additionalConflict func(string) bool) (string, error) {
+	conflicts := func(candidate string) bool {
+		return shared.FileExist(candidate) || additionalConflict != nil && additionalConflict(candidate)
+	}
 	switch strategy {
 	case "", "rename":
-		return shared.GetUniqueFileName(path), nil
+		if !conflicts(path) {
+			return path, nil
+		}
+		extension := filepath.Ext(path)
+		baseName := strings.TrimSuffix(path, extension)
+		for count := 1; ; count++ {
+			candidate := fmt.Sprintf("%s(%d)%s", baseName, count, extension)
+			if !conflicts(candidate) {
+				return candidate, nil
+			}
+		}
 	case "overwrite":
 		return path, nil
 	case "skip":
+		if additionalConflict != nil && additionalConflict(path) {
+			return "", errors.New("destination already exists")
+		}
 		if _, err := os.Stat(path); err == nil {
 			return "", errors.New("destination already exists")
 		} else if !os.IsNotExist(err) {

@@ -28,7 +28,9 @@
 go run main.go plugin lint ./plugins/resd-plugin-wechat
 go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/video.json
 go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/image.json
+go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/detail-dedupe.json
 go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/page-script.json
+go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/dependency-script.json
 go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/inject-hook.json
 go run main.go plugin replay ./plugins/resd-plugin-wechat ./plugins/resd-plugin-wechat/fixtures/finder-video.json
 go run main.go plugin pack ./plugins/resd-plugin-wechat

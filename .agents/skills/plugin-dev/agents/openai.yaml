@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plugin Dev"
+  short_description: "Develop and validate site plugins with offline fixtures"
+  default_prompt: "Use $plugin-dev to add support for this media URL, validate sanitized fixtures offline, package the final plugin ZIP, and provide a manual-verification checklist."
+
+policy:
+  allow_implicit_invocation: true

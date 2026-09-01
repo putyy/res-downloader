@@ -73,7 +73,7 @@ go run main.go plugin replay ./my-plugin ./my-plugin/fixtures/video.json
 go run main.go plugin pack ./my-plugin
 ```
 
-默认生成 `<插件目录>/dist/plugin.zip`；如有需要，也可以在命令末尾传入自定义输出路径。打包器会排除插件目录中的 `.git/`、`dist/`、`tests/` 和输出文件自身。在应用“插件管理”中选择生成的 ZIP，确认权限后安装。开发期间也可以把插件目录放入用户数据目录的 `plugins` 子目录，然后使用“重新加载”。
+默认生成 `<插件目录>/dist/plugin.zip`；如有需要，也可以在命令末尾传入自定义输出路径。打包器会排除插件目录中的 `.git/`、`dist/`、`tests/`、输出文件自身，以及 `.gitignore`、`.DS_Store`、`README.md`、`LICENSE` 文件。在应用“插件管理”中选择生成的 ZIP，确认权限后安装。开发期间也可以把插件目录放入用户数据目录的 `plugins` 子目录，然后使用“重新加载”。
 
 Putyy 官方插件可以直接选择本地 ZIP 安装，Manifest 的作者地址需指向 `github.com/putyy` 下的仓库；安装后仍显示为“官方”。其他本地插件显示为“社区”，不能使用 `official.*` ID。
 

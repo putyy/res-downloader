@@ -413,6 +413,21 @@ const updateItem = (id: string, updater: (item: any) => void) => {
   if (item) updater(item)
 }
 
+const updateDescription = async (id: string, value: string) => {
+  const item = findResource(id)
+  if (!item || item.title === value) return
+
+  const previousValue = item.title || ''
+  item.title = value
+  try {
+    const response = await appApi.updateResource({id, title: value}) as appType.Res<{ id: string, title: string }>
+    if (response.code !== 1) throw new Error(response.message)
+  } catch (error: any) {
+    if (item.title === value) item.title = previousValue
+    window.$message?.error(t('index.description_save_failed', {message: error?.message || String(error)}))
+  }
+}
+
 const applyTaskStatus = (task: appType.DownloadTaskRecord) => {
   updateItem(task.resourceId, item => {
     let message = task.error || ''
@@ -639,7 +654,7 @@ const {columns} = useResourceTableColumns({
   hasCapability,
   canDownload,
   download: (row, index) => download(row, index),
-  updateDescription: (id, value) => updateItem(id, item => item.title = value),
+  updateDescription,
   resourceActions,
   dataAction,
 })

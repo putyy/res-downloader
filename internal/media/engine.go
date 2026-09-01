@@ -85,7 +85,9 @@ func detectMediaTool(configured, fallback string) MediaToolStatus {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, absolute, "-version").Output()
+	command := exec.CommandContext(ctx, absolute, "-version")
+	configureMediaCommand(command)
+	output, err := command.Output()
 	if err != nil {
 		return MediaToolStatus{Path: absolute, Error: err.Error()}
 	}
@@ -157,6 +159,7 @@ func (e *Engine) RunFFmpeg(ctx context.Context, args []string) error {
 	}
 	commandArgs := append([]string{"-nostdin", "-hide_banner", "-y"}, args...)
 	command := exec.Command(path, commandArgs...)
+	configureMediaCommand(command)
 	logs := &boundedBuffer{limit: maxFFmpegLogBytes}
 	command.Stdout, command.Stderr = logs, logs
 	if err := command.Start(); err != nil {

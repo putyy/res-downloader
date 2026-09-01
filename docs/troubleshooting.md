@@ -29,6 +29,57 @@
 
 使用“清理缓存并重启”，并按提示授权。该操作不会删除已下载文件和已安装插件。
 
+## 如何查看软件日志
+
+正式版会把运行日志写入 `app.log`。如果应用可以进入主界面，可在“系统设置 → 基础设置”中点击“打开日志目录”。请先复现问题并退出应用，再复制日志文件用于排查。
+
+### Windows
+
+日志路径：
+
+```text
+%APPDATA%\res-downloader\logs\app.log
+```
+
+按 `Win + R`，输入 `%APPDATA%\res-downloader\logs` 并回车，即可在资源管理器中打开日志目录。也可以在 PowerShell 中查看最后 200 行：
+
+```powershell
+Get-Content "$env:APPDATA\res-downloader\logs\app.log" -Tail 200
+```
+
+### macOS
+
+日志路径：
+
+```text
+~/Library/Preferences/res-downloader/logs/app.log
+```
+
+在访达中按 `Command + Shift + G`，输入 `~/Library/Preferences/res-downloader/logs` 并回车。也可以通过终端打开日志目录或查看最后 200 行：
+
+```bash
+open ~/Library/Preferences/res-downloader/logs
+tail -n 200 ~/Library/Preferences/res-downloader/logs/app.log
+```
+
+### Linux
+
+默认日志路径：
+
+```text
+~/.config/res-downloader/logs/app.log
+```
+
+如果设置了 `XDG_CONFIG_HOME`，日志会保存在 `$XDG_CONFIG_HOME/res-downloader/logs/app.log`。可以在终端查看最后 200 行：
+
+```bash
+tail -n 200 "${XDG_CONFIG_HOME:-$HOME/.config}/res-downloader/logs/app.log"
+```
+
+如果日志目录或 `app.log` 不存在，应用可能在日志系统初始化前就已退出。反馈问题时请同时提供操作系统版本、系统架构、应用版本、安装包文件名、复现步骤和截图。
+
+提交日志前请先检查并隐藏其中可能出现的账号、Cookie、Token、资源地址、本地用户名和文件路径等隐私信息。
+
 ## macOS 提示“已损坏，无法打开”
 
 确认安装包来自项目官方发布页后，在“系统设置 → 隐私与安全性”中允许打开。仍无法打开时执行：

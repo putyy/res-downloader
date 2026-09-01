@@ -27,7 +27,6 @@ type Scheduler struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	store        *Store
-	taskRoot     string
 	queue        chan string
 	mu           sync.RWMutex
 	tasks        map[string]shared.DownloadTaskRecord
@@ -42,6 +41,8 @@ type Scheduler struct {
 	started      bool
 	lastProgress map[string]time.Time
 }
+
+const taskWorkspaceDirectory = ".res-downloader-work"
 
 type ResourceService interface {
 	ChildrenOf(shared.ResourceCandidate) []shared.ResourceCandidate
@@ -63,7 +64,6 @@ func NewScheduler(userDir string, config *config.Config, resources ResourceServi
 		config: config, resources: resources, plugins: plugins, logger: logger,
 		ctx: ctx, cancel: cancel, queue: make(chan string, 1024),
 		tasks: make(map[string]shared.DownloadTaskRecord), byResource: make(map[string]string), cancelFuncs: make(map[string]context.CancelCauseFunc),
-		taskRoot:     filepath.Join(userDir, "download-work"),
 		lastProgress: make(map[string]time.Time),
 	}
 	store, err := Open(filepath.Join(userDir, "tasks.db"))
@@ -244,6 +244,16 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 		s.mu.Unlock()
 		return task, nil
 	}
+	configuredDirectory := s.config.Snapshot().SaveDirectory
+	if configuredDirectory == "" {
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, errors.New("save directory is empty")
+	}
+	saveDirectory, err := filepath.Abs(configuredDirectory)
+	if err != nil {
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, fmt.Errorf("resolve save directory: %w", err)
+	}
 	id, _ := gonanoid.New()
 	if id == "" {
 		id = fmt.Sprintf("task-%d", time.Now().UnixNano())
@@ -253,7 +263,8 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 		ID: id, ResourceID: resource.ID, ParentID: resource.ParentID, Resource: resource,
 		PluginID: resource.Source.PluginID, PluginVersion: resource.Source.PluginVersion,
 		PluginDigest: resource.Source.PluginDigest, State: shared.DownloadTaskPending,
-		CreatedAt: now, UpdatedAt: now, TempPath: filepath.Join(s.taskRoot, id),
+		CreatedAt: now, UpdatedAt: now, SaveDirectory: saveDirectory,
+		TempPath: filepath.Join(saveDirectory, taskWorkspaceDirectory, id),
 	}
 	children := s.resources.ChildrenOf(resource)
 	if resource.Kind == shared.ResourceKindCollection || len(children) > 0 {
@@ -392,8 +403,7 @@ func (s *Scheduler) execute(id string) {
 		step = "recording"
 	}
 	s.update(&task, shared.DownloadTaskDownloading, step, "")
-	configSnapshot := s.config.Snapshot()
-	path, err := s.resources.RunDownloadPlan(taskCtx, resource, plan, configSnapshot.SaveDirectory, shared.DownloadExecution{
+	path, err := s.resources.RunDownloadPlan(taskCtx, resource, plan, task.SaveDirectory, shared.DownloadExecution{
 		TaskID: task.ID, WorkDir: task.TempPath,
 	})
 	if err != nil {
@@ -407,7 +417,7 @@ func (s *Scheduler) execute(id string) {
 			return
 		}
 		if isCancelledDownload(err) || s.taskState(id) == shared.DownloadTaskCancelled {
-			s.cleanupWorkspace(task.TempPath)
+			s.cleanupWorkspace(task.ID, task.TempPath)
 			s.update(&task, shared.DownloadTaskCancelled, "", "cancelled")
 			return
 		}
@@ -419,7 +429,7 @@ func (s *Scheduler) execute(id string) {
 		s.update(&task, shared.DownloadTaskCancelled, "", "cancelled; partial output was preserved")
 		return
 	}
-	s.cleanupWorkspace(task.TempPath)
+	s.cleanupWorkspace(task.ID, task.TempPath)
 	s.update(&task, shared.DownloadTaskCompleted, "", "")
 }
 
@@ -438,8 +448,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 	if folderName == "" {
 		folderName = "collection-" + resource.ID
 	}
-	configSnapshot := s.config.Snapshot()
-	directory := filepath.Join(configSnapshot.SaveDirectory, folderName)
+	directory := filepath.Join(task.SaveDirectory, folderName)
 	if err := os.MkdirAll(directory, 0755); err != nil {
 		s.fail(task, fmt.Errorf("create collection directory: %w", err))
 		return
@@ -469,7 +478,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 				s.update(task, shared.DownloadTaskInterrupted, "", "application exited before the task completed")
 				return
 			}
-			s.cleanupWorkspace(task.TempPath)
+			s.cleanupWorkspace(task.ID, task.TempPath)
 			s.update(task, shared.DownloadTaskCancelled, "", "cancelled")
 			return
 		}
@@ -512,7 +521,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 				return
 			}
 			if isCancelledDownload(itemErr) {
-				s.cleanupWorkspace(task.TempPath)
+				s.cleanupWorkspace(task.ID, task.TempPath)
 				s.update(task, shared.DownloadTaskCancelled, "", "cancelled")
 				return
 			}
@@ -534,7 +543,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 		return
 	}
 	task.FinishedAt = time.Now().UnixMilli()
-	s.cleanupWorkspace(task.TempPath)
+	s.cleanupWorkspace(task.ID, task.TempPath)
 	s.update(task, shared.DownloadTaskCompleted, "", "")
 }
 
@@ -632,7 +641,7 @@ func (s *Scheduler) Cancel(resourceID string) error {
 	}
 	if task.State == shared.DownloadTaskPending || task.State == shared.DownloadTaskPaused {
 		task.FinishedAt = time.Now().UnixMilli()
-		s.cleanupWorkspace(task.TempPath)
+		s.cleanupWorkspace(task.ID, task.TempPath)
 		s.update(&task, shared.DownloadTaskCancelled, "", "cancelled")
 		return nil
 	}
@@ -774,7 +783,7 @@ func (s *Scheduler) Delete(id string) error {
 	delete(s.tasks, id)
 	delete(s.lastProgress, id)
 	s.mu.Unlock()
-	s.cleanupWorkspace(task.TempPath)
+	s.cleanupWorkspace(task.ID, task.TempPath)
 	s.resources.EmitDownloadTaskRemoved(id)
 	return nil
 }
@@ -794,15 +803,15 @@ func (s *Scheduler) ClearFinished() (int, error) {
 			return 0, err
 		}
 	}
-	paths := make([]string, 0, len(ids))
+	workspaces := make([]shared.DownloadTaskRecord, 0, len(ids))
 	for _, id := range ids {
-		paths = append(paths, s.tasks[id].TempPath)
+		workspaces = append(workspaces, s.tasks[id])
 		delete(s.tasks, id)
 		delete(s.lastProgress, id)
 	}
 	s.mu.Unlock()
-	for _, path := range paths {
-		s.cleanupWorkspace(path)
+	for _, task := range workspaces {
+		s.cleanupWorkspace(task.ID, task.TempPath)
 	}
 	for _, id := range ids {
 		s.resources.EmitDownloadTaskRemoved(id)
@@ -838,14 +847,15 @@ func (s *Scheduler) Close() {
 	})
 }
 
-func (s *Scheduler) cleanupWorkspace(path string) {
-	if path == "" || s.taskRoot == "" {
+func (s *Scheduler) cleanupWorkspace(taskID, path string) {
+	if taskID == "" || path == "" || filepath.Base(taskID) != taskID || taskID == "." {
 		return
 	}
-	cleanRoot := filepath.Clean(s.taskRoot)
 	cleanPath := filepath.Clean(path)
-	if cleanPath == cleanRoot || !strings.HasPrefix(cleanPath, cleanRoot+string(os.PathSeparator)) {
+	workspaceRoot := filepath.Dir(cleanPath)
+	if filepath.Base(cleanPath) != taskID || filepath.Base(workspaceRoot) != taskWorkspaceDirectory {
 		return
 	}
 	_ = os.RemoveAll(cleanPath)
+	_ = os.Remove(workspaceRoot)
 }

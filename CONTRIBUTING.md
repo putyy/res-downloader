@@ -71,22 +71,4 @@ chore: 升级依赖版本
 
 请耐心等待，不要重复提交相同内容或频繁催促。
 
-### 6. 贡献资源插件
-
-新增站点适配时优先提交独立插件，不要把平台判断写入通用下载器：
-
-1. 复制 `examples/plugins/declarative-basic` 或 `examples/plugins/javascript-basic`。
-2. 使用唯一的反向域名 ID，不得使用 `builtin.`、`official.` 保留前缀，并只申请实际需要的域名和 capability。
-3. 把平台私有数据放在带命名空间的 `metadata` 中。
-4. 提交至少一个脱敏 fixture，禁止包含 Cookie、Authorization、账号或真实用户数据。
-5. 私有解密或转换算法应作为插件自带 WASM 处理器提交，只申请 `process-download` 权限，并在 manifest 中显式声明模块；不要把平台算法写入核心。
-6. 在提交前运行：
-
-```text
-go run main.go plugin lint <插件目录>
-go run main.go plugin replay <插件目录> <fixture 文件>
-```
-
-插件 PR 应只包含一个插件及对应文档/fixture。插件 API、权限和资源模型说明见 `docs/plugins.md`。
-
 ### 如果您有长期参与项目维护或贡献的意向，欢迎联系我：微信AmorousWorld（请备注 GitHub）

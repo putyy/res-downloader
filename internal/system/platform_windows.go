@@ -19,6 +19,10 @@ import (
 
 const shellExecuteMaskNoCloseProcess = 0x00000040
 
+const localMachineRootStoreOpenFlags = windows.CERT_SYSTEM_STORE_LOCAL_MACHINE |
+	windows.CERT_STORE_READONLY_FLAG |
+	windows.CERT_STORE_OPEN_EXISTING_FLAG
+
 var shellExecuteExW = windows.NewLazySystemDLL("shell32.dll").NewProc("ShellExecuteExW")
 
 type shellExecuteInfo struct {
@@ -65,7 +69,7 @@ func (s *Setup) isCertificateInstalled(fingerprint string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	store, err := windows.CertOpenStore(windows.CERT_STORE_PROV_SYSTEM, 0, 0, windows.CERT_SYSTEM_STORE_LOCAL_MACHINE, uintptr(unsafe.Pointer(rootStorePtr)))
+	store, err := windows.CertOpenStore(windows.CERT_STORE_PROV_SYSTEM, 0, 0, localMachineRootStoreOpenFlags, uintptr(unsafe.Pointer(rootStorePtr)))
 	if err != nil {
 		return false, err
 	}

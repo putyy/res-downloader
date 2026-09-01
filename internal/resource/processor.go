@@ -61,11 +61,15 @@ func (r *Resource) ProcessDownload(path string, processors []shared.DownloadStep
 }
 
 func replaceProcessedDownload(processedPath, destinationPath string) error {
-	// Unix replaces an existing destination directly. Windows may reject that,
-	// so retain a same-directory backup until the second rename succeeds.
-	if err := os.Rename(processedPath, destinationPath); err == nil {
-		return nil
+	if _, err := os.Stat(destinationPath); err != nil {
+		if os.IsNotExist(err) {
+			return os.Rename(processedPath, destinationPath)
+		}
+		return err
 	}
+
+	// Both paths are expected to share a filesystem. Retain the destination
+	// until the replacement has been committed so processing stays transactional.
 	backup, err := os.CreateTemp(filepath.Dir(destinationPath), ".res-downloader-original-*")
 	if err != nil {
 		return err
