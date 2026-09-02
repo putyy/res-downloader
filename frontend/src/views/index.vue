@@ -51,6 +51,15 @@
             </div>
           </n-popconfirm>
 
+          <NButton tertiary type="primary" @click.stop="handleCommentEntry">
+            <template #icon>
+              <n-icon>
+                <ChatboxOutline/>
+              </n-icon>
+            </template>
+            {{ t('index.get_comments') }}
+          </NButton>
+
           <NButton tertiary type="primary" @click.stop="batchDown">
             <template #icon>
               <n-icon>
@@ -131,6 +140,11 @@
     <ShowLoading :loadingText="loadingText" :isLoading="loading"/>
     <ImportJson v-model:showModal="showImport" @submit="handleImport"/>
     <Password v-model:showModal="showPassword" @submit="handlePassword"/>
+    <CommentsDialog
+        v-model:showModal="showComments"
+        :resource="commentDialogItem"
+        @retry="retryDialogComments"
+    />
   </div>
 </template>
 
@@ -152,6 +166,7 @@ import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 import Password from "@/components/Password.vue"
 import ShowOrEdit from "@/components/ShowOrEdit.vue"
+import CommentsDialog from "@/components/CommentsDialog.vue"
 import {useI18n} from 'vue-i18n'
 import {
   DownloadOutline,
@@ -159,13 +174,14 @@ import {
   ServerOutline,
   SearchOutline,
   Apps,
+  ChatboxOutline,
   TrashOutline, CloseOutline
 } from "@vicons/ionicons5"
 import {useDialog} from 'naive-ui'
 import * as bind from "../../wailsjs/go/core/Bind"
 import {Quit} from "../../wailsjs/runtime"
 import {DialogOptions} from "naive-ui/es/dialog/src/DialogProvider"
-import {formatSize} from "@/func"
+import {formatSize, isWechatChannelResource} from "@/func"
 
 const {t} = useI18n()
 const eventStore = useEventStore()
@@ -473,6 +489,9 @@ const loadingText = ref("")
 const showImport = ref(false)
 const showPassword = ref(false)
 const downloadQueue = ref<appType.MediaInfo[]>([])
+const showComments = ref(false)
+const commentDialogItem = ref<appType.MediaInfo | null>(null)
+const commentTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 let activeDownloads = 0
 let isOpenProxy = false
 let isInstall = false
@@ -510,6 +529,17 @@ onMounted(() => {
   const cache = localStorage.getItem("resources-data")
   if (cache) {
     data.value = JSON.parse(cache)
+    // 应用关闭会中断页面侧任务；重启后不能继续显示为“排队/执行中”。
+    data.value.forEach((item: appType.MediaInfo) => {
+      if (item.CommentMeta && ['queued', 'running'].includes(item.CommentMeta.status)) {
+        item.CommentMeta = {
+          ...item.CommentMeta,
+          status: 'interrupted',
+          code: 'interrupted',
+          updatedAt: Date.now()
+        }
+      }
+    })
   }
 
   const choiceCache = localStorage.getItem("remember-clear-choice")
@@ -536,6 +566,72 @@ onMounted(() => {
         data.value.unshift(res)
       }
       cacheData()
+    }
+  })
+
+  eventStore.addHandle({
+    type: "newComments",
+    event: (res: appType.CommentResult) => {
+      const item = data.value.find(i => i.Id === res.resId)
+          ?? data.value.find(i => i.UrlSign === res.urlSign)
+      if (!item) {
+        console.warn('[CommentFetchUI] result_unmatched_resource')
+        return
+      }
+      const wasActive = ['queued', 'running'].includes(item.CommentMeta?.status)
+      if ((item.CommentMeta?.requestId && res.requestId && item.CommentMeta.requestId !== res.requestId) ||
+          !res.targetVerified || (res.urlSign && item.UrlSign && res.urlSign !== item.UrlSign)) {
+        finishCommentTimer(item.Id)
+        updateCommentMeta(item, 'target_mismatch', {
+          code: 'target_mismatch',
+          requestId: res.requestId
+        })
+        cacheData()
+        window?.$message?.error(commentErrorMessage('target_mismatch'), {duration: 8000})
+        console.warn('[CommentFetchUI] target_mismatch_blocked')
+        return
+      }
+
+      finishCommentTimer(item.Id)
+      item.Comments = res.comments
+      item.CommentMeta = {
+        status: res.status,
+        requestId: res.requestId,
+        code: res.status,
+        updatedAt: Date.now(),
+        fetchedAt: res.fetchedAt,
+        totalCount: res.totalCount,
+        targetVerified: res.targetVerified
+      }
+      cacheData()
+      if (wasActive) {
+        openCommentsDialog(item)
+      }
+    }
+  })
+
+  eventStore.addHandle({
+    type: "commentTaskStatus",
+    event: (status: appType.CommentTaskStatus) => {
+      const item = data.value.find(i => i.Id === status.resId)
+      if (!item) return
+      if (item.CommentMeta?.requestId && status.requestId && item.CommentMeta.requestId !== status.requestId) {
+        console.warn('[CommentFetchUI] status_unmatched_request')
+        return
+      }
+      if (status.state === 'queued' || status.state === 'running') {
+        updateCommentMeta(item, status.state, {requestId: status.requestId})
+        cacheData()
+        return
+      }
+      if (status.state === 'failed') {
+        finishCommentTimer(item.Id)
+        const errorStatus = normalizeCommentError(status.code)
+        updateCommentMeta(item, errorStatus, {requestId: status.requestId, code: status.code})
+        cacheData()
+        window?.$message?.error(commentErrorMessage(errorStatus), {duration: 8000})
+      }
+      // completed 事件紧随 newComments；结果事件负责落历史，避免覆盖其元数据。
     }
   })
 
@@ -685,10 +781,18 @@ const dataAction = (row: appType.MediaInfo, index: number, type: string) => {
     case "decode":
       decodeWxFile(row, index)
       break
+    case "comments":
+      fetchComments(row)
+      break
     case "delete":
       if (row.Status === "pending" || row.Status === "running") {
         window?.$message?.error(t("index.delete_tip"))
         return
+      }
+      finishCommentTimer(row.Id)
+      if (commentDialogItem.value?.Id === row.Id) {
+        showComments.value = false
+        commentDialogItem.value = null
       }
       appApi.delete({sign: [row.UrlSign]}).then(() => {
         data.value.splice(index, 1)
@@ -895,6 +999,7 @@ const clear = async () => {
     data.value.forEach((item, index) => {
       if (checkedRowKeysValue.value.includes(item.Id) && item.Status !== "pending" && item.Status !== "running") {
         signs.push(item.UrlSign)
+        finishCommentTimer(item.Id)
       } else {
         newData.push(item)
       }
@@ -906,6 +1011,7 @@ const clear = async () => {
         newData.push(item)
       } else {
         signs.push(item.UrlSign)
+        finishCommentTimer(item.Id)
       }
     })
   }
@@ -944,6 +1050,163 @@ const decodeWxFile = (row: appType.MediaInfo, index: number) => {
       })
     }
   })
+}
+
+const updateCommentMeta = (
+    row: appType.MediaInfo,
+    status: appType.CommentStatus,
+    patch: Partial<appType.CommentMeta> = {}
+) => {
+  row.CommentMeta = {
+    ...(row.CommentMeta || {updatedAt: Date.now()}),
+    ...patch,
+    status,
+    updatedAt: Date.now()
+  }
+}
+
+const finishCommentTimer = (resId: string) => {
+  if (!commentTimers[resId]) return
+  clearTimeout(commentTimers[resId])
+  delete commentTimers[resId]
+}
+
+const normalizeCommentError = (code?: string): appType.CommentStatus => {
+  const mapping: Record<string, appType.CommentStatus> = {
+    comment_identity_unavailable: 'identity_unavailable',
+    identity_fields_missing: 'identity_unavailable',
+    target_mismatch: 'target_mismatch',
+    request_failed: 'request_failed',
+    list_not_captured: 'request_failed',
+    login_expired: 'login_expired',
+    parse_failed: 'parse_failed',
+    interrupted: 'interrupted'
+  }
+  return mapping[code || ''] || 'request_failed'
+}
+
+const commentErrorMessage = (status: appType.CommentStatus) => {
+  const key = `index.comments_error_${status}`
+  return t(key)
+}
+
+const ensureCommentConsent = () => new Promise<boolean>((resolve) => {
+  if (localStorage.getItem('wechat-comments-consent-v1') === '1') {
+    resolve(true)
+    return
+  }
+  let settled = false
+  const finish = (value: boolean) => {
+    if (settled) return
+    settled = true
+    resolve(value)
+  }
+  dialog.warning({
+    title: t('index.comments_consent_title'),
+    content: t('index.comments_consent_content'),
+    positiveText: t('index.comments_consent_continue'),
+    negativeText: t('common.cancel'),
+    maskClosable: false,
+    onPositiveClick: () => {
+      localStorage.setItem('wechat-comments-consent-v1', '1')
+      finish(true)
+    },
+    onNegativeClick: () => finish(false),
+    onClose: () => finish(false)
+  } as DialogOptions)
+})
+
+const openCommentsDialog = (row: appType.MediaInfo) => {
+  commentDialogItem.value = row
+  showComments.value = true
+}
+
+const startCommentTimeout = (row: appType.MediaInfo) => {
+  finishCommentTimer(row.Id)
+  commentTimers[row.Id] = setTimeout(() => {
+    delete commentTimers[row.Id]
+    if (!['queued', 'running'].includes(row.CommentMeta?.status || '')) return
+    updateCommentMeta(row, 'timeout', {code: 'timeout'})
+    cacheData()
+    window?.$message?.warning(commentErrorMessage('timeout'), {duration: 8000})
+  }, 30000)
+}
+
+const fetchComments = async (
+    row: appType.MediaInfo,
+    options: {force?: boolean, skipConsent?: boolean} = {}
+) => {
+  if (['queued', 'running'].includes(row.CommentMeta?.status || '')) return
+  if (row.CommentMeta?.fetchedAt && !options.force) {
+    openCommentsDialog(row)
+    return
+  }
+  if (!options.skipConsent && !(await ensureCommentConsent())) return
+
+  try {
+    const res: appType.Res<{requestId: string, resId: string, state: string}> = await appApi.getComments({
+      id: row.Id,
+      urlSign: row.UrlSign
+    })
+    if (res.code === 0) {
+      if (res.message === 'comment_task_active') {
+        updateCommentMeta(row, 'running', {code: res.message})
+        cacheData()
+        startCommentTimeout(row)
+        window?.$message?.info(t('index.comments_already_running'))
+        return
+      }
+      const errorStatus = normalizeCommentError(res.message)
+      updateCommentMeta(row, errorStatus, {code: res.message})
+      cacheData()
+      window?.$message?.warning(commentErrorMessage(errorStatus), {duration: 8000})
+      return
+    }
+    updateCommentMeta(row, 'queued', {
+      requestId: res.data.requestId,
+      code: 'queued'
+    })
+    cacheData()
+    startCommentTimeout(row)
+    window?.$message?.info(t('index.comments_status_queued'))
+  } catch (error) {
+    updateCommentMeta(row, 'request_failed', {code: 'local_api_failed'})
+    cacheData()
+    window?.$message?.error(commentErrorMessage('request_failed'), {duration: 8000})
+    console.warn('[CommentFetchUI] local_api_failed', error instanceof Error ? error.name : 'unknown')
+  }
+}
+
+const handleCommentEntry = () => {
+  const selected = data.value.filter(item => checkedRowKeysValue.value.includes(item.Id))
+  if (selected.length > 0) {
+    if (selected.length !== 1) {
+      window?.$message?.warning(t('index.comments_select_one'))
+      return
+    }
+    if (!isWechatChannelResource(selected[0])) {
+      window?.$message?.warning(t('index.comments_no_support'))
+      return
+    }
+    fetchComments(selected[0])
+    return
+  }
+
+  const candidates = data.value.filter(isWechatChannelResource)
+  if (candidates.length === 0) {
+    window?.$message?.info(t('index.comments_entry_guide'), {duration: 8000})
+    return
+  }
+  if (candidates.length > 1) {
+    window?.$message?.warning(t('index.comments_select_one'))
+    return
+  }
+  fetchComments(candidates[0])
+}
+
+const retryDialogComments = () => {
+  const row = commentDialogItem.value
+  if (row) fetchComments(row, {force: true, skipConsent: true})
 }
 
 const handleImport = (content: string) => {

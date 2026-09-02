@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/net/publicsuffix"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -37,8 +38,16 @@ func FormatSize(size float64) string {
 func GetTopLevelDomain(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err == nil && u.Host != "" {
-		rawURL = u.Host
+		// Hostname strips an explicit port. Passing Host (for example
+		// findera4.video.qq.com:443) to publicsuffix makes it fall back to the
+		// unnormalised host and breaks frontend resource classification.
+		rawURL = u.Hostname()
+	} else if host, _, splitErr := net.SplitHostPort(rawURL); splitErr == nil {
+		// Proxy request matching passes Request.Host rather than a full URL.
+		// New WeChat media requests explicitly include :443 there.
+		rawURL = host
 	}
+	rawURL = strings.TrimSuffix(strings.ToLower(rawURL), ".")
 	domain, err := publicsuffix.EffectiveTLDPlusOne(rawURL)
 	if err != nil {
 		return rawURL

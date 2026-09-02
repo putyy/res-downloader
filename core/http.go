@@ -366,6 +366,34 @@ func (h *HttpServer) cancel(w http.ResponseWriter, r *http.Request) {
 	h.success(w)
 }
 
+// getComments 受理"获取评论"请求：登记任务，由视频号页面内注入 JS 轮询取走后
+// 主动调用评论接口，评论数据经 newComments 事件异步推送。
+// objectId/nonceId 仅为兼容旧前端继续接收，不参与身份选择；后端只按
+// urlSign 使用同一 feed 原子学习到的完整三元组：优先由实际媒体 getter
+// 直接关联，recommend post 的权威目标继续作为兼容入口。
+func (h *HttpServer) getComments(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Id       string `json:"id"`
+		ObjectId string `json:"objectId"`
+		NonceId  string `json:"nonceId"`
+		UrlSign  string `json:"urlSign"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	if data.Id == "" || data.UrlSign == "" {
+		h.error(w, "missing_comment_target")
+		return
+	}
+	result, err := enqueueCommentTask(data.Id, data.UrlSign)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	h.success(w, result)
+}
+
 func (h *HttpServer) wxFileDecode(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		shared.MediaInfo

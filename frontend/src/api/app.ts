@@ -99,6 +99,13 @@ export default {
             data: data
         })
     },
+    getComments(data: object) {
+        return request({
+            url: 'api/get-comments',
+            method: 'post',
+            data: data
+        })
+    },
     download(data: object) {
         return request({
             url: 'api/download',

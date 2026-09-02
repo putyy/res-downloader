@@ -70,21 +70,26 @@ func (s *SystemSetup) setProxy() error {
 		commands := [][]string{
 			{"networksetup", "-setwebproxy", serviceName, "127.0.0.1", globalConfig.Port},
 			{"networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", globalConfig.Port},
+			// macOS 15 上仅写 server/port 可能仍保持 Enabled: No；
+			// 显式开启状态，避免应用 IsProxy 与真实系统代理不一致。
+			{"networksetup", "-setwebproxystate", serviceName, "on"},
+			{"networksetup", "-setsecurewebproxystate", serviceName, "on"},
 		}
+		serviceSuccess := true
 		for _, cmd := range commands {
 			if output, err := s.runCommand(cmd); err != nil {
+				serviceSuccess = false
 				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
-			} else {
-				isSuccess = true
 			}
 		}
+		isSuccess = isSuccess || serviceSuccess
 	}
 
 	if isSuccess {
 		return nil
 	}
 
-	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs)
+	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs.String())
 }
 
 func (s *SystemSetup) unsetProxy() error {
@@ -100,20 +105,21 @@ func (s *SystemSetup) unsetProxy() error {
 			{"networksetup", "-setwebproxystate", serviceName, "off"},
 			{"networksetup", "-setsecurewebproxystate", serviceName, "off"},
 		}
+		serviceSuccess := true
 		for _, cmd := range commands {
 			if output, err := s.runCommand(cmd); err != nil {
+				serviceSuccess = false
 				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
-			} else {
-				isSuccess = true
 			}
 		}
+		isSuccess = isSuccess || serviceSuccess
 	}
 
 	if isSuccess {
 		return nil
 	}
 
-	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs)
+	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs.String())
 }
 
 func (s *SystemSetup) installCert() (string, error) {

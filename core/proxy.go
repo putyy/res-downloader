@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -50,6 +51,9 @@ func init() {
 		},
 		Send: func(t string, data interface{}) {
 			httpServerOnce.send(t, data)
+		},
+		Log: func(format string, v ...interface{}) {
+			globalLogger.Info().Msgf(format, v...)
 		},
 	}
 
@@ -139,6 +143,26 @@ func (p *Proxy) matchPlugin(host string) shared.Plugin {
 		return plugin
 	}
 	return nil
+}
+
+// enqueueCommentTask 向视频号插件登记一个评论拉取任务。
+// 身份只由同一 feed 原子取得的完整三元组决定：实际视频来自 feed 模型 getter，
+// 权威封面目标来自 post recommend。调用方传入的组件 objectId/nonceId 不参与
+// 选择，避免重走已证实会错配的降级路径。
+func enqueueCommentTask(resId, urlSign string) (map[string]interface{}, error) {
+	plugin, ok := pluginRegistry["qq.com"].(*plugins.QqPlugin)
+	if !ok {
+		return nil, fmt.Errorf("qq plugin not found")
+	}
+	task, err := plugin.AddCommentTask(urlSign, resId)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"requestId": task.RequestId,
+		"resId":     task.ResId,
+		"state":     "queued",
+	}, nil
 }
 
 func (p *Proxy) httpRequestEvent(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
