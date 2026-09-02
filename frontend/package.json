@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --experimental-strip-types --test tests/func.test.ts",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
   },

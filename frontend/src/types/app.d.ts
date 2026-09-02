@@ -49,6 +49,52 @@ export namespace appType {
         Description: string
         ContentType: string
         OtherData: { [key: string]: string }
+        Comments?: CommentItem[]
+        CommentMeta?: CommentMeta
+    }
+
+    type CommentStatus = 'idle' | 'queued' | 'running' | 'success' | 'partial_success' |
+        'no_comments' | 'identity_unavailable' | 'timeout' | 'target_mismatch' |
+        'request_failed' | 'login_expired' | 'parse_failed' | 'interrupted'
+
+    interface CommentItem {
+        nickName: string
+        content: string
+        likeCount: number
+        createdAt: number
+        replyCount: number
+        region: string
+    }
+
+    interface CommentMeta {
+        status: CommentStatus
+        requestId?: string
+        code?: string
+        updatedAt: number
+        fetchedAt?: number
+        totalCount?: number
+        targetVerified?: boolean
+    }
+
+    interface CommentTaskStatus {
+        requestId: string
+        resId: string
+        state: 'queued' | 'running' | 'completed' | 'failed'
+        code?: string
+        count?: number
+        updatedAt: number
+    }
+
+    interface CommentResult {
+        requestId: string
+        objectId: string
+        resId: string
+        urlSign: string
+        comments: CommentItem[]
+        status: 'success' | 'partial_success' | 'no_comments'
+        totalCount: number
+        targetVerified: boolean
+        fetchedAt: number
     }
 
     interface DownloadProgress {

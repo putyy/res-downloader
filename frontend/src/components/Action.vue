@@ -63,6 +63,26 @@
           <span class="ml-1">{{ t("index.video_decode") }}</span>
         </div>
 
+        <button
+            v-if="showCommentAction"
+            type="button"
+            class="flex w-full min-h-[40px] items-center justify-start rounded p-1.5 text-left transition-colors hover:bg-purple-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="commentActive"
+            :aria-busy="commentActive"
+            :aria-label="commentLabel"
+            @click="action('comments')"
+        >
+          <n-spin v-if="commentActive" :size="24" class="mx-0.5"/>
+          <n-icon
+              v-else
+              size="28"
+              class="flex items-center justify-center rounded-full bg-purple-500/20 p-1.5 text-purple-500 transition-colors hover:bg-purple-500/40 dark:bg-purple-500/30 dark:text-purple-300"
+          >
+            <ChatboxOutline/>
+          </n-icon>
+          <span class="ml-1.5">{{ commentLabel }}</span>
+        </button>
+
         <div class="flex items-center justify-start p-1.5 cursor-pointer" @click="action('json')">
           <n-icon
               size="28"
@@ -78,7 +98,9 @@
 </template>
 
 <script setup lang="ts">
+import {computed} from "vue"
 import {useI18n} from 'vue-i18n'
+import {isWechatChannelResource} from '@/func'
 import {
   DownloadOutline,
   CopyOutline,
@@ -87,7 +109,8 @@ import {
   LinkOutline,
   GridSharp,
   CloseOutline,
-  TrashOutline
+  TrashOutline,
+  ChatboxOutline
 } from "@vicons/ionicons5"
 
 const {t} = useI18n()
@@ -97,6 +120,18 @@ const props = defineProps<{
 }>()
 
 const emits = defineEmits(["action"])
+
+const showCommentAction = computed(() => isWechatChannelResource(props.row))
+const commentActive = computed(() => ['queued', 'running'].includes(props.row.CommentMeta?.status))
+const commentLabel = computed(() => {
+  const status = props.row.CommentMeta?.status
+  if (status === 'queued') return t('index.comments_status_queued')
+  if (status === 'running') return t('index.comments_status_running')
+  if (props.row.CommentMeta?.fetchedAt) {
+    return t('index.comments_view_history', {count: props.row.Comments?.length || 0})
+  }
+  return t('index.get_comments')
+})
 
 const action = (type: string) => {
   if (type === 'down' && (props.row.Classify === 'live' || props.row.Classify === 'm3u8')) {

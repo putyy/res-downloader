@@ -13,6 +13,7 @@ type Bridge struct {
 	MarkMedia     func(key string)
 	GetConfig     func(key string) interface{}
 	Send          func(t string, data interface{})
+	Log           func(format string, v ...interface{})
 }
 
 type Plugin interface {
