@@ -10,12 +10,15 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 const (
 	defaultFilenameTemplate = "{{title|default:resource|sanitize|truncate:80}}_{{date:20060102_150405}}.{{ext}}"
 	maxFilenameTemplateSize = 4096
-	MaxFilenameSegmentRunes = 180
+	// Keep room below the common 255-byte component limit for conflict suffixes
+	// such as "(1)" and for filesystem-specific normalization.
+	MaxFilenameSegmentBytes = 240
 )
 
 func RenderResourcePath(directory, template string, resource shared.ResourceCandidate, plan shared.DownloadPlan, now time.Time) (string, error) {
@@ -56,6 +59,7 @@ func RenderResourcePath(directory, template string, resource shared.ResourceCand
 	if extension != "" && !strings.EqualFold(filepath.Ext(relative), "."+extension) {
 		relative += "." + SanitizeFilenameSegment(extension)
 	}
+	relative = truncateRelativePathSegments(relative)
 	target := filepath.Join(directory, filepath.FromSlash(relative))
 	root, err := filepath.Abs(directory)
 	if err != nil {
@@ -177,8 +181,7 @@ func safeRelativeResourcePath(value string) (string, error) {
 		if part == ".." {
 			return "", errors.New("filename template must not contain parent path segments")
 		}
-		part = SanitizeFilenameSegment(part)
-		part = TruncateRunes(part, MaxFilenameSegmentRunes)
+		part = TruncateFilenameSegment(SanitizeFilenameSegment(part), MaxFilenameSegmentBytes)
 		if part == "" {
 			part = "resource"
 		}
@@ -192,7 +195,7 @@ func safeRelativeResourcePath(value string) (string, error) {
 
 func SanitizeFilenameSegment(value string) string {
 	value = strings.Map(func(char rune) rune {
-		if unicode.IsControl(char) || strings.ContainsRune(`<>:"/\|?*`, char) {
+		if unicode.IsControl(char) || strings.ContainsRune(`<>:"/\|?*＜＞：＂／＼｜？＊`, char) {
 			return '_'
 		}
 		return char
@@ -210,6 +213,42 @@ func SanitizeFilenameSegment(value string) string {
 	}
 	if reserved[base] {
 		value = "_" + value
+	}
+	return value
+}
+
+// TruncateFilenameSegment limits a path component by UTF-8 bytes without
+// splitting a rune. A recognizable extension is retained when possible.
+func TruncateFilenameSegment(value string, limit int) string {
+	if limit <= 0 || len(value) <= limit {
+		if limit <= 0 {
+			return ""
+		}
+		return value
+	}
+	extension := filepath.Ext(value)
+	if extension == "" || len(extension) >= limit {
+		return truncateUTF8Bytes(value, limit)
+	}
+	base := strings.TrimSuffix(value, extension)
+	return truncateUTF8Bytes(base, limit-len(extension)) + extension
+}
+
+func truncateRelativePathSegments(value string) string {
+	parts := strings.Split(value, "/")
+	for index := range parts {
+		parts[index] = TruncateFilenameSegment(parts[index], MaxFilenameSegmentBytes)
+	}
+	return strings.Join(parts, "/")
+}
+
+func truncateUTF8Bytes(value string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	for len(value) > limit {
+		_, size := utf8.DecodeLastRuneInString(value)
+		value = value[:len(value)-size]
 	}
 	return value
 }

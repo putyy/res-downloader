@@ -417,7 +417,7 @@ func (s *Scheduler) execute(id string) {
 			return
 		}
 		if isCancelledDownload(err) || s.taskState(id) == shared.DownloadTaskCancelled {
-			s.cleanupWorkspace(task.ID, task.TempPath)
+			_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 			s.update(&task, shared.DownloadTaskCancelled, "", "cancelled")
 			return
 		}
@@ -429,7 +429,7 @@ func (s *Scheduler) execute(id string) {
 		s.update(&task, shared.DownloadTaskCancelled, "", "cancelled; partial output was preserved")
 		return
 	}
-	s.cleanupWorkspace(task.ID, task.TempPath)
+	_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 	s.update(&task, shared.DownloadTaskCompleted, "", "")
 }
 
@@ -444,7 +444,7 @@ func contains(values []string, target string) bool {
 
 func (s *Scheduler) executeCollection(ctx context.Context, task *shared.DownloadTaskRecord, releaseCancel func()) {
 	resource := task.Resource
-	folderName := naming.TruncateRunes(naming.SanitizeFilenameSegment(resource.Title), naming.MaxFilenameSegmentRunes)
+	folderName := naming.TruncateFilenameSegment(naming.SanitizeFilenameSegment(resource.Title), naming.MaxFilenameSegmentBytes)
 	if folderName == "" {
 		folderName = "collection-" + resource.ID
 	}
@@ -478,7 +478,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 				s.update(task, shared.DownloadTaskInterrupted, "", "application exited before the task completed")
 				return
 			}
-			s.cleanupWorkspace(task.ID, task.TempPath)
+			_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 			s.update(task, shared.DownloadTaskCancelled, "", "cancelled")
 			return
 		}
@@ -521,7 +521,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 				return
 			}
 			if isCancelledDownload(itemErr) {
-				s.cleanupWorkspace(task.ID, task.TempPath)
+				_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 				s.update(task, shared.DownloadTaskCancelled, "", "cancelled")
 				return
 			}
@@ -543,7 +543,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 		return
 	}
 	task.FinishedAt = time.Now().UnixMilli()
-	s.cleanupWorkspace(task.ID, task.TempPath)
+	_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 	s.update(task, shared.DownloadTaskCompleted, "", "")
 }
 
@@ -641,7 +641,7 @@ func (s *Scheduler) Cancel(resourceID string) error {
 	}
 	if task.State == shared.DownloadTaskPending || task.State == shared.DownloadTaskPaused {
 		task.FinishedAt = time.Now().UnixMilli()
-		s.cleanupWorkspace(task.ID, task.TempPath)
+		_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 		s.update(&task, shared.DownloadTaskCancelled, "", "cancelled")
 		return nil
 	}
@@ -783,7 +783,7 @@ func (s *Scheduler) Delete(id string) error {
 	delete(s.tasks, id)
 	delete(s.lastProgress, id)
 	s.mu.Unlock()
-	s.cleanupWorkspace(task.ID, task.TempPath)
+	_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 	s.resources.EmitDownloadTaskRemoved(id)
 	return nil
 }
@@ -811,7 +811,7 @@ func (s *Scheduler) ClearFinished() (int, error) {
 	}
 	s.mu.Unlock()
 	for _, task := range workspaces {
-		s.cleanupWorkspace(task.ID, task.TempPath)
+		_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
 	}
 	for _, id := range ids {
 		s.resources.EmitDownloadTaskRemoved(id)
@@ -847,15 +847,41 @@ func (s *Scheduler) Close() {
 	})
 }
 
-func (s *Scheduler) cleanupWorkspace(taskID, path string) {
-	if taskID == "" || path == "" || filepath.Base(taskID) != taskID || taskID == "." {
-		return
+func (s *Scheduler) CleanupWorkspaces() error {
+	if s == nil || s.config == nil {
+		return nil
 	}
+	configuredDirectory := strings.TrimSpace(s.config.Snapshot().SaveDirectory)
+	if configuredDirectory == "" {
+		return nil
+	}
+	saveDirectory, err := filepath.Abs(configuredDirectory)
+	if err != nil {
+		return fmt.Errorf("resolve current save directory: %w", err)
+	}
+	workspaceRoot := filepath.Join(saveDirectory, taskWorkspaceDirectory)
+	if filepath.Dir(workspaceRoot) != filepath.Clean(saveDirectory) || filepath.Base(workspaceRoot) != taskWorkspaceDirectory {
+		return errors.New("invalid download workspace root")
+	}
+	return os.RemoveAll(workspaceRoot)
+}
+
+func (s *Scheduler) cleanupWorkspace(taskID, saveDirectory, path string) error {
+	if taskID == "" || saveDirectory == "" || path == "" || filepath.Base(taskID) != taskID || taskID == "." {
+		return nil
+	}
+	expectedPath := filepath.Join(filepath.Clean(saveDirectory), taskWorkspaceDirectory, taskID)
 	cleanPath := filepath.Clean(path)
+	if cleanPath != expectedPath {
+		return nil
+	}
 	workspaceRoot := filepath.Dir(cleanPath)
 	if filepath.Base(cleanPath) != taskID || filepath.Base(workspaceRoot) != taskWorkspaceDirectory {
-		return
+		return nil
 	}
-	_ = os.RemoveAll(cleanPath)
+	if err := os.RemoveAll(cleanPath); err != nil {
+		return err
+	}
 	_ = os.Remove(workspaceRoot)
+	return nil
 }

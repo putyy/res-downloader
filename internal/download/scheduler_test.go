@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -155,6 +156,40 @@ func TestTaskBindsWorkspaceToSaveDirectoryAtEnqueue(t *testing.T) {
 	}
 	if len(resources.executions) != 1 || resources.executions[0].WorkDir != wantWorkspace {
 		t.Fatalf("download executions = %#v", resources.executions)
+	}
+}
+
+func TestCleanupWorkspacesOnlyRemovesCurrentSaveDirectory(t *testing.T) {
+	currentDirectory := t.TempDir()
+	previousDirectory := t.TempDir()
+	currentWorkspace := filepath.Join(currentDirectory, taskWorkspaceDirectory, "current-task")
+	previousWorkspace := filepath.Join(previousDirectory, taskWorkspaceDirectory, "previous-task")
+	for _, workspace := range []string{currentWorkspace, previousWorkspace} {
+		if err := os.MkdirAll(workspace, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(workspace, "input.part"), []byte("temporary"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	downloadedPath := filepath.Join(currentDirectory, "completed.mp4")
+	if err := os.WriteFile(downloadedPath, []byte("completed"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	scheduler := newSchedulerForTest(&schedulerResourceFake{}, schedulerPlanFake{}, currentDirectory)
+	defer scheduler.cancel()
+	if err := scheduler.CleanupWorkspaces(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(currentDirectory, taskWorkspaceDirectory)); !os.IsNotExist(err) {
+		t.Fatalf("current workspace still exists: %v", err)
+	}
+	if _, err := os.Stat(previousWorkspace); err != nil {
+		t.Fatalf("previous save directory workspace was removed: %v", err)
+	}
+	if _, err := os.Stat(downloadedPath); err != nil {
+		t.Fatalf("completed download was removed: %v", err)
 	}
 }
 

@@ -144,7 +144,7 @@
     "start_err_content": "The current startup process has encountered an issue. Do you want to reset the application?",
     "start_err_positiveText": "Clear cache and restart",
     "start_err_negativeText": "Close the software",
-    "reset_app_tip": "This will uninstall the capture certificate from this computer and delete app settings, captured resources, task history, capture cache, and download temporary files. Downloaded files and installed plugins are kept. Continue?",
+    "reset_app_tip": "This will uninstall the capture certificate from this computer and delete app settings, captured resources, task history, capture cache, and download temporary files in the current save directory. Downloaded files, installed plugins, and temporary files in other save directories are kept. Continue?",
     "reset_app_authorize": "Authorize Cleanup and Restart",
     "reset_app_authorize_tip": "Administrator access is required to remove the current and legacy certificates. The password is used only for this operation and is not saved.",
     "reset_app_failed": "Cleanup failed and the app was not reset: {message}"

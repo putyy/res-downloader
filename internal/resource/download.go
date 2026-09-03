@@ -2,7 +2,9 @@ package resource
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	downloadengine "res-downloader/internal/download"
@@ -63,11 +65,47 @@ func (r *Resource) runDownloadPlanContext(ctx context.Context, candidate shared.
 	if err != nil {
 		return "", err
 	}
-	if err := replaceProcessedDownload(outputPath, savePath); err != nil {
-		_ = os.Remove(outputPath)
+	installedPath, err := r.installDownloadOutput(outputPath, savePath, candidate.ID, configSnapshot.FilenameConflict)
+	if err != nil {
 		return "", errors.New("install download error: " + err.Error())
 	}
-	return savePath, nil
+	return installedPath, nil
+}
+
+func (r *Resource) installDownloadOutput(processedPath, preferredPath, resourceID, strategy string) (string, error) {
+	return r.installDownloadOutputWith(processedPath, preferredPath, resourceID, strategy, replaceProcessedDownload)
+}
+
+func (r *Resource) installDownloadOutputWith(processedPath, preferredPath, resourceID, strategy string, install func(string, string) error) (string, error) {
+	preferredErr := install(processedPath, preferredPath)
+	if preferredErr == nil {
+		return preferredPath, nil
+	}
+	if strategy == "overwrite" {
+		if _, err := os.Stat(preferredPath); err == nil {
+			return "", preferredErr
+		}
+	}
+
+	fallbackPath := fallbackDownloadPath(preferredPath, resourceID)
+	fallbackPath, releaseFallbackPath, err := r.reserveDownloadPath(fallbackPath, "rename")
+	if err != nil {
+		return "", fmt.Errorf("preferred filename: %v; reserve fallback filename: %w", preferredErr, err)
+	}
+	defer releaseFallbackPath()
+	if err := install(processedPath, fallbackPath); err != nil {
+		return "", fmt.Errorf("preferred filename: %v; fallback filename: %w", preferredErr, err)
+	}
+	if r.logger != nil {
+		r.logger.Warn().Err(preferredErr).Str("fallback", filepath.Base(fallbackPath)).Msg("download output installed with fallback filename")
+	}
+	return fallbackPath, nil
+}
+
+func fallbackDownloadPath(preferredPath, resourceID string) string {
+	digest := sha256.Sum256([]byte(resourceID))
+	name := fmt.Sprintf("resource-%x%s", digest[:6], filepath.Ext(preferredPath))
+	return filepath.Join(filepath.Dir(preferredPath), name)
 }
 
 func (r *Resource) reserveDownloadPath(path, strategy string) (string, func(), error) {

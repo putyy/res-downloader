@@ -131,6 +131,7 @@ func (r *Runtime) Close(ctx context.Context) error {
 		return nil
 	}
 	var first error
+	var resetWorkspaceErr error
 	if err := r.App.UnsetSystemProxy(""); err != nil {
 		first = err
 	}
@@ -139,6 +140,12 @@ func (r *Runtime) Close(ctx context.Context) error {
 	}
 	if r.Downloads != nil {
 		r.Downloads.Close()
+		if r.App.IsReset {
+			resetWorkspaceErr = r.Downloads.CleanupWorkspaces()
+			if resetWorkspaceErr != nil && first == nil {
+				first = fmt.Errorf("cleanup download workspaces before reset: %w", resetWorkspaceErr)
+			}
+		}
 	}
 	if r.Resources != nil {
 		r.Resources.Close()
@@ -149,7 +156,7 @@ func (r *Runtime) Close(ctx context.Context) error {
 	if r.Logger != nil {
 		r.Logger.Close()
 	}
-	if r.App.IsReset {
+	if r.App.IsReset && resetWorkspaceErr == nil {
 		if err := r.App.ResetApp(); err != nil && first == nil {
 			first = err
 		}

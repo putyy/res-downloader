@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"res-downloader/internal/config"
@@ -113,5 +114,82 @@ func TestConcurrentDownloadsReserveDistinctDestinationPaths(t *testing.T) {
 	}
 	if len(contents) != 2 {
 		t.Fatalf("downloaded contents = %v, expected both files", contents)
+	}
+}
+
+func TestInstallDownloadOutputUsesSafeFallbackName(t *testing.T) {
+	directory := t.TempDir()
+	processedPath := filepath.Join(directory, "processed.part")
+	preferredPath := filepath.Join(directory, "preferred.mp4")
+	want := []byte("completed download")
+	if err := os.WriteFile(processedPath, want, 0600); err != nil {
+		t.Fatal(err)
+	}
+	resources := &Resource{logger: logging.New(false, ""), outputs: make(map[string]struct{})}
+	primaryErr := errors.New("invalid filename")
+	install := func(source, destination string) error {
+		if destination == preferredPath {
+			return primaryErr
+		}
+		return replaceProcessedDownload(source, destination)
+	}
+
+	installedPath, err := resources.installDownloadOutputWith(processedPath, preferredPath, "wechat-resource", "rename", install)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPath := fallbackDownloadPath(preferredPath, "wechat-resource")
+	if installedPath != wantPath {
+		t.Fatalf("installed path = %q, expected %q", installedPath, wantPath)
+	}
+	got, err := os.ReadFile(installedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("fallback output = %q, expected %q", got, want)
+	}
+}
+
+func TestInstallDownloadOutputPreservesProcessedFileWhenFallbackFails(t *testing.T) {
+	directory := t.TempDir()
+	processedPath := filepath.Join(directory, "processed.part")
+	if err := os.WriteFile(processedPath, []byte("completed download"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	resources := &Resource{outputs: make(map[string]struct{})}
+	installErr := errors.New("install failed")
+	_, err := resources.installDownloadOutputWith(processedPath, filepath.Join(directory, "preferred.mp4"), "wechat-resource", "rename", func(string, string) error {
+		return installErr
+	})
+	if err == nil {
+		t.Fatal("expected install failure")
+	}
+	if _, statErr := os.Stat(processedPath); statErr != nil {
+		t.Fatalf("processed output was not preserved: %v", statErr)
+	}
+}
+
+func TestInstallDownloadOutputDoesNotBypassExistingOverwriteTarget(t *testing.T) {
+	directory := t.TempDir()
+	processedPath := filepath.Join(directory, "processed.part")
+	preferredPath := filepath.Join(directory, "preferred.mp4")
+	if err := os.WriteFile(processedPath, []byte("new download"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(preferredPath, []byte("existing download"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	resources := &Resource{outputs: make(map[string]struct{})}
+	installCalls := 0
+	_, err := resources.installDownloadOutputWith(processedPath, preferredPath, "wechat-resource", "overwrite", func(string, string) error {
+		installCalls++
+		return errors.New("replace denied")
+	})
+	if err == nil {
+		t.Fatal("expected overwrite failure")
+	}
+	if installCalls != 1 {
+		t.Fatalf("install attempts = %d, expected 1", installCalls)
 	}
 }

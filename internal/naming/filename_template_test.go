@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func TestRenderResourcePathWithMagicVariables(t *testing.T) {
@@ -46,6 +47,39 @@ func TestSanitizeFilenameSegmentHandlesPortableNames(t *testing.T) {
 	}
 	if got := SanitizeFilenameSegment("a<b>c?.mp4"); got != "a_b_c_.mp4" {
 		t.Fatalf("sanitized name = %q", got)
+	}
+	if got := SanitizeFilenameSegment("a＜b＞c：d＂e／f＼g｜h？i＊j.mp4"); got != "a_b_c_d_e_f_g_h_i_j.mp4" {
+		t.Fatalf("sanitized full-width name = %q", got)
+	}
+}
+
+func TestRenderResourcePathLimitsUnicodeFilenameBytes(t *testing.T) {
+	plan := shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}
+	for _, title := range []string{
+		strings.Repeat("中", 80),
+		strings.Repeat("😀", 80),
+	} {
+		path, err := RenderResourcePath(t.TempDir(), "", shared.ResourceCandidate{Title: title}, plan, time.Date(2026, 9, 2, 1, 2, 3, 0, time.UTC))
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(path)
+		if len(name) > MaxFilenameSegmentBytes {
+			t.Fatalf("filename uses %d bytes: %q", len(name), name)
+		}
+		if !utf8.ValidString(name) {
+			t.Fatalf("filename is not valid UTF-8: %q", name)
+		}
+		if !strings.HasSuffix(name, ".mp4") {
+			t.Fatalf("filename lost extension: %q", name)
+		}
+	}
+}
+
+func TestTruncateFilenameSegmentPreservesExtension(t *testing.T) {
+	name := TruncateFilenameSegment(strings.Repeat("中文", 40)+".mp4", 40)
+	if len(name) > 40 || !utf8.ValidString(name) || !strings.HasSuffix(name, ".mp4") {
+		t.Fatalf("truncated filename = %q (%d bytes)", name, len(name))
 	}
 }
 
