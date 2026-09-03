@@ -97,7 +97,7 @@ jobs:
             release_args=(
               --draft
               --generate-notes
-              --title "res-downloader $RELEASE_VERSION"
+              --title "$RELEASE_VERSION"
             )
             if [[ "$IS_PRERELEASE" == "true" ]]; then
               release_args+=(--prerelease --latest=false)
