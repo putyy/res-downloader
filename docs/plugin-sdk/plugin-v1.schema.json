@@ -319,20 +319,39 @@
     },
     "action": {
       "type": "object",
-      "required": ["kind", "processor"],
-      "properties": {
-        "kind": {"const": "process-file"},
-        "processor": {"type": "string", "minLength": 1},
-        "inputExtensions": {
-          "type": "array",
-          "items": {"$ref": "#/$defs/extension"}
+      "oneOf": [
+        {
+          "required": ["kind", "processor"],
+          "properties": {
+            "kind": {"const": "process-file"},
+            "processor": {"type": "string", "minLength": 1},
+            "pageScript": {"const": ""},
+            "inputExtensions": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/extension"}
+            },
+            "outputExtension": {"$ref": "#/$defs/extension"},
+            "locales": {
+              "type": "object",
+              "additionalProperties": {"$ref": "#/$defs/locale"}
+            }
+          }
         },
-        "outputExtension": {"$ref": "#/$defs/extension"},
-        "locales": {
-          "type": "object",
-          "additionalProperties": {"$ref": "#/$defs/locale"}
+        {
+          "required": ["kind", "pageScript"],
+          "properties": {
+            "kind": {"const": "page-command"},
+            "pageScript": {"allOf": [{"$ref": "#/$defs/identifier"}]},
+            "processor": {"const": ""},
+            "inputExtensions": {"type": "array", "maxItems": 0},
+            "outputExtension": {"const": ""},
+            "locales": {
+              "type": "object",
+              "additionalProperties": {"$ref": "#/$defs/locale"}
+            }
+          }
         }
-      }
+      ]
     },
     "requirements": {
       "type": "object",

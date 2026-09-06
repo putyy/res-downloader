@@ -3,10 +3,12 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/plugin/native"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -393,6 +395,14 @@ func resourceKindLeaf(kind string) string {
 }
 
 func mergeResourceCandidate(current, update shared.ResourceCandidate) shared.ResourceCandidate {
+	// Catalog readers and event serialization can still hold the old value.
+	// Copy every map/slice this merge writes; nested values are only replaced,
+	// never mutated, so they can continue to be shared between snapshots.
+	current.Metadata = maps.Clone(current.Metadata)
+	current.Tracks = slices.Clone(current.Tracks)
+	current.Traits = slices.Clone(current.Traits)
+	current.RequiredTracks = slices.Clone(current.RequiredTracks)
+	current.Capabilities = slices.Clone(current.Capabilities)
 	if update.ParentGroupKey != "" {
 		current.ParentGroupKey = update.ParentGroupKey
 	}

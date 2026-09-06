@@ -510,28 +510,29 @@ func (fd *FileDownloader) startDownload() error {
 	}
 
 	go func() {
-		for progress := range progressChan {
-			taskProgress[progress.taskID] += progress.bytes
-			totalDownloaded += progress.bytes
-
-			if fd.progressCallback != nil {
-				taskPercentage := float64(0)
-				if task := fd.DownloadTaskList[progress.taskID]; task != nil {
-					taskSize := task.rangeEnd - task.rangeStart + 1
-					if taskSize > 0 {
-						taskPercentage = float64(taskProgress[progress.taskID]) / float64(taskSize) * 100
-					}
-				}
-				fd.progressCallback(float64(totalDownloaded), float64(fd.TotalSize), progress.taskID, taskPercentage)
-			}
-		}
-	}()
-
-	go func() {
 		wg.Wait()
 		close(progressChan)
 		close(errorChan)
 	}()
+
+	// Drain progress on this goroutine before returning or rebuilding the task
+	// list for a retry. Each worker sends at most one error and errorChan has
+	// room for every worker, so errors cannot block progress-channel closure.
+	for progress := range progressChan {
+		taskProgress[progress.taskID] += progress.bytes
+		totalDownloaded += progress.bytes
+
+		if fd.progressCallback != nil {
+			taskPercentage := float64(0)
+			if task := fd.DownloadTaskList[progress.taskID]; task != nil {
+				taskSize := task.rangeEnd - task.rangeStart + 1
+				if taskSize > 0 {
+					taskPercentage = float64(taskProgress[progress.taskID]) / float64(taskSize) * 100
+				}
+			}
+			fd.progressCallback(float64(totalDownloaded), float64(fd.TotalSize), progress.taskID, taskPercentage)
+		}
+	}
 
 	var errArr []error
 	for err := range errorChan {

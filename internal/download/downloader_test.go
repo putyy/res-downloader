@@ -28,6 +28,90 @@ func setupDownloaderTest() (*config.Config, *logging.Logger) {
 	return config, logging.New(false, "")
 }
 
+func TestDownloaderDrainsProgressBeforeReturnOrFallback(t *testing.T) {
+	for _, fallback := range []bool{false, true} {
+		t.Run(fmt.Sprintf("fallback=%v", fallback), func(t *testing.T) {
+			cfg, logger := setupDownloaderTest()
+			fallbackStarted := make(chan struct{}, 1)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.Header.Get("Range") {
+				case "bytes=0-0":
+					w.WriteHeader(http.StatusPartialContent)
+					if !fallback {
+						_, _ = w.Write([]byte("a"))
+					}
+					// An empty first part exhausts immediate incomplete-response
+					// retries while the other part has a pending progress callback.
+				case "bytes=1-1":
+					w.WriteHeader(http.StatusPartialContent)
+					_, _ = w.Write([]byte("b"))
+				case "":
+					fallbackStarted <- struct{}{}
+					_, _ = w.Write([]byte("ab"))
+				default:
+					t.Errorf("unexpected Range %q", r.Header.Get("Range"))
+					w.WriteHeader(http.StatusBadRequest)
+				}
+			}))
+			defer srv.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			output := filepath.Join(t.TempDir(), "progress.part")
+			file, err := os.Create(output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			fd := NewFileDownloaderContext(ctx, srv.URL, output, "", 2, nil, cfg, logger)
+			fd.File, fd.TotalSize, fd.IsMultiPart = file, 2, true
+			fd.DownloadTaskList = []*DownloadTask{
+				{taskID: 0, rangeStart: 0, rangeEnd: 0},
+				{taskID: 1, rangeStart: 1, rangeEnd: 1},
+			}
+			callbackStarted, releaseCallback := make(chan struct{}), make(chan struct{})
+			var callbackOnce, releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(releaseCallback) }) }
+			defer release()
+			fd.progressCallback = func(float64, float64, int, float64) {
+				callbackOnce.Do(func() {
+					close(callbackStarted)
+					<-releaseCallback
+				})
+			}
+			done := make(chan error, 1)
+			go func() { done <- fd.startDownload() }()
+			select {
+			case <-callbackStarted:
+			case <-ctx.Done():
+				t.Fatal("progress callback did not start")
+			}
+			select {
+			case <-fallbackStarted:
+				t.Error("fallback started before the old progress callback finished")
+			case err := <-done:
+				t.Fatalf("download returned before its progress callback finished: %v", err)
+			case <-time.After(100 * time.Millisecond):
+			}
+			release()
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-ctx.Done():
+				t.Fatal("download did not finish after progress was released")
+			}
+			if fd.RetryOnError != fallback {
+				t.Fatalf("fallback occurred=%v, want %v", fd.RetryOnError, fallback)
+			}
+			got, err := os.ReadFile(output)
+			if err != nil || string(got) != "ab" {
+				t.Fatalf("downloaded content=%q err=%v", got, err)
+			}
+		})
+	}
+}
+
 func TestDownloaderResumesFromPersistentCheckpoint(t *testing.T) {
 	config, logger := setupDownloaderTest()
 	body := bytes.Repeat([]byte("resumable-video-data"), 128*1024)

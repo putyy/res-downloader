@@ -12,6 +12,7 @@ import (
 const (
 	maxPluginResponseCaptures = 8
 	maxPluginCaptureKeySize   = 512
+	maxPageCommandDataSize    = 60 * 1024
 )
 
 // Process runs matching plugins for one captured observation and publishes the
@@ -184,37 +185,48 @@ func validateResourceActions(manifest shared.PluginManifest, actions []shared.Re
 			return fmt.Errorf("resource action %q is duplicated", action.ID)
 		}
 		seen[action.ID] = struct{}{}
-		if _, exists := manifest.Actions[action.ID]; !exists {
+		definition, exists := manifest.Actions[action.ID]
+		if !exists {
 			return fmt.Errorf("resource action %q is not declared by the plugin", action.ID)
 		}
 		raw, err := json.Marshal(action.Data)
-		if err != nil || len(raw) > maxPluginWASMOptions {
-			return fmt.Errorf("resource action %q data exceeds %d bytes", action.ID, maxPluginWASMOptions)
+		limit := maxPluginWASMOptions
+		if definition.Kind == shared.PluginActionPageCommand {
+			limit = maxPageCommandDataSize
+		}
+		if err != nil || len(raw) > limit {
+			return fmt.Errorf("resource action %q data exceeds %d bytes", action.ID, limit)
 		}
 	}
 	return nil
 }
 
-func (m *PluginManager) ResolveFileAction(resource shared.ResourceCandidate, actionID string) (shared.PluginActionDefinition, shared.DownloadStep, error) {
+func (m *PluginManager) ResolveResourceAction(resource shared.ResourceCandidate, actionID string) (shared.PluginActionDefinition, shared.ResourceAction, error) {
 	m.mu.RLock()
 	status, exists := m.statuses[resource.Source.PluginID]
 	m.mu.RUnlock()
 	if !exists || !status.Loaded || status.Builtin {
-		return shared.PluginActionDefinition{}, shared.DownloadStep{}, fmt.Errorf("plugin %q is unavailable", resource.Source.PluginID)
+		return shared.PluginActionDefinition{}, shared.ResourceAction{}, fmt.Errorf("plugin %q is unavailable", resource.Source.PluginID)
 	}
 	definition, exists := status.Manifest.Actions[actionID]
-	if !exists || definition.Kind != shared.PluginActionProcessFile {
-		return shared.PluginActionDefinition{}, shared.DownloadStep{}, fmt.Errorf("resource action %q is unavailable", actionID)
+	if !exists {
+		return shared.PluginActionDefinition{}, shared.ResourceAction{}, fmt.Errorf("resource action %q is unavailable", actionID)
 	}
-	var selected *shared.ResourceAction
-	for index := range resource.Actions {
-		if resource.Actions[index].ID == actionID {
-			selected = &resource.Actions[index]
-			break
+	for _, action := range resource.Actions {
+		if action.ID == actionID {
+			return definition, action, nil
 		}
 	}
-	if selected == nil {
-		return shared.PluginActionDefinition{}, shared.DownloadStep{}, fmt.Errorf("resource does not provide action %q", actionID)
+	return shared.PluginActionDefinition{}, shared.ResourceAction{}, fmt.Errorf("resource does not provide action %q", actionID)
+}
+
+func (m *PluginManager) ResolveFileAction(resource shared.ResourceCandidate, actionID string) (shared.PluginActionDefinition, shared.DownloadStep, error) {
+	definition, selected, err := m.ResolveResourceAction(resource, actionID)
+	if err != nil {
+		return shared.PluginActionDefinition{}, shared.DownloadStep{}, err
+	}
+	if definition.Kind != shared.PluginActionProcessFile {
+		return shared.PluginActionDefinition{}, shared.DownloadStep{}, fmt.Errorf("resource action %q is unavailable", actionID)
 	}
 	options := map[string]interface{}{"processor": definition.Processor}
 	if configured, ok := selected.Data["options"].(map[string]interface{}); ok {

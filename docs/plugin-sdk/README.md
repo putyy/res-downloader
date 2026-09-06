@@ -4,8 +4,8 @@
 
 ## 文件
 
-- [Manifest Schema](/plugin-sdk/plugin-v1.schema.json ':ignore')：`plugin.json` 的 JSON Schema，覆盖权限、匹配规则、页面脚本、资源类型、设置、声明式提取器、WASM 处理器和本地操作。
-- [`plugin-v1.d.ts`](/plugin-sdk/plugin-v1.d.ts ':ignore')：JavaScript 插件 API 的 TypeScript 声明，覆盖 Observation、运行时 API、资源、刷新结果和下载计划。
+- [Manifest Schema](/plugin-sdk/plugin-v1.schema.json ':ignore')：`plugin.json` 的 JSON Schema，覆盖权限、匹配规则、页面脚本、资源类型、设置、声明式提取器、WASM 处理器和资源操作。
+- [`plugin-v1.d.ts`](/plugin-sdk/plugin-v1.d.ts ':ignore')：JavaScript 插件 API 的 TypeScript 声明，覆盖 Observation、运行时 API、资源、页面命令、刷新结果和下载计划。
 
 在支持 JSON Schema 的编辑器中，可以把 `plugin.json` 与 Schema 地址关联：
 

@@ -81,13 +81,22 @@ interface PluginProcessorDefinition {
   apiVersion: 1
 }
 
-interface PluginActionDefinition {
+interface ProcessFileActionDefinition {
   kind: 'process-file'
   processor: string
   inputExtensions?: string[]
   outputExtension?: string
   locales?: Record<string, PluginLocale>
 }
+
+interface PageCommandActionDefinition {
+  kind: 'page-command'
+  /** ID of a manifest pageScripts entry with bridge: true. */
+  pageScript: string
+  locales?: Record<string, PluginLocale>
+}
+
+type PluginActionDefinition = ProcessFileActionDefinition | PageCommandActionDefinition
 
 interface Selector {
   path?: string
@@ -318,6 +327,18 @@ interface PageMessageResult {
   autoDownload?: boolean
 }
 
+interface PageCommandMessage {
+  protocol: 1
+  type: 'resource-action'
+  requestId: string
+  actionId: string
+  resource: {
+    id: string
+    groupKey?: string
+  }
+  data?: Record<string, unknown>
+}
+
 interface PageSessionFilter {
   pageSessionId?: string
   scriptId?: string
@@ -347,7 +368,7 @@ interface PageScriptAPI {
   readonly scriptId: string
   readonly pageSessionId: string
   send(message: JSONValue): Promise<PageMessageResult>
-  onMessage(listener: (message: JSONValue) => void): () => void
+  onMessage(listener: (message: JSONValue | PageCommandMessage) => void): () => void
 }
 
 declare const pageApi: PageScriptAPI

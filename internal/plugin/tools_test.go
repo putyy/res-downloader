@@ -3,6 +3,8 @@ package plugin
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,16 +15,18 @@ func TestPackPluginDirectoryExcludesDevelopmentFilesAndDirectories(t *testing.T)
 	directory := t.TempDir()
 	manifest := `{"id":"test.pack","name":"Pack","version":"1.0.0","apiVersion":1,"runtime":"javascript","entry":"main.js","permissions":{"domains":["example.com"],"capabilities":[]},"match":[]}`
 	for name, content := range map[string]string{
-		"plugin.json":         manifest,
-		"main.js":             `function onObservation() { return {decision: "continue"} }`,
-		".git/config":         "secret",
-		".gitignore":          "dist/",
-		".DS_Store":           "finder metadata",
-		"README.md":           "development documentation",
-		"LICENSE":             "license text",
-		"dist/old.zip":        "old",
-		"tests/main.test.js":  `throw new Error("development only")`,
-		"fixtures/video.json": `{}`,
+		"plugin.json":           manifest,
+		"main.js":               `function onObservation() { return {decision: "continue"} }`,
+		".git/config":           "secret",
+		".idea/workspace.xml":   "local workspace",
+		".vscode/settings.json": "{}",
+		".gitignore":            "dist/",
+		".DS_Store":             "finder metadata",
+		"README.md":             "development documentation",
+		"LICENSE":               "license text",
+		"dist/old.zip":          "old",
+		"tests/main.test.js":    `throw new Error("development only")`,
+		"fixtures/video.json":   `{}`,
 	} {
 		fileName := filepath.Join(directory, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
@@ -44,7 +48,7 @@ func TestPackPluginDirectoryExcludesDevelopmentFilesAndDirectories(t *testing.T)
 	seen := make(map[string]bool)
 	for _, entry := range archive.File {
 		seen[entry.Name] = true
-		if strings.HasPrefix(entry.Name, ".git/") || strings.HasPrefix(entry.Name, "dist/") || strings.HasPrefix(entry.Name, "tests/") {
+		if strings.HasPrefix(entry.Name, ".git/") || strings.HasPrefix(entry.Name, ".idea/") || strings.HasPrefix(entry.Name, ".vscode/") || strings.HasPrefix(entry.Name, "dist/") || strings.HasPrefix(entry.Name, "tests/") {
 			t.Fatalf("pack included generated or repository metadata: %q", entry.Name)
 		}
 	}
@@ -108,6 +112,85 @@ func TestRunPluginCLIPackUsesDefaultDistOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer archive.Close()
+}
+
+func TestRunPluginCLICreateInteractiveUsesDefaults(t *testing.T) {
+	pluginsDirectory := t.TempDir()
+	input := strings.NewReader(pluginsDirectory + "\n\n\n")
+	var output bytes.Buffer
+	if err := RunPluginCLIWithInput([]string{"create"}, input, &output); err != nil {
+		t.Fatal(err)
+	}
+
+	directory := filepath.Join(pluginsDirectory, "com.example.my-plugin")
+	manifestRaw, err := os.ReadFile(filepath.Join(directory, "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := string(manifestRaw)
+	if !strings.Contains(manifest, `"id": "com.example.my-plugin"`) || !strings.Contains(manifest, `"name": "com.example.my-plugin"`) {
+		t.Fatalf("manifest does not contain default identity: %s", manifest)
+	}
+	if !strings.Contains(output.String(), "Plugins directory [./plugins]") || !strings.Contains(output.String(), "created plugin com.example.my-plugin") {
+		t.Fatalf("unexpected create output: %q", output.String())
+	}
+	assertPluginScaffoldDevelopmentFiles(t, directory)
+}
+
+func TestRunPluginCLICreateAcceptsDisplayNameArgument(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "video-plugin")
+	var output bytes.Buffer
+	if err := RunPluginCLIWithInput([]string{"create", directory, "com.example.video", "Example Video"}, strings.NewReader(""), &output); err != nil {
+		t.Fatal(err)
+	}
+
+	manifestRaw, err := os.ReadFile(filepath.Join(directory, "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manifestRaw), `"name": "Example Video"`) {
+		t.Fatalf("manifest does not contain display name: %s", manifestRaw)
+	}
+	assertPluginScaffoldDevelopmentFiles(t, directory)
+}
+
+func TestRunPluginCLICreateEOFDoesNotWriteScaffold(t *testing.T) {
+	for _, suffix := range []string{"", "\n", "\ncom.example.video\n", "\ncom.example.video\nUnfinished name"} {
+		parent := t.TempDir()
+		directory := filepath.Join(parent, "plugins")
+		var output bytes.Buffer
+		err := RunPluginCLIWithInput([]string{"create"}, strings.NewReader(directory+suffix), &output)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("suffix=%q: expected EOF cancellation, got %v", suffix, err)
+		}
+		if _, err := os.Stat(directory); !os.IsNotExist(err) {
+			t.Fatalf("creation wrote files after EOF: %v", err)
+		}
+	}
+	if err := RunPluginCLIWithInput([]string{"create"}, strings.NewReader(""), io.Discard); !errors.Is(err, io.EOF) {
+		t.Fatalf("expected empty input to cancel, got %v", err)
+	}
+}
+
+func assertPluginScaffoldDevelopmentFiles(t *testing.T, directory string) {
+	t.Helper()
+	gitignore, err := os.ReadFile(filepath.Join(directory, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gitignore) != ".idea\n.vscode\n" {
+		t.Fatalf("unexpected .gitignore: %q", gitignore)
+	}
+	readme, err := os.ReadFile(filepath.Join(directory, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(readme), "## Development") {
+		t.Fatalf("README is missing development guidance: %s", readme)
+	}
+	if _, err := os.Stat(filepath.Join(directory, "fixtures")); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSyncBundledPluginKeepsSourceDirectoryName(t *testing.T) {

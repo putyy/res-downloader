@@ -203,8 +203,9 @@ export namespace appType {
     }
 
     interface PluginActionDefinition {
-        kind: 'process-file' | string
-        processor: string
+        kind: 'process-file' | 'page-command' | string
+        processor?: string
+        pageScript?: string
         inputExtensions?: string[]
         outputExtension?: string
         locales?: { [locale: string]: PluginLocale }

@@ -249,19 +249,44 @@ func validateManifestForSource(manifest shared.PluginManifest, trustedBundled bo
 		if !validIdentifier(id) {
 			return fmt.Errorf("action id %q is invalid", id)
 		}
-		if action.Kind != shared.PluginActionProcessFile {
-			return fmt.Errorf("action %q has unsupported kind %q", id, action.Kind)
-		}
-		if _, exists := manifest.Processors[action.Processor]; !exists {
-			return fmt.Errorf("action %q references unknown processor %q", id, action.Processor)
-		}
-		if !validExtension(action.OutputExtension) {
-			return fmt.Errorf("action %q has invalid outputExtension", id)
-		}
-		for _, extension := range action.InputExtensions {
-			if !validExtension(extension) || extension == "" {
-				return fmt.Errorf("action %q has invalid input extension %q", id, extension)
+		switch action.Kind {
+		case shared.PluginActionProcessFile:
+			if action.PageScript != "" {
+				return fmt.Errorf("action %q process-file cannot reference a page script", id)
 			}
+			if _, exists := manifest.Processors[action.Processor]; !exists {
+				return fmt.Errorf("action %q references unknown processor %q", id, action.Processor)
+			}
+			if !validExtension(action.OutputExtension) {
+				return fmt.Errorf("action %q has invalid outputExtension", id)
+			}
+			for _, extension := range action.InputExtensions {
+				if !validExtension(extension) || extension == "" {
+					return fmt.Errorf("action %q has invalid input extension %q", id, extension)
+				}
+			}
+		case shared.PluginActionPageCommand:
+			if action.Processor != "" || len(action.InputExtensions) > 0 || action.OutputExtension != "" {
+				return fmt.Errorf("action %q page-command cannot declare file processor fields", id)
+			}
+			if !manifest.Permissions.Has("page-bridge") {
+				return fmt.Errorf("action %q page-command requires page-bridge", id)
+			}
+			if action.PageScript == "" {
+				return fmt.Errorf("action %q page-command requires pageScript", id)
+			}
+			found := false
+			for _, script := range manifest.PageScripts {
+				if script.ID == action.PageScript && script.Bridge {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("action %q references unknown or unbridged page script %q", id, action.PageScript)
+			}
+		default:
+			return fmt.Errorf("action %q has unsupported kind %q", id, action.Kind)
 		}
 	}
 	seenKinds := make(map[string]struct{}, len(manifest.ResourceKinds))

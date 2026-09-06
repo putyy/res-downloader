@@ -13,6 +13,7 @@ res-downloader 使用版本化的插件协议。插件通过结构化数据接�
 - `declarative`：用 JSON/YAML 和受限 JSON Path 从单个 JSON 响应提取单轨资源。
 - `javascript`：处理复杂 JSON、跨请求关联、自定义下载计划和资源刷新。
 - 插件自带 WASM：在下载输入或输出阶段执行私有解密/转换算法。
+- 资源操作：处理本地文件，或把插件自定义参数发送给匹配的页面脚本。
 - 宿主下载能力：普通 HTTP、HLS，以及配置 FFmpeg 后的音视频合并、转封装、音频提取和直播录制。
 
 ## 选择插件类型
@@ -35,14 +36,25 @@ res-downloader 使用版本化的插件协议。插件通过结构化数据接�
 从仓库根目录执行：
 
 ```bash
-cp -R examples/plugins/javascript-basic ./my-plugin
+mkdir -p ./plugins
+cp -R examples/plugins/javascript-basic ./plugins/com.example.my-plugin
 ```
 
-简单 JSON API 可以复制 `declarative-basic`；WASM 示例位于 `wasm-xor`。也可以通过项目 CLI 创建 JavaScript 脚手架：
+简单 JSON API 可以复制 `declarative-basic`；WASM 示例位于 `wasm-xor`。也可以通过项目 CLI 交互创建 JavaScript 脚手架：
 
 ```bash
-go run main.go plugin create ./my-plugin com.example.video
+go run main.go plugin create
 ```
+
+直接回车会使用默认插件父目录 `./plugins`、插件 ID 和显示名称 `com.example.my-plugin`，最终创建 `./plugins/com.example.my-plugin`。创建时可以依次输入其他父目录、插件 ID 和显示名称；每项输入需按回车确认，遇到 EOF（例如空输入时按 Ctrl+D）会退出，不创建文件。也可以直接指定参数，其中第一个参数是完整的目标目录：
+
+```bash
+go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plugin "Example Video"
+```
+
+脚手架包含 `plugin.json`、`main.js`、`README.md`、`.gitignore` 和空的 `fixtures/` 目录；`.gitignore` 默认忽略 `.idea` 和 `.vscode`。目标目录非空时命令会拒绝覆盖。
+
+复制示例和 CLI 创建任选一种。下文统一使用 `./plugins/com.example.my-plugin`；如选择其他目录，请替换后续命令中的路径。
 
 ### 2. 修改 Manifest 和入口
 
@@ -57,8 +69,8 @@ JavaScript 插件在 `main.js` 中实现 `onObservation`。先完成“匹配一
 ### 4. 静态校验和离线回放
 
 ```bash
-go run main.go plugin lint ./my-plugin
-go run main.go plugin replay ./my-plugin ./my-plugin/fixtures/video.json
+go run main.go plugin lint ./plugins/com.example.my-plugin
+go run main.go plugin replay ./plugins/com.example.my-plugin ./plugins/com.example.my-plugin/fixtures/video.json
 ```
 
 `lint` 校验目录、Manifest、入口文件和权限关系；`replay` 在不启动代理的情况下执行 fixture。
@@ -70,10 +82,10 @@ go run main.go plugin replay ./my-plugin ./my-plugin/fixtures/video.json
 ### 5. 打包并安装
 
 ```bash
-go run main.go plugin pack ./my-plugin
+go run main.go plugin pack ./plugins/com.example.my-plugin
 ```
 
-默认生成 `<插件目录>/dist/plugin.zip`；如有需要，也可以在命令末尾传入自定义输出路径。打包器会排除插件目录中的 `.git/`、`dist/`、`tests/`、输出文件自身，以及 `.gitignore`、`.DS_Store`、`README.md`、`LICENSE` 文件。在应用“插件管理”中选择生成的 ZIP，确认权限后安装。开发期间也可以把插件目录放入用户数据目录的 `plugins` 子目录，然后使用“重新加载”。
+默认生成 `<插件目录>/dist/plugin.zip`；如有需要，也可以在命令末尾传入自定义输出路径。打包器会排除插件目录中的 `.git/`、`.idea/`、`.vscode/`、`dist/`、`tests/`、输出文件自身，以及 `.gitignore`、`.DS_Store`、`README.md`、`LICENSE` 文件。打包排除规则独立于 Git，命令不会读取 `.gitignore`，也不会影响 `dist/plugin.zip` 提交到插件仓库。在应用“插件管理”中选择生成的 ZIP，确认权限后安装。开发期间也可以把插件目录放入用户数据目录的 `plugins` 子目录，然后使用“重新加载”。
 
 Putyy 官方插件可以直接选择本地 ZIP 安装，Manifest 的作者地址需指向 `github.com/putyy` 下的仓库；安装后仍显示为“官方”。其他本地插件显示为“社区”，不能使用 `official.*` ID。
 
@@ -191,7 +203,7 @@ settingsSchema:
 | `pageScripts` | 否 | 由宿主注入匹配 HTML 页面的脚本 |
 | `extractors` | 声明式必填 | 从 JSON Body 提取资源的规则 |
 | `processors` | 否 | 插件自带的 WASM 处理器 |
-| `actions` | 否 | 绑定 WASM 处理器的本地文件操作 |
+| `actions` | 否 | 由宿主渲染的本地文件处理或页面命令操作 |
 | `requires` | 否 | 可选宿主工具要求，例如 `ffmpeg: ">=6.0"` |
 
 `match` 中的 `host`、`path` 和完整 `url` 支持 `*` 通配符；`method` 忽略大小写。`contentTypes` 匹配响应 Content-Type，`readBody` 决定命中该规则时是否需要 Body。只依赖 URL 或响应头时应明确设置 `readBody: false`。
@@ -231,7 +243,7 @@ quality:
 | `media.ffmpeg` | 使用 FFmpeg 参数数组高级接口 | 不经过 Shell；需要 FFmpeg |
 | `media.ffmpeg.network` | 允许 FFmpeg 读取插件提供的 HLS/直播地址 | 下载地址必须是合法的 HTTP/HTTPS URL；这是敏感权限 |
 | `inject-page-script` | 在匹配 HTML 页面中注入脚本 | 目标域名必须被 TLS 拦截且允许安全注入 |
-| `page-bridge` | 页面脚本与插件运行时交换 JSON 消息 | 需要 `inject-page-script` |
+| `page-bridge` | 页面脚本与插件运行时交换 JSON 消息，或接收用户触发的 `page-command` | 需要 `inject-page-script` |
 | `capture-response-body` | 缓存浏览器实际读取的 Range 响应，或接收页面脚本捕获的媒体分片 | 需要 `observe-response`；页面分片还需要 `inject-page-script` 和 `page-bridge` |
 | `enqueue-download` | 页面消息上报资源后自动创建下载任务 | 需要 `page-bridge` 和 `emit-resource`；属于会写入下载目录的敏感权限 |
 
@@ -309,6 +321,21 @@ return {
 
 `context` 包含 `pageSessionId`、`scriptId`、`pageUrl` 和 `origin`。插件还可使用 `api.page.broadcast(filter, message)` 和 `api.page.sessions(filter)`；这些接口只会提供给声明了 `page-bridge` 权限的插件。普通消息与回复仅接受 JSON，单条最大 64 KiB；大块媒体数据必须使用 `pageApi.capture.write`。每个插件最多 32 个活动页面会话，每个会话具有队列、连接数和速率限制。
 
+Manifest 中的 `page-command` 资源操作允许用户从应用资源列表向指定的桥接页面脚本发送命令。宿主从已保存的资源重新读取 `action.data`，不会接受前端提交的自定义参数；消息使用固定信封：
+
+```ts
+interface PageCommandMessage {
+  protocol: 1
+  type: "resource-action"
+  requestId: string
+  actionId: string
+  resource: {id: string; groupKey?: string}
+  data?: Record<string, unknown>
+}
+```
+
+`requestId` 由宿主随机生成，页面返回异步结果时应原样携带。投递前宿主清理过期的空闲会话，命令只会发给当前插件中 Action 的 `pageScript` 指向、`bridge: true` 且当前有 SSE 连接的会话；没有匹配的已连接页面、消息超过 64 KiB 或所有页面队列已满时，操作会直接失败。调用成功时本地 API 返回 `requestId`、`pageScriptId` 和成功入队的会话数 `delivered`。入队成功不代表页面已收到或执行完成，页面仍可能随后断连；业务结果需由页面使用 `requestId` 回传。多个页面可能同时收到同一命令，插件必须通过资源业务 ID 校验目标，并使用 `requestId` 防止重复执行。
+
 页面脚本和目标网站代码处于同一个主世界，网站代码理论上可以观察或模拟桥请求。因此页面消息始终是不可信输入；默认消息桥不会授予页面文件、Shell、数据库、下载器或其他插件访问权。`enqueue-download` 是显式例外，只允许把当前插件刚发布且通过校验的资源送入宿主下载队列，不暴露文件路径或任意任务控制接口。
 
 ## 资源模型
@@ -369,7 +396,7 @@ api.emit({
 - `technical`：可选 MIME、容器、编码和时长信息，用于展示或命名。
 - `lifecycle.expiresAt`：可选的毫秒时间戳，表示链接预计过期时间。
 - `metadata`：站点私有字段应使用命名空间；通用 `author` 可供文件名模板使用。
-- `actions`：引用 Manifest 中声明的宿主操作，例如使用 WASM 处理本地文件。
+- `actions`：引用 Manifest 中声明的宿主操作，例如使用 WASM 处理本地文件，或向页面发送命令；动态参数保存在操作的 `data` 中。
 
 资源输出还需满足以下约束：
 
@@ -691,6 +718,63 @@ actions: [{
 
 `process-file` 由宿主渲染并执行：用户通过系统对话框选取文件，Go 只调用当前插件清单中绑定的 WASM，插件不会获得文件系统路径或任意读写权限。处理结果写为同目录的 `.decrypted` 新文件，原文件不会被覆盖。
 
+### 向页面发送资源命令
+
+JavaScript 插件可以把资源操作声明为 `page-command`。它必须引用当前 Manifest 中一个 `bridge: true` 的页面脚本，并申请 `inject-page-script` 和 `page-bridge`：
+
+```json
+{
+  "permissions": {
+    "domains": ["www.example.com"],
+    "capabilities": ["inject-page-script", "page-bridge"]
+  },
+  "pageScripts": [{
+    "id": "resource-controller",
+    "entry": "page/controller.js",
+    "match": [{"host": "www.example.com", "path": "/watch/*"}],
+    "runAt": "document-start",
+    "frames": "top",
+    "bridge": true
+  }],
+  "actions": {
+    "inspect-page-resource": {
+      "kind": "page-command",
+      "pageScript": "resource-controller",
+      "locales": {
+        "zh": {"name": "检查页面资源"},
+        "en": {"name": "Inspect Page Resource"}
+      }
+    }
+  }
+}
+```
+
+资源携带由插件定义的动态参数，序列化后最大 60 KiB：
+
+```javascript
+actions: [{
+  id: "inspect-page-resource",
+  data: {assetId: payload.id, expectedType: "video"}
+}]
+```
+
+`action.data` 会随资源写入 `resources.db`，只能放业务 ID、格式选项等可持久化数据；Cookie、Authorization、页面会话令牌和短期 `sessionBuffer` 等值应留在页面内存，并在页面确认目标匹配后使用。
+
+页面脚本通过现有监听器接收标准信封并校验目标：
+
+```javascript
+pageApi.onMessage(function (message) {
+  if (message.type !== "resource-action" || message.actionId !== "inspect-page-resource") return
+  if (String(currentAssetId()) !== String(message.data.assetId)) {
+    showPageNotice("请打开对应资源后重试")
+    return
+  }
+  inspectCurrentResource(message.requestId)
+})
+```
+
+宿主只负责受权限约束的投递，不解释 `data`，也不把页面结果自动显示为桌面 UI。页面可自行提示，或使用 `pageApi.send` 把带 `requestId` 的结果交给 `onPageMessage`；需要生成文件时可继续使用 Capture Store、资源上报和 `enqueue-download`。完整的脱敏示例位于 `examples/plugins/page-command/`。
+
 ### ABI v1
 
 模块必须导出线性内存和以下函数，整数均为 WebAssembly `i32`：
@@ -772,10 +856,10 @@ JSON Path 子集支持 `$.a.b`、数组数字下标和结尾的 `[*]`。多请�
 无需启动代理即可校验插件：
 
 ```bash
-go run main.go plugin create ./my-plugin com.example.video
-go run main.go plugin lint ./my-plugin
+go run main.go plugin create
+go run main.go plugin lint ./plugins/com.example.my-plugin
 go run main.go plugin replay ./examples/plugins/javascript-basic ./examples/plugins/javascript-basic/fixtures/video.json
-go run main.go plugin pack ./my-plugin
+go run main.go plugin pack ./plugins/com.example.my-plugin
 ```
 
 fixture 包含脱敏的 `observation` 和预期结果：

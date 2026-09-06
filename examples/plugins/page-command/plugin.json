@@ -1,0 +1,53 @@
+{
+  "id": "com.example.page-command",
+  "name": "Example Page Command",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "runtime": "javascript",
+  "entry": "main.js",
+  "permissions": {
+    "domains": ["api.example.com", "www.example.com"],
+    "capabilities": [
+      "observe-response",
+      "read-response-body",
+      "emit-resource",
+      "inject-page-script",
+      "page-bridge"
+    ],
+    "bodyLimit": 65536
+  },
+  "match": [
+    {
+      "stage": "response",
+      "host": "api.example.com",
+      "path": "/api/videos/*",
+      "contentTypes": ["application/json*"]
+    }
+  ],
+  "pageScripts": [
+    {
+      "id": "resource-controller",
+      "entry": "page/controller.js",
+      "match": [{"host": "www.example.com", "path": "/watch/*"}],
+      "runAt": "document-start",
+      "frames": "top",
+      "bridge": true
+    }
+  ],
+  "actions": {
+    "inspect-page-resource": {
+      "kind": "page-command",
+      "pageScript": "resource-controller",
+      "locales": {
+        "zh": {
+          "name": "检查页面资源",
+          "description": "让匹配的页面检查当前资源。"
+        },
+        "en": {
+          "name": "Inspect Page Resource",
+          "description": "Ask a matching page to inspect its current resource."
+        }
+      }
+    }
+  }
+}

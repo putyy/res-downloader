@@ -31,10 +31,17 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
    - Use `declarative` when one JSON response directly provides a single-track resource.
    - Use `javascript` for complex objects, multiple qualities, correlation, refresh, or custom download plans.
    - Add page scripts, response modification, capture, WASM, or advanced FFmpeg capabilities only when ordinary observation cannot meet the requirement.
-4. Implement the plugin with narrowly scoped host, path, content-type, body-read, body-limit, and capability declarations. New community plugins must not claim reserved `builtin.*` or `official.*` identities. Preserve an existing official plugin identity only when updating that plugin.
-5. Add a concise README covering behavior, usage, limitations, and exact development commands. Add the smallest representative fixtures needed for each supported observation path and meaningful edge case.
-6. Sanitize every fixture and log artifact. Remove cookies, authorization values, access tokens, account data, administrator credentials, private URLs, and unrelated user content. Preserve only fields required for matching and extraction.
-7. Perform repository-local validation from the repository root:
+4. For a new plugin, initialize the exact target directory with the project CLI before implementation:
+
+   ```bash
+   go run main.go plugin create ./plugins/resd-plugin-<site> <plugin-id> "<display name>"
+   ```
+
+   Do not run the scaffold command over an existing plugin. Keep the generated `README.md` and `.gitignore`; the default `.gitignore` entries are `.idea` and `.vscode`, and it must not ignore `dist/` unless the user explicitly requests that change.
+5. Implement the plugin with narrowly scoped host, path, content-type, body-read, body-limit, and capability declarations. New community plugins must not claim reserved `builtin.*` or `official.*` identities. Preserve an existing official plugin identity only when updating that plugin.
+6. Complete the generated README with behavior, usage, limitations, and exact development commands. Add the smallest representative fixtures needed for each supported observation path and meaningful edge case.
+7. Sanitize every fixture and log artifact. Remove cookies, authorization values, access tokens, account data, administrator credentials, private URLs, and unrelated user content. Preserve only fields required for matching and extraction.
+8. Perform repository-local validation from the repository root:
    - Run `go run main.go plugin lint ./plugins/<plugin-directory>`.
    - Run `go run main.go plugin replay ./plugins/<plugin-directory> <fixture>` for every documented replay fixture. Replay is deterministic offline fixture validation; it is not live-site or application acceptance.
    - If a file under `fixtures/` is intentionally not a replay input, identify its role instead of silently skipping it.
@@ -42,14 +49,14 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
    - Run only other checks that are explicitly repository-local and documented by the plugin or repository.
    - Fix failures and repeat the affected checks.
    - Do not start the host application, install or reload the plugin, or perform live capture, preview, download, playback, or network integration as acceptance validation.
-8. Prepare an exact manual-verification checklist for the user. Cover installation or reload, the representative page and required login state, capture and metadata, preview, download, output playback, and any relevant refresh, merge, or site-specific processing behavior. Browser observation used during development does not count as acceptance verification.
-9. After implementation and static validation are final, package the plugin as the last artifact-producing step:
+9. Prepare an exact manual-verification checklist for the user. Cover installation or reload, the representative page and required login state, capture and metadata, preview, download, output playback, and any relevant refresh, merge, or site-specific processing behavior. Browser observation used during development does not count as acceptance verification.
+10. After implementation and static validation are final, package the plugin as the last artifact-producing step:
 
    ```bash
    go run main.go plugin pack ./plugins/<plugin-directory>
    ```
 
-10. Verify that `plugins/<plugin-directory>/dist/plugin.zip` exists and is non-empty. If any packaged source changes afterward, rerun lint, all affected fixture replays, the relevant repository-local checks, and pack so the ZIP matches the final source.
+11. Verify that `plugins/<plugin-directory>/dist/plugin.zip` exists and is non-empty. If any packaged source changes afterward, rerun lint, all affected fixture replays, the relevant repository-local checks, and pack so the ZIP matches the final source.
 
 ## Safety and stopping conditions
 

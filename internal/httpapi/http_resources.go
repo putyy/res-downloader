@@ -103,7 +103,28 @@ func (h *Server) resourceAction(w http.ResponseWriter, r *http.Request) {
 		h.error(w, "resource not found")
 		return
 	}
-	definition, processor, err := h.plugins.ResolveFileAction(candidate, data.ActionID)
+	definition, _, err := h.plugins.ResolveResourceAction(candidate, data.ActionID)
+	if err != nil {
+		h.error(w, err.Error())
+		return
+	}
+	switch definition.Kind {
+	case shared.PluginActionProcessFile:
+		h.processFileResourceAction(w, candidate, data.ActionID)
+	case shared.PluginActionPageCommand:
+		result, err := h.plugins.DispatchPageCommand(candidate, data.ActionID)
+		if err != nil {
+			h.error(w, err.Error())
+			return
+		}
+		h.success(w, result)
+	default:
+		h.error(w, "resource action kind is unsupported")
+	}
+}
+
+func (h *Server) processFileResourceAction(w http.ResponseWriter, candidate shared.ResourceCandidate, actionID string) {
+	definition, processor, err := h.plugins.ResolveFileAction(candidate, actionID)
 	if err != nil {
 		h.error(w, err.Error())
 		return
@@ -128,7 +149,7 @@ func (h *Server) resourceAction(w http.ResponseWriter, r *http.Request) {
 		h.success(w, respData{"cancelled": true})
 		return
 	}
-	go h.resources.ProcessFileAction(candidate, data.ActionID, definition, processor, filePath)
+	go h.resources.ProcessFileAction(candidate, actionID, definition, processor, filePath)
 	h.success(w, respData{"started": true})
 }
 

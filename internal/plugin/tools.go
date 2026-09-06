@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -179,21 +180,20 @@ func replayPluginFixture(runtime shared.RuntimePlugin, fixturePath string) error
 }
 
 func RunPluginCLI(args []string, output io.Writer) error {
-	if len(args) < 2 {
+	return RunPluginCLIWithInput(args, os.Stdin, output)
+}
+
+func RunPluginCLIWithInput(args []string, input io.Reader, output io.Writer) error {
+	if len(args) < 1 {
 		return errors.New("usage: res-downloader plugin <create|lint|lint-bundled|replay|pack|sync-bundled> ...")
 	}
 	switch args[0] {
 	case "create":
-		id := filepath.Base(args[1])
-		if len(args) > 2 {
-			id = args[2]
-		}
-		if err := createPluginScaffold(args[1], id); err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintf(output, "created plugin %s in %s\n", id, args[1])
-		return nil
+		return runCreatePluginCLI(args[1:], input, output)
 	case "lint":
+		if len(args) < 2 {
+			return errors.New("usage: res-downloader plugin lint <plugin-directory>")
+		}
 		manifest, err := ValidatePluginDirectory(args[1])
 		if err != nil {
 			return err
@@ -201,6 +201,9 @@ func RunPluginCLI(args []string, output io.Writer) error {
 		_, _ = fmt.Fprintf(output, "valid plugin %s v%s (API %d, %s)\n", manifest.ID, manifest.Version, manifest.APIVersion, manifest.Runtime)
 		return nil
 	case "lint-bundled":
+		if len(args) < 2 {
+			return errors.New("usage: res-downloader plugin lint-bundled <plugin-directory>")
+		}
 		manifest, err := ValidateBundledPluginDirectory(args[1])
 		if err != nil {
 			return err
@@ -217,6 +220,9 @@ func RunPluginCLI(args []string, output io.Writer) error {
 		_, _ = fmt.Fprintln(output, "fixture passed")
 		return nil
 	case "pack":
+		if len(args) < 2 {
+			return errors.New("usage: res-downloader plugin pack <plugin-directory> [output-path]")
+		}
 		outputPath := filepath.Join(args[1], "dist", "plugin.zip")
 		if len(args) > 2 {
 			outputPath = args[2]
@@ -227,6 +233,9 @@ func RunPluginCLI(args []string, output io.Writer) error {
 		_, _ = fmt.Fprintln(output, outputPath)
 		return nil
 	case "sync-bundled":
+		if len(args) < 2 {
+			return errors.New("usage: res-downloader plugin sync-bundled <plugin-directory>")
+		}
 		manifest, target, err := syncBundledPlugin(args[1])
 		if err != nil {
 			return err
@@ -238,9 +247,68 @@ func RunPluginCLI(args []string, output io.Writer) error {
 	}
 }
 
-func createPluginScaffold(directory, id string) error {
+func runCreatePluginCLI(args []string, input io.Reader, output io.Writer) error {
+	if len(args) > 3 {
+		return errors.New("usage: res-downloader plugin create [plugin-directory] [plugin-id] [plugin-name]")
+	}
+
+	var directory, id, name string
+	if len(args) == 0 {
+		reader := bufio.NewReader(input)
+		baseDirectory, err := promptPluginScaffoldValue(reader, output, "Plugins directory", "./plugins")
+		if err != nil {
+			return err
+		}
+		id, err = promptPluginScaffoldValue(reader, output, "Plugin ID", "com.example.my-plugin")
+		if err != nil {
+			return err
+		}
+		name, err = promptPluginScaffoldValue(reader, output, "Plugin name", id)
+		if err != nil {
+			return err
+		}
+		directory = filepath.Join(baseDirectory, id)
+	} else {
+		directory = args[0]
+		id = filepath.Base(directory)
+		if len(args) > 1 {
+			id = args[1]
+		}
+		name = id
+		if len(args) > 2 {
+			name = args[2]
+		}
+	}
+
+	if err := createPluginScaffold(directory, id, name); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(output, "created plugin %s in %s\n", id, directory)
+	return nil
+}
+
+func promptPluginScaffoldValue(reader *bufio.Reader, output io.Writer, label, defaultValue string) (string, error) {
+	_, _ = fmt.Fprintf(output, "%s [%s]: ", label, defaultValue)
+	value, err := reader.ReadString('\n')
+	if errors.Is(err, io.EOF) {
+		return "", fmt.Errorf("plugin creation cancelled: input ended while reading %s: %w", label, err)
+	}
+	if err != nil {
+		return "", err
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return defaultValue, nil
+	}
+	return value, nil
+}
+
+func createPluginScaffold(directory, id, name string) error {
 	if !validIdentifier(id) || reservedPluginIDPrefix(id) != "" {
 		return errors.New("invalid plugin id")
+	}
+	if strings.TrimSpace(name) == "" {
+		return errors.New("invalid plugin name")
 	}
 	if entries, err := os.ReadDir(directory); err == nil && len(entries) > 0 {
 		return errors.New("plugin directory is not empty")
@@ -259,7 +327,7 @@ func createPluginScaffold(directory, id string) error {
   "permissions": {"domains": ["example.com"], "capabilities": ["observe-response", "emit-resource"]},
   "match": [{"stage": "response", "host": "example.com"}]
 }
-`, id, id)
+`, id, name)
 	script := `function onObservation(observation, api) {
   return {decision: "continue", resources: []};
 }
@@ -268,10 +336,29 @@ function createDownloadPlan(input) {
   return null;
 }
 `
-	if err := os.WriteFile(filepath.Join(directory, "plugin.json"), []byte(manifest), 0644); err != nil {
-		return err
+	readme := fmt.Sprintf(`# %s
+
+Plugin ID: `+"`%s`"+`
+
+## Development
+
+1. Update the domains and match rules in `+"`plugin.json`"+`.
+2. Implement resource discovery in `+"`main.js`"+`.
+3. Add sanitized offline fixtures under `+"`fixtures/`"+`.
+4. Run the plugin lint and replay commands before packaging.
+`, name, id)
+	files := map[string]string{
+		".gitignore":  ".idea\n.vscode\n",
+		"README.md":   readme,
+		"main.js":     script,
+		"plugin.json": manifest,
 	}
-	return os.WriteFile(filepath.Join(directory, "main.js"), []byte(script), 0644)
+	for fileName, content := range files {
+		if err := os.WriteFile(filepath.Join(directory, fileName), []byte(content), 0644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func packPluginDirectory(directory, outputPath string) error {
@@ -352,7 +439,7 @@ func packPluginDirectory(directory, outputPath string) error {
 }
 
 func excludedPluginDevelopmentDirectory(name string) bool {
-	return name == ".git" || name == "dist" || name == "tests"
+	return name == ".git" || name == ".idea" || name == ".vscode" || name == "dist" || name == "tests"
 }
 
 func excludedPluginPackageFile(name string) bool {

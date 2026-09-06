@@ -110,17 +110,46 @@ type PluginProcessorDefinition struct {
 	APIVersion int    `json:"apiVersion" yaml:"apiVersion"`
 }
 
-const PluginActionProcessFile = "process-file"
+const (
+	PluginActionProcessFile = "process-file"
+	PluginActionPageCommand = "page-command"
+	PageCommandProtocol     = 1
+	PageCommandType         = "resource-action"
+)
 
 // PluginActionDefinition describes a trusted host-rendered operation. Plugins
-// provide metadata and a declared processor; they never receive filesystem
-// access or inject frontend code.
+// provide metadata and select a bounded host primitive; they never receive
+// filesystem access or inject desktop frontend code.
 type PluginActionDefinition struct {
 	Kind            string                  `json:"kind" yaml:"kind"`
-	Processor       string                  `json:"processor" yaml:"processor"`
+	Processor       string                  `json:"processor,omitempty" yaml:"processor,omitempty"`
+	PageScript      string                  `json:"pageScript,omitempty" yaml:"pageScript,omitempty"`
 	InputExtensions []string                `json:"inputExtensions,omitempty" yaml:"inputExtensions,omitempty"`
 	OutputExtension string                  `json:"outputExtension,omitempty" yaml:"outputExtension,omitempty"`
 	Locales         map[string]PluginLocale `json:"locales,omitempty" yaml:"locales,omitempty"`
+}
+
+// PageCommandMessage is the host-owned envelope delivered to a bridged page
+// when the user invokes a page-command resource action. Data remains opaque to
+// the host and comes from the persisted ResourceAction selected by ID.
+type PageCommandMessage struct {
+	Protocol  int                    `json:"protocol"`
+	Type      string                 `json:"type"`
+	RequestID string                 `json:"requestId"`
+	ActionID  string                 `json:"actionId"`
+	Resource  PageCommandResource    `json:"resource"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+}
+
+type PageCommandResource struct {
+	ID       string `json:"id"`
+	GroupKey string `json:"groupKey,omitempty"`
+}
+
+type PageCommandDispatch struct {
+	RequestID    string `json:"requestId"`
+	PageScriptID string `json:"pageScriptId"`
+	Delivered    int    `json:"delivered"`
 }
 
 func (m PluginManifest) IsEnabled() bool {
