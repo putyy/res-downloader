@@ -121,6 +121,7 @@ const (
 // provide metadata and select a bounded host primitive; they never receive
 // filesystem access or inject desktop frontend code.
 type PluginActionDefinition struct {
+	TrackProgress   bool                    `json:"trackProgress,omitempty" yaml:"trackProgress,omitempty"`
 	Kind            string                  `json:"kind" yaml:"kind"`
 	Processor       string                  `json:"processor,omitempty" yaml:"processor,omitempty"`
 	PageScript      string                  `json:"pageScript,omitempty" yaml:"pageScript,omitempty"`
@@ -150,6 +151,27 @@ type PageCommandDispatch struct {
 	RequestID    string `json:"requestId"`
 	PageScriptID string `json:"pageScriptId"`
 	Delivered    int    `json:"delivered"`
+}
+
+// PageCommandStatus is transient host-owned state, separate from download tasks.
+type PageCommandStatus struct {
+	ErrorCode  string   `json:"errorCode,omitempty"`
+	RequestID  string   `json:"requestId"`
+	PluginID   string   `json:"pluginId"`
+	ActionID   string   `json:"actionId"`
+	ResourceID string   `json:"resourceId"`
+	State      string   `json:"state"`
+	Progress   *float64 `json:"progress,omitempty"`
+	Message    string   `json:"message,omitempty"`
+	CreatedAt  int64    `json:"createdAt"`
+	UpdatedAt  int64    `json:"updatedAt"`
+}
+
+type PageCommandReport struct {
+	RequestID string   `json:"requestId"`
+	State     string   `json:"state"`
+	Progress  *float64 `json:"progress,omitempty"`
+	Message   string   `json:"message,omitempty"`
 }
 
 func (m PluginManifest) IsEnabled() bool {
@@ -214,10 +236,11 @@ type PageScriptInjection struct {
 }
 
 type PageMessageContext struct {
-	PageSessionID string `json:"pageSessionId"`
-	ScriptID      string `json:"scriptId"`
-	PageURL       string `json:"pageUrl"`
-	Origin        string `json:"origin"`
+	Settings      map[string]interface{} `json:"settings,omitempty"`
+	PageSessionID string                 `json:"pageSessionId"`
+	ScriptID      string                 `json:"scriptId"`
+	PageURL       string                 `json:"pageUrl"`
+	Origin        string                 `json:"origin"`
 }
 
 type PageMessageResult struct {

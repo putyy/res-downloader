@@ -146,12 +146,13 @@
 <script lang="ts" setup>
 import type {DataTableBaseColumn, DataTableFilterState, DataTableRowKey} from "naive-ui"
 import {NButton, NDataTable, NIcon, NPopover, NSpace} from "naive-ui"
-import {computed, onMounted, onUnmounted, ref, watch} from "vue"
+import {computed, onActivated, onMounted, onUnmounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
 import Preview from "@/components/Preview.vue"
 import ShowLoading from "@/components/ShowLoading.vue"
 import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
+import {pageCommandErrorMessage} from '@/services/pageCommands'
 import {useResourceTableColumns} from '@/components/resource/useResourceTableColumns'
 import {exportableResource, findResourceInTree, mergeResourceRuntime, primaryURL, removeResourceFromTree, resourceSome, visitResource} from '@/services/resources'
 import ImportJson from "@/components/ImportJson.vue"
@@ -258,9 +259,62 @@ const showImport = ref(false)
 const showPassword = ref(false)
 const proxyAction = ref<'enable' | 'disable'>('enable')
 const disposers: Array<() => void> = []
+const pageCommands = ref<Record<string, appType.PageCommandStatus>>({})
+let pageCommandPoll: ReturnType<typeof setTimeout> | undefined
+let pageCommandPolling = true
+let pageCommandSyncUnavailable = false
+const refreshPageCommands = async () => {
+  try {
+    const response = await appApi.pageCommands() as appType.Res<appType.PageCommandStatus[]>
+    if (!pageCommandPolling) return
+    if (response.code !== 1 || !Array.isArray(response.data)) throw new Error('Invalid page command status response')
+    const latest: Record<string, appType.PageCommandStatus> = {}
+    for (const command of response.data) {
+      if (!latest[command.resourceId]) latest[command.resourceId] = command
+    }
+    pageCommands.value = latest
+    pageCommandSyncUnavailable = false
+  } catch {
+    if (!pageCommandPolling) return
+    let hasActiveCommands = false
+    for (const command of Object.values(pageCommands.value)) {
+      if (command.state !== 'pending' && command.state !== 'running') continue
+      command.syncUnavailable = true
+      hasActiveCommands = true
+    }
+    if (hasActiveCommands && !pageCommandSyncUnavailable) {
+      window?.$message?.warning(t('index.page_command_sync_unavailable'))
+    }
+    pageCommandSyncUnavailable = true
+  }
+  finally {
+    if (pageCommandPolling) pageCommandPoll = setTimeout(refreshPageCommands, 1500)
+  }
+}
 const handleWindowResize = () => resetTableHeight()
 
+let pluginMetadataGeneration = 0
+const refreshPluginMetadata = async () => {
+  const generation = ++pluginMetadataGeneration
+  try {
+    const res = await appApi.plugins() as appType.Res
+    if (res.code !== 1 || generation !== pluginMetadataGeneration) return
+    const loadedPlugins = (res.data.plugins ?? []).filter((plugin: appType.PluginStatus) => plugin.loaded)
+    pluginResourceKinds.value = loadedPlugins.flatMap((plugin: appType.PluginStatus) => plugin.manifest.resourceKinds ?? [])
+    pluginActionDefinitions.value = Object.fromEntries(
+        loadedPlugins.map((plugin: appType.PluginStatus) => [plugin.manifest.id, plugin.manifest.actions ?? {}]),
+    )
+    buildClassify()
+    removeUnavailableResourceTypes()
+  } catch { /* Retain the previous metadata on connection failure; retry on next activation. */ }
+}
+
+// The home route is kept alive. Installation/reload can change action definitions
+// without remounting it, so refresh both initially and when returning to the page.
+onActivated(() => { void refreshPluginMetadata() })
+
 onMounted(() => {
+  void refreshPageCommands()
   try {
     window.addEventListener("resize", handleWindowResize)
   } catch (e) {
@@ -269,17 +323,6 @@ onMounted(() => {
 
   buildClassify()
   restoreResourceTypes()
-  appApi.plugins().then((res: appType.Res) => {
-    if (res.code !== 1) return
-    const loadedPlugins = (res.data.plugins ?? []).filter((plugin: appType.PluginStatus) => plugin.loaded)
-    pluginResourceKinds.value = loadedPlugins
-        .flatMap((plugin: appType.PluginStatus) => plugin.manifest.resourceKinds ?? [])
-    pluginActionDefinitions.value = Object.fromEntries(
-        loadedPlugins.map((plugin: appType.PluginStatus) => [plugin.manifest.id, plugin.manifest.actions ?? {}]),
-    )
-    buildClassify()
-    removeUnavailableResourceTypes()
-  })
 
   appApi.listResources({offset: 0, limit: resourcePageSize}).then((res: appType.Res) => {
     if (res.code !== 1) {
@@ -362,6 +405,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  pluginMetadataGeneration++
+  pageCommandPolling = false
+  if (pageCommandPoll) clearTimeout(pageCommandPoll)
   window.removeEventListener('resize', handleWindowResize)
   disposers.splice(0).forEach(dispose => dispose())
 })
@@ -431,10 +477,14 @@ const updateDescription = async (id: string, value: string) => {
 const applyTaskStatus = (task: appType.DownloadTaskRecord) => {
   updateItem(task.resourceId, item => {
     let message = task.error || ''
-    if (task.state === 'paused') message = t('tasks.paused')
-    else if ((task.items?.length ?? 0) > 0 && task.total) message = `${task.downloaded ?? 0}/${task.total}`
-    else if (task.total) message = `${Math.floor(((task.downloaded ?? 0) * 100) / task.total)}%`
+    if (!message) {
+      if (task.state === 'paused') message = t('tasks.paused')
+      else if ((task.items?.length ?? 0) > 0 && task.total) message = `${task.downloaded ?? 0}/${task.total}`
+      else if (task.total) message = `${Math.floor(((task.downloaded ?? 0) * 100) / task.total)}%`
+    }
     item.download = {
+      createdAt: task.createdAt,
+      startedAt: task.startedAt,
       taskId: task.id,
       state: task.state,
       outputPath: task.outputPath || '',
@@ -576,10 +626,20 @@ const resourceActions = (row: appType.ResourceView): appType.DisplayResourceActi
 const dataAction = (row: appType.ResourceView, index: number, type: string) => {
   if (type.startsWith('plugin-action:')) {
     const actionId = type.substring('plugin-action:'.length)
+    const requestedAt = Date.now()
     appApi.runResourceAction({id: row.id, actionId}).then((res: appType.Res) => {
-      if (res.code === 0) window?.$message?.error(res.message)
-      else if (!res.data?.cancelled) window?.$message?.info(t('index.plugin_action_started'))
-    })
+      if (res.code === 0) window?.$message?.error(pageCommandErrorMessage(res.data?.errorCode, res.message, t))
+      else if (!res.data?.cancelled) {
+        window?.$message?.info(t(res.data?.requestId ? 'index.page_command_sent' : 'index.plugin_action_started'))
+        const definition = pluginActionDefinitions.value[row.source?.pluginId || '']?.[actionId]
+        if (res.data?.requestId && definition?.trackProgress && pageCommands.value[row.id]?.requestId !== res.data.requestId) {
+          const now = Date.now()
+          pageCommands.value[row.id] = {requestId: res.data.requestId, pluginId: row.source?.pluginId || '',
+            actionId, resourceId: row.id, state: 'pending', createdAt: requestedAt, updatedAt: now,
+            syncUnavailable: pageCommandSyncUnavailable}
+        }
+      }
+    }).catch(() => window?.$message?.error(t('index.plugin_action_request_failed')))
     return
   }
   switch (type) {
@@ -650,6 +710,7 @@ const {columns} = useResourceTableColumns({
   previewRow,
   showPreview: showPreviewRow,
   downloadStatuses: dwStatus,
+  pageCommands,
   rowKey,
   hasCapability,
   canDownload,

@@ -142,7 +142,7 @@ entry: main.js
 priority: 100
 
 locales:
-  zh-CN:
+  zh:
     name: 示例视频插件
     description: 从示例站点发现视频资源。
   en:
@@ -210,7 +210,11 @@ settingsSchema:
 
 `resourceKinds` 会出现在首页抓取类型中，用户既可以按稳定的 `primaryType` 宽泛筛选，也可以按插件的 `kind` 精确筛选。
 
-`settingsSchema` 支持 `string`、`number`、`integer`、`boolean`、`object`、`array` 和 `enum` 的基础校验。基础类型会在插件管理页生成表单；复杂结构仍可使用高级 JSON 编辑。`locales` 依次匹配完整语言、基础语言、英文和任意首项，最后回退到顶层 `name`。
+`settingsSchema` 支持 `string`、`number`、`integer`、`boolean`、`object`、`array` 和 `enum` 的基础校验。基础类型会在插件管理页生成表单；复杂结构仍可使用高级 JSON 编辑。
+
+宿主界面当前支持 `zh`（简体中文，默认）和 `en`（英文）。插件的 `locales`、设置的 `x-locales` 和枚举的 `x-enumLabels` 建议统一使用这两个键，不必重复填写相同的 `zh-CN` 文案。
+
+本地化条目按当前完整语言、基础语言、`en`、首个可用条目的顺序匹配；插件名称缺失时回退到顶层 `name`。地区语言键仍可使用，但只在文案确有差异时添加，并保留基础语言条目。回退是单向的：`zh-CN` 可以匹配 `zh`，当前宿主的 `zh` 不会反向查找 `zh-CN`；只提供 `zh-CN` 和 `en` 时，中文界面会显示英文文案。
 
 设置属性可以使用 `x-locales` 提供本地化名称和说明；枚举可以使用 `x-enumLabels` 提供选项文案：
 
@@ -297,7 +301,7 @@ await pageApi.capture.complete("video:123:video")
 
 启用桥后，页面到插件使用同源 POST，插件到页面使用 SSE。内部地址由代理直接响应，不会发往目标网站。页面每次加载获得独立 `pageSessionId`；页面关闭、插件重载、禁用或卸载后会话失效。
 
-插件使用新的同步顶层钩子处理页面消息：
+插件使用同步顶层钩子处理页面消息：
 
 ```javascript
 function onPageMessage(message, context, api) {
@@ -319,7 +323,7 @@ return {
 }
 ```
 
-`context` 包含 `pageSessionId`、`scriptId`、`pageUrl` 和 `origin`。插件还可使用 `api.page.broadcast(filter, message)` 和 `api.page.sessions(filter)`；这些接口只会提供给声明了 `page-bridge` 权限的插件。普通消息与回复仅接受 JSON，单条最大 64 KiB；大块媒体数据必须使用 `pageApi.capture.write`。每个插件最多 32 个活动页面会话，每个会话具有队列、连接数和速率限制。
+`context` 包含 `pageSessionId`、`scriptId`、`pageUrl`、`origin` 和当前有效插件设置 `settings`。设置仅传给宿主内的 `onPageMessage`，不会注入网站，也不会出现在 `api.page.sessions()` 中；插件可以响应页面初始化消息，只返回确实需要的非敏感设置，例如按钮开关。`pageUrl` 是建立会话时的地址，SPA 导航后的业务目标仍需页面脚本自行核对。插件还可使用 `api.page.broadcast(filter, message)` 和 `api.page.sessions(filter)`；这些接口只会提供给声明了 `page-bridge` 权限的插件。普通消息与回复仅接受 JSON，单条最大 64 KiB；大块媒体数据必须使用 `pageApi.capture.write`。每个插件最多 32 个活动页面会话，每个会话具有队列、连接数和速率限制。
 
 Manifest 中的 `page-command` 资源操作允许用户从应用资源列表向指定的桥接页面脚本发送命令。宿主从已保存的资源重新读取 `action.data`，不会接受前端提交的自定义参数；消息使用固定信封：
 
@@ -773,7 +777,48 @@ pageApi.onMessage(function (message) {
 })
 ```
 
-宿主只负责受权限约束的投递，不解释 `data`，也不把页面结果自动显示为桌面 UI。页面可自行提示，或使用 `pageApi.send` 把带 `requestId` 的结果交给 `onPageMessage`；需要生成文件时可继续使用 Capture Store、资源上报和 `enqueue-download`。完整的脱敏示例位于 `examples/plugins/page-command/`。
+默认情况下，宿主只负责受权限约束的投递，不解释 `data`，也不把普通页面消息自动显示为桌面 UI。页面可自行提示，或使用 `pageApi.send` 把带 `requestId` 的结果交给 `onPageMessage`；需要生成文件时可继续使用 Capture Store、资源上报和 `enqueue-download`。
+
+#### 执行权与进度回报
+
+需要在软件中显示执行进度时，在 `page-command` Action 上设置 `trackProgress: true`，默认值为 `false`。页面命令需要 `inject-page-script` 和 `page-bridge` 权限；自动入队单独需要 `enqueue-download`。
+
+页面必须先校验业务 ID，再领取执行权，得到 `accepted: true` 后才能执行有副作用的操作：
+
+```javascript
+// message 来自 pageApi.onMessage，已校验 protocol/type/actionId 和视频等业务 ID。
+var claim = await pageApi.commands.claim(message.requestId)
+if (!claim.accepted) return // 同一命令已由其他匹配页面领取。
+try {
+  await pageApi.commands.report(message.requestId, {
+    state: "running", progress: 25, message: "正在读取页面数据"
+  })
+  // 执行插件自己的流程。长任务需定期回报，即使百分比没有变化。
+  await pageApi.commands.report(message.requestId, {
+    state: "completed", progress: 100, message: "处理完成"
+  })
+} catch (error) {
+  await pageApi.commands.report(message.requestId, {
+    state: "failed", message: "页面处理失败，请重新打开目标页面"
+  })
+}
+```
+
+- `claim(requestId)` 原子授予一个接收页面执行权；重复领取返回 `accepted: false`。没有接收过此命令的页面、其他插件或脚本不能领取。
+- 不匹配或正在忙碌的接收页面可在领取前回报 `state: "rejected"`。全部页面拒绝时，宿主显示失败；非执行页面不能覆盖已领取命令的状态。
+- 领取后允许回报 `running`、`completed`、`failed`、`cancelled`；终态不可改写。`progress` 可省略或为 0–100 的有限数字；省略表示未知进度，不伪造百分比。`message` 最长 1024 UTF-8 字节，作为纯文本显示，禁止放凭据、私有地址或令牌。完整请求最大 4096 字节，未知字段和无效类型会被拒绝。
+- 建议最多每秒回报一次，至少每 30 秒发送心跳；与普通消息共用每会话 10 秒最多 100 次的限额。30 秒无人领取、执行中 90 秒没有回报，或总时长超过 6 小时会失败。页面断开后不会继续获得可靠回报，最迟由超时收敛；插件重载、禁用或卸载会使相关现存命令失效。
+- `claim` 只向成功领取者返回短期 `resumeToken`。确需自动刷新页面的插件可临时保存到同标签页 `sessionStorage`，刷新后调用 `claim(requestId, resumeToken)` 续接；仍校验插件和脚本，令牌每次续接后轮换，旧页面失去回报权。插件必须限制自动重试次数和保存时长，并消费后删除；不要放入资源、日志、fixture 或 URL。重载插件或重启应用后不能续接。
+- 宿主最多保留 256 条命令，终态保留 10 分钟，清理在状态查询、投递和回报时执行。活跃的同一插件/资源/操作不允许重复发起。状态只保存在内存中，不恢复为下载任务。
+- 桌面资源列表约每 1.5 秒读取状态，并按 `resourceId` 展示最新命令的状态、百分比与提示。页面处理和下载任务是两个阶段：插件完成捕获、发布资源并自动入队后，资源行继续展示现有下载/合并任务状态。普通 `pageApi.send` 的返回值不会自动成为进度，也不能通过本接口伪造下载任务或指定文件路径。当前不提供宿主侧命令取消按钮，插件可自行提供取消交互并回报 `cancelled`。
+
+完整的脱敏示例位于 `examples/plugins/page-command/`。
+
+宿主产生的常见执行错误使用稳定的 `errorCode`，由桌面界面按当前语言显示：重复执行（`page_command_already_active`）、数量上限（`page_command_limit_reached`）、无连接页面（`page_command_no_page`）、队列满（`page_command_queue_full`）、服务不可用（`page_command_unavailable`）、参数过大（`page_command_too_large`）及其他启动失败（`page_command_start_failed`）。本地资源操作 API 的失败响应包含 `code`、`message` 和 `data.errorCode`；执行中产生的无人接收、页面不匹配/忙碌、超时和重载错误，分别在命令状态的 `errorCode` 中返回 `page_command_not_accepted`、`page_command_target_unavailable`、`page_command_timeout`、`page_command_reloaded`。普通插件回报不能设置宿主 `errorCode`。
+
+资源表“保存路径”列也会显示当前页面命令的提示及进度，没有业务提示时使用本地化的通用状态；这些提示不是路径，不可点击。新下载任务接手后显示下载或处理状态，任务成功后才显示可打开的真实路径。宿主只翻译自身的状态与错误，插件上报的业务 `message` 原样作为纯文本显示，其多语言由插件负责。
+
+桌面查询命令状态的接口为受 API 会话鉴权保护的 `POST /api/resources/page-commands`。单次查询 5 秒超时，失败后继续重试：界面将未结束命令标为“进度暂不可用”，不把查询失败冒充执行失败，也不无限保留看似实时的“等待页面”和百分比。连接恢复后使用宿主最新状态；查询不可用期间，较新的下载任务可以接替陈旧命令显示。每次连续查询故障最多提示一次，避免轮询反复弹窗。
 
 ### ABI v1
 

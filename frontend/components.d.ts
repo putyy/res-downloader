@@ -62,6 +62,7 @@ declare module 'vue' {
     NTabs: typeof import('naive-ui')['NTabs']
     NTag: typeof import('naive-ui')['NTag']
     NTooltip: typeof import('naive-ui')['NTooltip']
+    PageCommandStatus: typeof import('./src/components/resource/PageCommandStatus.vue')['default']
     Password: typeof import('./src/components/Password.vue')['default']
     PluginRuntimeHealth: typeof import('./src/components/plugin/PluginRuntimeHealth.vue')['default']
     Preview: typeof import('./src/components/Preview.vue')['default']

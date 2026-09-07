@@ -91,6 +91,8 @@ interface ProcessFileActionDefinition {
 
 interface PageCommandActionDefinition {
   kind: 'page-command'
+  /** Opt in to execution ownership, timeouts and desktop progress. Default false. */
+  trackProgress?: boolean
   /** ID of a manifest pageScripts entry with bridge: true. */
   pageScript: string
   locales?: Record<string, PluginLocale>
@@ -312,6 +314,8 @@ interface CorrelationReference {
 }
 
 interface PageMessageContext {
+  /** Effective settings; only supplied to onPageMessage, not exposed to page scripts or sessions(). */
+  settings?: Record<string, unknown>
   pageSessionId: string
   scriptId: string
   pageUrl: string
@@ -369,6 +373,22 @@ interface PageScriptAPI {
   readonly pageSessionId: string
   send(message: JSONValue): Promise<PageMessageResult>
   onMessage(listener: (message: JSONValue | PageCommandMessage) => void): () => void
+  commands: {
+    /** Call only after verifying the resource's business ID. Only one recipient is accepted. */
+    claim(requestId: string, resumeToken?: string): Promise<{ok: true; accepted: boolean; resumeToken?: string}>
+    /** Report at most once per second, with a heartbeat at least every 30 seconds. */
+    report(requestId: string, report: {
+      state: 'running' | 'completed' | 'failed' | 'cancelled' | 'rejected'
+      progress?: number
+      message?: string
+    }): Promise<{ok: true}>
+  }
+  capture: {
+    start(key: string): Promise<{ok: true}>
+    write(key: string, body: ArrayBuffer | ArrayBufferView): Promise<{ok: true}>
+    complete(key: string): Promise<{ok: true}>
+    abort(key: string): Promise<{ok: true}>
+  }
 }
 
 declare const pageApi: PageScriptAPI

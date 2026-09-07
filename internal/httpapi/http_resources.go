@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	shared "res-downloader/internal/model"
+	"res-downloader/internal/plugin"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -114,7 +116,12 @@ func (h *Server) resourceAction(w http.ResponseWriter, r *http.Request) {
 	case shared.PluginActionPageCommand:
 		result, err := h.plugins.DispatchPageCommand(candidate, data.ActionID)
 		if err != nil {
-			h.error(w, err.Error())
+			code := "page_command_start_failed"
+			var commandError *plugin.PageCommandError
+			if errors.As(err, &commandError) {
+				code = commandError.Code
+			}
+			h.error(w, err.Error(), respData{"errorCode": code})
 			return
 		}
 		h.success(w, result)

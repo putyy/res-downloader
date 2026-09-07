@@ -64,6 +64,9 @@ export default {
     runResourceAction(data: { id: string, actionId: string }) {
         return request({url: 'api/resources/action', method: 'post', data})
     },
+    pageCommands() {
+        return request({url: 'api/resources/page-commands', method: 'post', timeout: 5000})
+    },
     importResources(data: { items: object[] }) {
         return request({url: 'api/resources/import', method: 'post', data})
     },

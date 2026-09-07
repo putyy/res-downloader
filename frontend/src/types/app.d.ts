@@ -1,6 +1,20 @@
 import type {AppThemeName} from '@/themes'
 
 export namespace appType {
+    interface PageCommandStatus {
+        /** UI-only: the last status query failed; this is not a command execution state. */
+        syncUnavailable?: boolean
+        errorCode?: string
+        requestId: string
+        pluginId: string
+        actionId: string
+        resourceId: string
+        state: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+        progress?: number
+        message?: string
+        createdAt: number
+        updatedAt: number
+    }
     interface App {
         AppName: string
         Version: string
@@ -69,6 +83,8 @@ export namespace appType {
     }
 
     interface ResourceDownloadState {
+        createdAt?: number
+        startedAt?: number
         taskId?: string
         state: 'ready' | 'pending' | 'resolving' | 'downloading' | 'processing' | 'pausing' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
         outputPath?: string
@@ -203,6 +219,7 @@ export namespace appType {
     }
 
     interface PluginActionDefinition {
+        trackProgress?: boolean
         kind: 'process-file' | 'page-command' | string
         processor?: string
         pageScript?: string

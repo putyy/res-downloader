@@ -37,6 +37,7 @@
   "actions": {
     "inspect-page-resource": {
       "kind": "page-command",
+      "trackProgress": true,
       "pageScript": "resource-controller",
       "locales": {
         "zh": {

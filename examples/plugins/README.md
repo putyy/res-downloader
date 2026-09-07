@@ -4,7 +4,7 @@
 
 - `declarative-basic`：声明式 JSON/YAML 资源提取。
 - `javascript-basic`：JavaScript observation、设置和下载计划。
-- `page-command`：由资源操作向指定页面脚本发送插件自定义参数。
+- `page-command`：由资源操作向指定页面脚本发送插件自定义参数，领取唯一执行权并回报宿主可见的执行进度。
 - `wasm-xor`：插件自带 WASM 下载处理器及其 WAT 源码。
 - `x`：较完整的真实站点示例，展示复杂 JSON 遍历、多清晰度资源、设置和多个离线 fixture。
 

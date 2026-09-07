@@ -32,7 +32,12 @@
         plugin.manifest.apiVersion || '-'
       }}
     </div>
-    <div v-if="description" class="app-muted-text ellipsis-2 mt-2 min-h-[42px] text-sm">{{ description }}</div>
+    <NTooltip v-if="description" trigger="hover">
+      <template #trigger>
+        <div class="app-muted-text ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">{{ description }}</div>
+      </template>
+      <div class="max-w-[min(360px,calc(100vw-48px))] whitespace-pre-wrap break-words text-sm">{{ description }}</div>
+    </NTooltip>
     <div class="app-muted-text mt-3 flex items-center gap-1 text-xs">
       <span>{{ t('plugin.developer') }}：</span>
       <NButton v-if="plugin.manifest.author?.url" text type="primary" size="tiny" @click="openHomepage">

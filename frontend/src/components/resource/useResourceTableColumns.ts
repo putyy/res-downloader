@@ -9,6 +9,8 @@ import Action from '@/components/Action.vue'
 import ActionDesc from '@/components/ActionDesc.vue'
 import ShowOrEdit from '@/components/ShowOrEdit.vue'
 import ResourceTypeCell from './ResourceTypeCell.vue'
+import {pageCommandMessage, shouldShowPageCommand} from '@/services/pageCommands'
+import PageCommandStatus from './PageCommandStatus.vue'
 
 interface ResourceColumnOptions {
     t: (key: string, values?: Record<string, unknown>) => string
@@ -21,6 +23,7 @@ interface ResourceColumnOptions {
     previewRow: Ref<appType.ResourceView | undefined>
     showPreview: Ref<boolean>
     downloadStatuses: Ref<Record<string, string>>
+    pageCommands: Ref<Record<string, appType.PageCommandStatus>>
     rowKey: (row: appType.ResourceView) => DataTableRowKey
     hasCapability: (row: appType.ResourceView, capability: string) => boolean
     canDownload: (row: appType.ResourceView) => boolean
@@ -126,6 +129,10 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
             key: 'download.state',
             width: 100,
             render: (row: appType.ResourceView, index: number) => {
+                const command = options.pageCommands.value[row.id]
+                if (command && shouldShowPageCommand(command, row.download)) {
+                    return h(PageCommandStatus, {command})
+                }
                 const effectiveStatus = displayStatus(row)
                 let type: 'primary' | 'success' | 'warning' = 'primary'
                 if (effectiveStatus === 'done') type = 'success'
@@ -169,13 +176,34 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
         {
             title: options.t('index.save_path'),
             key: 'download.outputPath',
-            render: (row: appType.ResourceView) => h('a', {
-                href: 'javascript:;',
-                class: 'resource-path-link ellipsis-2',
-                onClick: () => {
-                    if (row.download?.outputPath && displayStatus(row) === 'done') appApi.openFolder({filePath: row.download.outputPath})
-                },
-            }, displayStatus(row) === 'running' ? '' : row.download?.outputPath || row.download?.message || ''),
+            render: (row: appType.ResourceView) => {
+                const command = options.pageCommands.value[row.id]
+                if (command && shouldShowPageCommand(command, row.download)) {
+                    let message = pageCommandMessage(command, options.t)
+                    if (!command.syncUnavailable && command.state === 'running' && command.progress != null && !/[%％]/.test(message)) {
+                        message += ` · ${Math.floor(command.progress)}%`
+                    }
+                    return h('span', {class: 'app-muted-text ellipsis-2', title: message}, message)
+                }
+                const download = row.download
+                if (download?.state === 'completed' && download.outputPath) {
+                    return h('a', {
+                        href: '#', class: 'resource-path-link ellipsis-2',
+                        onClick: (event: MouseEvent) => {
+                            event.preventDefault()
+                            appApi.openFolder({filePath: download.outputPath})
+                        },
+                    }, download.outputPath)
+                }
+                if (download && download.state !== 'ready') {
+                    const label = options.t(`tasks.${download.state === 'failed' ? 'status_failed' : download.state}`)
+                    // Download byte percentage is not the media-processing percentage.
+                    const detail = download.state === 'processing' ? '' : download.message
+                    const message = detail && detail !== label ? `${label} · ${detail}` : label
+                    return h('span', {class: 'app-muted-text ellipsis-2', title: message}, message)
+                }
+                return ''
+            },
         },
         {
             key: 'actions',

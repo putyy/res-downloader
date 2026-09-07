@@ -72,6 +72,7 @@ func (s *pageBridgeSession) close() { s.closeOnce.Do(func() { close(s.done) }) }
 type pageBridgeHub struct {
 	mu       sync.RWMutex
 	sessions map[string]*pageBridgeSession
+	commands map[string]*trackedPageCommand
 	logger   *Logger
 }
 
@@ -249,6 +250,11 @@ func (h *pageBridgeHub) closeAll() {
 	for id, session := range h.sessions {
 		delete(h.sessions, id)
 		session.close()
+	}
+	for _, command := range h.commands {
+		if !commandTerminal(command.view.State) {
+			command.fail("page_command_reloaded", "Plugin reloaded; open the page and retry", time.Now())
+		}
 	}
 	h.mu.Unlock()
 	if count > 0 && h.logger != nil {
@@ -483,6 +489,11 @@ func (m *PluginManager) HandlePageBridge(request *http.Request) (*http.Response,
 		return pageBridgeJSONResponse(request, http.StatusForbidden, map[string]interface{}{"ok": false, "error": "page bridge request origin is invalid"}), true
 	}
 	switch parts[2] {
+	case "command-claim", "command-report":
+		if request.Method != http.MethodPost {
+			return pageBridgeJSONResponse(request, http.StatusMethodNotAllowed, map[string]interface{}{"ok": false}), true
+		}
+		return m.handlePageCommandRequest(request, session, parts[2]), true
 	case "events":
 		if request.Method != http.MethodGet {
 			return pageBridgeJSONResponse(request, http.StatusMethodNotAllowed, map[string]interface{}{"ok": false}), true
@@ -701,6 +712,7 @@ func (m *PluginManager) processPageMessage(ctx context.Context, session *pageBri
 		}
 		contextValue := shared.PageMessageContext{
 			PageSessionID: session.id, ScriptID: session.scriptID, PageURL: session.pageURL, Origin: session.origin,
+			Settings: m.pluginSettings(manifest.ID),
 		}
 		var result shared.PageMessageResult
 		var handled bool

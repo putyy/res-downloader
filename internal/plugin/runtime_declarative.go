@@ -251,6 +251,9 @@ func validateManifestForSource(manifest shared.PluginManifest, trustedBundled bo
 		}
 		switch action.Kind {
 		case shared.PluginActionProcessFile:
+			if action.TrackProgress {
+				return fmt.Errorf("action %q trackProgress requires page-command", id)
+			}
 			if action.PageScript != "" {
 				return fmt.Errorf("action %q process-file cannot reference a page script", id)
 			}

@@ -81,3 +81,15 @@ func TestBuildPageScriptTagExposesScopedBinaryCapture(t *testing.T) {
 		t.Fatal("page script capture does not use the scoped bridge URL")
 	}
 }
+
+func TestBuildPageScriptTagExposesScopedCommandProgress(t *testing.T) {
+	tag := buildPageScriptTag(shared.PageScriptInjection{
+		PluginID: "example.page", ScriptID: "hook", Bridge: true,
+		PageSessionID: "session", BridgeToken: "token",
+	}, "")
+	for _, expected := range []string{`commands:Object.freeze`, `bridgeBase+"command-"+action`, `resumeToken:resumeToken`, `!response.ok||!result.ok`} {
+		if !strings.Contains(tag, expected) {
+			t.Fatalf("missing page command wrapper: %s", expected)
+		}
+	}
+}

@@ -324,6 +324,7 @@
           "required": ["kind", "processor"],
           "properties": {
             "kind": {"const": "process-file"},
+            "trackProgress": {"const": false},
             "processor": {"type": "string", "minLength": 1},
             "pageScript": {"const": ""},
             "inputExtensions": {
@@ -341,6 +342,7 @@
           "required": ["kind", "pageScript"],
           "properties": {
             "kind": {"const": "page-command"},
+            "trackProgress": {"type": "boolean", "default": false, "description": "Enable host-tracked execution with pageApi.commands.claim/report."},
             "pageScript": {"allOf": [{"$ref": "#/$defs/identifier"}]},
             "processor": {"const": ""},
             "inputExtensions": {"type": "array", "maxItems": 0},

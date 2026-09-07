@@ -24,7 +24,12 @@
     <div class="app-muted-text text-xs">
       {{ extension.repository }}<span v-if="extension.license"> · {{ extension.license }}</span>
     </div>
-    <div v-if="description" class="app-muted-text ellipsis-2 mt-2 min-h-[42px] text-sm">{{ description }}</div>
+    <NTooltip v-if="description" trigger="hover">
+      <template #trigger>
+        <div class="app-muted-text ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">{{ description }}</div>
+      </template>
+      <div class="max-w-[min(360px,calc(100vw-48px))] whitespace-pre-wrap break-words text-sm">{{ description }}</div>
+    </NTooltip>
     <div class="app-muted-text mt-3 text-xs">
       {{ t('plugin.developer') }}：{{ extension.manifest?.author?.name || extension.owner }}
     </div>
