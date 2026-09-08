@@ -163,13 +163,19 @@ func (r *Resource) ReconcilePluginAvailability(manager PluginStatusProvider) {
 }
 
 func (r *Resource) list() []shared.ResourceView {
-	items := resourceViewTree(r.catalogCandidates())
+	items, _ := r.listWithRecordCount()
+	return items
+}
+
+func (r *Resource) listWithRecordCount() ([]shared.ResourceView, int) {
+	candidates := r.catalogCandidates()
+	items := resourceViewTree(candidates)
 	if r.config != nil && r.config.Snapshot().InsertTail {
 		for left, right := 0, len(items)-1; left < right; left, right = left+1, right-1 {
 			items[left], items[right] = items[right], items[left]
 		}
 	}
-	return items
+	return items, len(candidates)
 }
 
 func resourceViewTree(candidates []shared.ResourceCandidate) []shared.ResourceView {

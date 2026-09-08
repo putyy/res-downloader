@@ -325,20 +325,35 @@ func createPluginScaffold(directory, id, name string) error {
   "runtime": "javascript",
   "entry": "main.js",
   "permissions": {"domains": ["example.com"], "capabilities": ["observe-response", "emit-resource"]},
-  "match": [{"stage": "response", "host": "example.com"}]
+  "match": [{"stage": "response", "host": "example.com"}],
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "enableLog": {
+        "type": "boolean",
+        "default": false,
+        "x-locales": {
+          "zh": {"name": "启用日志", "description": "记录插件调试日志，排查问题时开启。"},
+          "en": {"name": "Enable logging", "description": "Record plugin debug logs for troubleshooting."}
+        }
+      }
+    }
+  }
 }
 `, id, name)
 	script := `function onObservation(observation, api) {
   return {decision: "continue", resources: []};
 }
 
-function createDownloadPlan(input) {
+function createDownloadPlan(input, api) {
   return null;
 }
 `
 	readme := fmt.Sprintf(`# %s
 
 Plugin ID: `+"`%s`"+`
+
+Plugin logging is disabled by default. Enable it in the plugin settings when troubleshooting; the host controls all `+"`api.log()`"+` calls.
 
 ## Development
 

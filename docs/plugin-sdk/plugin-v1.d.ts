@@ -350,11 +350,15 @@ interface PageSessionFilter {
   host?: string
 }
 
-interface PluginAPI {
+interface PluginBaseAPI {
   readonly pluginVersion: string
+  /** Writes only when the current plugin setting enableLog is boolean true; disabled by default. */
+  log(message: string): void
+}
+
+interface PluginAPI extends PluginBaseAPI {
   emit(resource: ResourceCandidate): void
   upsert(resource: ResourceCandidate): void
-  log(message: string): void
   correlate: {
     register(value: CorrelationRegistration): void
     find(url: string): CorrelationReference[]
@@ -395,5 +399,5 @@ declare const pageApi: PageScriptAPI
 
 declare function onObservation(observation: Observation, api: PluginAPI): PluginResult | void
 declare function onPageMessage(message: JSONValue, context: PageMessageContext, api: PluginAPI): PageMessageResult | void
-declare function refreshResource(input: ResourceHookInput): ResourceRefreshResult | null | void
-declare function createDownloadPlan(input: ResourceHookInput): DownloadPlan | null | void
+declare function refreshResource(input: ResourceHookInput, api: PluginBaseAPI): ResourceRefreshResult | null | void
+declare function createDownloadPlan(input: ResourceHookInput, api: PluginBaseAPI): DownloadPlan | null | void

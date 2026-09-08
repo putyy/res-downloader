@@ -1,46 +1,74 @@
 <template>
-  <section class="w-full" style="--wails-draggable:no-drag">
-    <div class="theme-grid">
+  <section class="w-full [--wails-draggable:no-drag]">
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
       <button
           v-for="theme in appThemes"
           :key="theme.id"
           type="button"
-          class="theme-card group"
-          :class="{'theme-card--active': currentTheme === theme.id}"
-          :style="{'--preview-accent': theme.preview.accent}"
+          class="block w-full cursor-pointer rounded-xl border bg-app-surface p-2.5 text-left text-inherit transition-[border-color,box-shadow] duration-[180ms] ease-[ease] hover:border-[color:var(--preview-accent)] hover:shadow-[0_4px_12px_rgba(28,36,32,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-[color:var(--preview-accent)] motion-reduce:transition-none"
+          :class="currentTheme === theme.id ? 'border-[color:var(--preview-accent)] shadow-[0_0_0_2px_var(--preview-soft)]' : 'border-app-border'"
+          :style="{
+            '--preview-accent': theme.preview.accent,
+            '--preview-soft': theme.preview.accentSoft,
+            '--preview-border': theme.preview.border,
+          }"
           :aria-pressed="currentTheme === theme.id"
           @click="selectTheme(theme.id)"
       >
         <div
-            class="theme-preview"
-            :style="{backgroundColor: theme.preview.background, color: theme.preview.text}"
+            class="relative flex h-[146px] overflow-hidden rounded-[7px] border border-[color:var(--preview-border)]"
+            :class="{
+              'theme-preview--sakura': theme.id === 'sakuraTheme',
+            }"
+            :style="{backgroundColor: theme.preview.background}"
+            aria-hidden="true"
         >
-          <div class="theme-preview__sidebar" :style="{backgroundColor: theme.preview.surface}">
-            <span class="theme-preview__logo" :style="{backgroundColor: theme.preview.accent}"></span>
-            <span :style="{backgroundColor: theme.preview.muted}"></span>
-            <span :style="{backgroundColor: theme.preview.accent}"></span>
-            <span :style="{backgroundColor: theme.preview.muted}"></span>
+          <div class="theme-preview__sidebar relative isolate flex w-12 shrink-0 flex-col items-center gap-1 px-1.5 pb-[9px] pt-3" :style="{backgroundColor: theme.preview.sidebar}">
+            <span class="mb-[7px] h-[15px] w-[15px] rounded-[5px]" :style="{backgroundColor: theme.preview.sidebarAccent}"></span>
+            <span
+                v-for="item in 4"
+                :key="item"
+                class="flex h-[17px] items-center gap-1 rounded-[3px] pr-[5px]"
+                :class="item === 2 && !theme.menuInset ? 'w-[calc(100%+6px)] -ml-1.5 self-start rounded-l-none pl-[11px]' : 'w-full pl-[5px]'"
+                :style="{
+                  color: item === 2 ? theme.menuSelection.text : theme.preview.sidebarText,
+                  backgroundColor: item === 2 ? theme.menuSelection.background : 'transparent',
+                  boxShadow: item === 2 ? theme.menuSelection.shadow : 'none',
+                }"
+            ><i class="h-[5px] w-[5px] rounded-[1px] border border-current"></i><b class="h-[3px] w-[15px] rounded-sm bg-current opacity-80"></b></span>
+            <span class="mt-auto h-[9px] w-[9px] rounded-full opacity-60" :style="{backgroundColor: theme.preview.sidebarText}"></span>
           </div>
-          <div class="theme-preview__content">
+          <div class="theme-preview__content relative isolate min-w-0 flex-1 px-3 py-[15px]">
             <div class="flex items-center justify-between">
-              <span class="theme-preview__title" :style="{backgroundColor: theme.preview.text}"></span>
-              <span class="theme-preview__button" :style="{backgroundColor: theme.preview.accent}"></span>
+              <span class="h-1.5 w-[39%] rounded-sm opacity-80" :style="{backgroundColor: theme.preview.text}"></span>
+              <span class="h-3 w-[26px] rounded-[3px]" :style="{backgroundColor: theme.preview.accent}"></span>
             </div>
-            <div class="theme-preview__panel" :style="{backgroundColor: theme.preview.surface}">
-              <span :style="{backgroundColor: theme.preview.muted}"></span>
-              <span :style="{backgroundColor: theme.preview.muted}"></span>
-              <span class="!w-3/5" :style="{backgroundColor: theme.preview.accent}"></span>
+            <div class="mb-2 mt-3 flex gap-2">
+              <span class="h-[3px] w-[22px] rounded-sm" :style="{backgroundColor: theme.preview.accent}"></span>
+              <span class="h-[3px] w-[22px] rounded-sm" :style="{backgroundColor: theme.preview.border}"></span>
+            </div>
+            <div class="overflow-hidden rounded border border-[color:var(--preview-border)]" :style="{backgroundColor: theme.preview.surface}">
+              <div class="flex h-[15px] items-center px-[7px]" :style="{backgroundColor: theme.preview.surfaceMuted}">
+                <span class="h-[3px] w-[32%] rounded-sm opacity-50" :style="{backgroundColor: theme.preview.textMuted}"></span>
+              </div>
+              <div v-for="row in 3" :key="row" class="flex h-[17px] items-center gap-1.5 border-t border-[color:var(--preview-border)] px-[7px]">
+                <i class="h-[5px] w-[5px] rounded-[1px] border" :style="{borderColor: theme.preview.border}"></i>
+                <span class="h-[3px] w-[45%] rounded-sm" :style="{backgroundColor: theme.preview.border}"></span>
+                <b class="ml-auto h-1.5 w-[17px] rounded-sm" :style="{backgroundColor: row === 2 ? theme.preview.accentSoft : theme.preview.surfaceMuted}"></b>
+              </div>
             </div>
           </div>
-          <template v-if="theme.id === 'sakuraTheme'">
-            <span class="sakura-petal sakura-petal--one"></span>
-            <span class="sakura-petal sakura-petal--two"></span>
-            <span class="sakura-petal sakura-petal--three"></span>
-          </template>
         </div>
 
         <div class="mt-3 flex items-start justify-between gap-3 px-0.5">
-          <div class="font-medium">{{ t(theme.nameKey) }}</div>
+          <div>
+            <div class="font-medium">{{ t(theme.nameKey) }}</div>
+            <div class="mt-[7px] flex gap-[5px] [&_span]:h-[9px] [&_span]:w-[9px] [&_span]:rounded-full [&_span]:border [&_span]:border-black/[0.08]" aria-hidden="true">
+              <span :style="{backgroundColor: theme.preview.sidebar}"></span>
+              <span :style="{backgroundColor: theme.preview.accent}"></span>
+              <span :style="{backgroundColor: theme.preview.background}"></span>
+            </div>
+          </div>
           <NIcon
               v-if="currentTheme === theme.id"
               :size="21"
@@ -51,7 +79,7 @@
           </NIcon>
           <span
               v-else
-              class="theme-choice-dot mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border"
+              class="border-app-border bg-app-surface-muted mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border"
           ></span>
         </div>
       </button>
@@ -79,111 +107,29 @@ const selectTheme = (theme: AppThemeName) => {
 </script>
 
 <style scoped>
-.theme-card {
-  display: block;
-  width: 100%;
-  border: 1px solid var(--app-border);
-  border-radius: 16px;
-  padding: 12px;
-  background: var(--app-surface);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+.theme-preview--sakura .theme-preview__sidebar::before,
+.theme-preview--sakura .theme-preview__content::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  background: url('../../assets/image/sakura-branch.svg') no-repeat right top / contain;
 }
 
-.theme-card:hover {
-  border-color: var(--preview-accent);
-  box-shadow: var(--app-card-shadow);
-  transform: translateY(-2px);
-}
-
-.theme-card--active {
-  border-color: var(--preview-accent);
-  box-shadow: inset 0 0 0 1px var(--preview-accent), var(--app-card-shadow);
-}
-
-.theme-choice-dot {
-  border-color: var(--app-border);
-  background: var(--app-surface-muted);
-}
-
-.theme-preview {
-  position: relative;
-  display: flex;
-  height: 112px;
-  overflow: hidden;
-  border-radius: 11px;
-  border: 1px solid rgba(127, 127, 127, 0.14);
-}
-
-.theme-preview__sidebar {
-  display: flex;
-  width: 38px;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  padding-top: 12px;
-  box-shadow: 4px 0 14px rgba(31, 41, 55, 0.04);
-}
-
-.theme-preview__sidebar span {
-  width: 14px;
-  height: 5px;
-  border-radius: 999px;
-}
-
-.theme-preview__sidebar .theme-preview__logo {
-  width: 17px;
-  height: 17px;
-  margin-bottom: 4px;
-}
-
-.theme-preview__content {
-  flex: 1;
-  padding: 15px;
-}
-
-.theme-preview__title {
-  width: 52px;
-  height: 7px;
-  border-radius: 999px;
+.theme-preview--sakura .theme-preview__sidebar::before {
+  bottom: 12px;
+  left: 0;
+  width: 36px;
+  height: 30px;
+  transform: rotate(180deg);
   opacity: 0.72;
 }
 
-.theme-preview__button {
-  width: 30px;
-  height: 13px;
-  border-radius: 999px;
+.theme-preview--sakura .theme-preview__content::before {
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 78px;
+  opacity: 0.3;
 }
-
-.theme-preview__panel {
-  display: flex;
-  height: 58px;
-  margin-top: 12px;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 5px 16px rgba(31, 41, 55, 0.05);
-}
-
-.theme-preview__panel span {
-  width: 82%;
-  height: 5px;
-  border-radius: 999px;
-}
-
-.sakura-petal {
-  position: absolute;
-  width: 7px;
-  height: 11px;
-  border-radius: 70% 30% 70% 30%;
-  background: rgba(226, 130, 158, 0.58);
-  transform: rotate(28deg);
-}
-
-.sakura-petal--one { right: 16px; bottom: 13px; }
-.sakura-petal--two { right: 29px; bottom: 24px; transform: rotate(72deg) scale(0.8); }
-.sakura-petal--three { right: 12px; bottom: 35px; transform: rotate(118deg) scale(0.65); }
 </style>

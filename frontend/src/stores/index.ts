@@ -12,6 +12,7 @@ export type StartupState = 'loading' | 'ready' | 'failed'
 export const useIndexStore = defineStore("index-store", () => {
 	let configSaveTimer: ReturnType<typeof setTimeout> | undefined
 	let configSaveChain: Promise<void> = Promise.resolve()
+	let configLoaded = false
     const appInfo = ref<appType.App>({
         AppName: "",
         Version: "",
@@ -21,7 +22,7 @@ export const useIndexStore = defineStore("index-store", () => {
 
     const globalConfig = ref<appType.Config>({
         Theme: "lightTheme",
-        Locale: "zh",
+        Locale: "en",
         Host: "0.0.0.0",
         Port: "8899",
         SaveDirectory: "",
@@ -54,10 +55,28 @@ export const useIndexStore = defineStore("index-store", () => {
     const startupState = ref<StartupState>('loading')
     const startupError = ref("")
 
+    const loadConfig = async () => {
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        try {
+            const configuration = await Promise.race([
+                bind.Config(),
+                new Promise<never>((_, reject) => {
+                    timeout = setTimeout(() => reject(new Error('Configuration initialization timed out')), 5000)
+                }),
+            ]) as httpapi.ResponseData
+            if (configuration.code !== 1) throw new Error(configuration.message || 'Configuration initialization failed')
+            globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
+            configLoaded = true
+        } finally {
+            if (timeout !== undefined) clearTimeout(timeout)
+        }
+    }
+
     const init = async () => {
 		startupState.value = 'loading'
 		startupError.value = ''
 		try {
+			if (!configLoaded) await loadConfig()
 			envInfo.value = await Environment()
 
 			const session = await bind.APISession() as httpapi.ResponseData
@@ -69,10 +88,6 @@ export const useIndexStore = defineStore("index-store", () => {
 			if (info.code !== 1) throw new Error(info.message || 'Application information initialization failed')
 			appInfo.value = Object.assign({}, appInfo.value, info.data)
 			isProxy.value = info.data.IsProxy
-
-			const configuration = await bind.Config() as httpapi.ResponseData
-			if (configuration.code !== 1) throw new Error(configuration.message || 'Configuration initialization failed')
-			globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
 
 			baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
 			window.$baseUrl = baseUrl.value
@@ -128,6 +143,7 @@ export const useIndexStore = defineStore("index-store", () => {
         startupState,
         startupError,
         init,
+        loadConfig,
         setConfig,
         openProxy,
         unsetProxy

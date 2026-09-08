@@ -1,8 +1,8 @@
 <template>
   <div class="flex h-full flex-col overflow-hidden p-5">
     <div class="mx-auto flex min-h-0 w-full flex-1 flex-col ">
-      <section class="app-page-toolbar z-20 flex shrink-0 flex-col gap-4 pb-3 [&_.n-tabs-nav--top]:static">
-        <NTabs v-model:value="activeTab" type="line" style="--wails-draggable:no-drag">
+      <section class="bg-app-background z-20 flex shrink-0 flex-col gap-4 pb-3 [&_.n-tabs-nav--top]:static">
+        <NTabs v-model:value="activeTab" type="line" class="[--wails-draggable:no-drag]">
           <NTab name="all">{{ t('tasks.all') }} ({{ tasks.length }})</NTab>
           <NTab name="active">{{ t('tasks.active') }} ({{ activeCount }})</NTab>
           <NTab name="completed">{{ t('tasks.completed') }} ({{ completedCount }})</NTab>
@@ -29,8 +29,7 @@
             v-if="batchMode"
             size="small"
             :bordered="false"
-            class="app-card app-card--selected"
-            style="--wails-draggable:no-drag"
+            class="app-card app-card--selected [--wails-draggable:no-drag]"
         >
           <div class="flex flex-wrap items-center gap-3">
             <NCheckbox
@@ -110,7 +109,7 @@
             </NPopconfirm>
           </div>
           <div v-if="selectedTasks.some(task => task.recording && isActiveTask(task))"
-               class="app-muted-text mt-2 text-xs">
+               class="text-app-muted mt-2 text-xs">
             {{ t('tasks.recording_batch_tip') }}
           </div>
         </NCard>
@@ -119,7 +118,7 @@
       <div class="min-h-0 flex-1 overflow-y-auto pt-1 [&::-webkit-scrollbar]:hidden">
         <NSpin :show="loading">
           <NEmpty v-if="!loading && filteredTasks.length === 0" :description="t('tasks.empty')" class="py-16"/>
-          <div v-else class="space-y-4" style="--wails-draggable:no-drag">
+          <div v-else class="space-y-4 [--wails-draggable:no-drag]">
             <TaskListItem
                 v-for="task in filteredTasks"
                 :key="task.id"

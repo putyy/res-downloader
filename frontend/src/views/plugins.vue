@@ -27,7 +27,7 @@
         <NTabPane name="installed" :tab="t('plugin.installed_tab')">
           <NSpin :show="loading">
             <NEmpty v-if="!loading && pluginStatuses.length === 0" :description="t('plugin.empty')"/>
-            <div v-else class="plugin-grid" style="--wails-draggable:no-drag">
+            <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 [--wails-draggable:no-drag]">
               <InstalledPluginCard
                   v-for="plugin in pluginStatuses"
                   :key="plugin.manifest.id || plugin.path"
@@ -45,7 +45,7 @@
           </NSpin>
         </NTabPane>
 
-        <NTabPane name="store" style="--wails-draggable:no-drag">
+        <NTabPane name="store" class="[--wails-draggable:no-drag]">
           <template #tab>
             <NBadge
                 :value="storeUpdateCount"
@@ -68,7 +68,7 @@
           </div>
           <NSpin :show="storeLoading">
             <NEmpty v-if="!storeLoading && filteredStoreEntries.length === 0" :description="t('plugin.store_empty')"/>
-            <div v-else class="plugin-grid" style="--wails-draggable:no-drag">
+            <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 [--wails-draggable:no-drag]">
               <StoreExtensionCard
                   v-for="extension in filteredStoreEntries"
                   :key="extension.repository"
@@ -88,17 +88,16 @@
       <NModal v-model:show="localInstallModalVisible">
         <NCard
             v-if="localInspection"
-            class="w-[min(680px,calc(100vw-48px))]"
+            class="w-[min(680px,calc(100vw-48px))] [--wails-draggable:no-drag]"
             :title="t('plugin.install_file_title')"
             :bordered="false"
             role="dialog"
             aria-modal="true"
-            style="--wails-draggable:no-drag"
         >
           <div class="space-y-3">
             <div>
               <div class="text-base font-medium">{{ localizedPluginName(localInspection.manifest) }}</div>
-              <div class="mt-1 text-xs text-gray-500">
+              <div class="mt-1 text-xs text-gray-500 dark:text-app-muted">
                 {{ localInspection.manifest.id }} · v{{ localInspection.manifest.version }} · API
                 {{ localInspection.manifest.apiVersion }}
               </div>
@@ -116,7 +115,7 @@
                   {{ domain }}
                 </NTag>
                 <span v-if="!(localInspection.manifest.permissions?.domains?.length)"
-                      class="text-xs text-gray-500">-</span>
+                      class="text-xs text-gray-500 dark:text-app-muted">-</span>
               </div>
             </div>
             <div>
@@ -130,13 +129,13 @@
                 >
                   {{ capability }}
                 </NTag>
-                <span v-if="!(localInspection.manifest.permissions?.capabilities?.length)" class="text-xs text-gray-500">-</span>
+                <span v-if="!(localInspection.manifest.permissions?.capabilities?.length)" class="text-xs text-gray-500 dark:text-app-muted">-</span>
               </div>
             </div>
             <NAlert v-if="hasPageInjectionPermission(localInspection.manifest)" type="error" :show-icon="false">
               {{ t('plugin.page_injection_warning') }}
             </NAlert>
-            <div class="break-all text-xs text-gray-500">
+            <div class="break-all text-xs text-gray-500 dark:text-app-muted">
               {{ t('plugin.local_content_sha256') }}：{{ localInspection.contentSha256 }}
             </div>
           </div>
@@ -158,12 +157,11 @@
 
       <NModal v-model:show="settingsModalVisible">
         <NCard
-            class="w-[min(680px,calc(100vw-48px))]"
+            class="w-[min(680px,calc(100vw-48px))] [--wails-draggable:no-drag]"
             :title="settingsModalTitle"
             :bordered="false"
             role="dialog"
             aria-modal="true"
-            style="--wails-draggable:no-drag"
         >
           <NForm v-if="!advancedSettingsMode" label-placement="top">
             <NFormItem v-for="field in selectedSettingFields" :key="field.key" :label="settingFieldLabel(field.key, field.schema)">
@@ -175,7 +173,7 @@
                 <NAlert v-else type="warning" :show-icon="false">
                   {{ t('plugin.unsupported_setting', {name: field.key}) }}
                 </NAlert>
-                <div v-if="settingFieldDescription(field.schema)" class="mt-1 text-xs text-gray-500">
+                <div v-if="settingFieldDescription(field.schema)" class="mt-1 text-xs text-gray-500 dark:text-app-muted">
                   {{ settingFieldDescription(field.schema) }}
                 </div>
               </div>

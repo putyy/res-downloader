@@ -35,9 +35,10 @@ type Resource struct {
 }
 
 type Page struct {
-	Items      []shared.ResourceView `json:"items"`
-	Total      int                   `json:"total"`
-	NextOffset int                   `json:"nextOffset"`
+	Items       []shared.ResourceView `json:"items"`
+	Total       int                   `json:"total"`
+	RecordCount int                   `json:"recordCount"`
+	NextOffset  int                   `json:"nextOffset"`
 }
 
 func (r *Resource) emitEvent(name string, data interface{}) {
@@ -127,7 +128,7 @@ func (r *Resource) List() []shared.ResourceView {
 	return r.list()
 }
 func (r *Resource) ListPage(offset, limit int) Page {
-	items := r.list()
+	items, recordCount := r.listWithRecordCount()
 	if offset < 0 {
 		offset = 0
 	}
@@ -141,11 +142,23 @@ func (r *Resource) ListPage(offset, limit int) Page {
 		offset = len(items)
 	}
 	end := min(offset+limit, len(items))
-	page := Page{Items: items[offset:end], Total: len(items)}
+	page := Page{Items: items[offset:end], Total: len(items), RecordCount: recordCount}
 	if end < len(items) {
 		page.NextOffset = end
 	}
 	return page
+}
+
+// RecordCount includes collection children, unlike the root-only page total.
+func (r *Resource) RecordCount() int {
+	count := 0
+	r.catalog.Range(func(_, value interface{}) bool {
+		if _, ok := value.(shared.ResourceCandidate); ok {
+			count++
+		}
+		return true
+	})
+	return count
 }
 func (r *Resource) Import(items []shared.ResourceView) ([]shared.ResourceView, error) {
 	return r.importResources(items)

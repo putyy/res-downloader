@@ -6,27 +6,27 @@
       transform-origin="center"
   >
     <NCard
-        class="certificate-guide w-[560px] max-w-[calc(100vw-32px)]"
+        class="certificate-guide !shadow-[0_24px_64px_rgba(25,38,30,0.18)] w-[560px] max-w-[calc(100vw-32px)]"
         :bordered="false"
         role="dialog"
         aria-modal="true"
     >
       <div class="flex items-start gap-4">
-        <div class="certificate-guide__icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl">
+        <div class="text-app-accent bg-app-accent-soft flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl">
           <NIcon size="27"><ShieldCheckmarkOutline/></NIcon>
         </div>
         <div class="min-w-0 flex-1">
           <div class="text-xl font-semibold">{{ guideTitle }}</div>
-          <p class="app-muted-text mt-2 text-sm leading-6">{{ guideDescription }}</p>
+          <p class="text-app-muted mt-2 text-sm leading-6">{{ guideDescription }}</p>
         </div>
       </div>
 
-      <div class="app-muted-surface mt-5 rounded-2xl p-4">
+      <div class="bg-app-surface-muted mt-5 rounded-2xl p-4">
         <div class="flex gap-3">
           <NIcon class="mt-0.5 shrink-0 text-amber-600" size="19"><LockClosedOutline/></NIcon>
           <div class="text-sm leading-6">
             <div class="font-medium">{{ authorizationTitle }}</div>
-            <div class="app-muted-text mt-1">{{ authorizationDescription }}</div>
+            <div class="text-app-muted mt-1">{{ authorizationDescription }}</div>
           </div>
         </div>
       </div>
@@ -44,7 +44,7 @@
             :placeholder="t('components.password_placeholder')"
             @keyup.enter="submit"
         />
-        <div class="app-muted-text mt-2 text-xs">{{ t('certificateGuide.password_tip') }}</div>
+        <div class="text-app-muted mt-2 text-xs">{{ t('certificateGuide.password_tip') }}</div>
       </div>
 
       <div class="mt-6 flex items-center justify-between gap-3">
@@ -165,11 +165,5 @@ onMounted(async () => {
 .certificate-guide.n-card {
   --n-color: var(--app-surface) !important;
   background-color: var(--app-surface) !important;
-  box-shadow: 0 24px 64px rgba(25, 38, 30, 0.18);
-}
-
-.certificate-guide__icon {
-  color: var(--app-accent);
-  background-color: var(--app-accent-soft);
 }
 </style>

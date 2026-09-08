@@ -36,15 +36,15 @@
         <NTag :type="status.ffmpeg.available ? 'success' : 'error'">
           {{ status.ffmpeg.available ? t('setting.media_available') : t('setting.media_unavailable') }}
         </NTag>
-        <div class="mt-2 break-all text-xs text-gray-500">{{ status.ffmpeg.version || status.ffmpeg.error }}</div>
-        <div v-if="status.ffmpeg.path" class="mt-1 break-all text-xs text-gray-400">{{ status.ffmpeg.path }}</div>
+        <div class="mt-2 break-all text-xs text-gray-500 dark:text-app-muted">{{ status.ffmpeg.version || status.ffmpeg.error }}</div>
+        <div v-if="status.ffmpeg.path" class="mt-1 break-all text-xs text-gray-400 dark:text-app-muted">{{ status.ffmpeg.path }}</div>
       </NCard>
       <NCard size="small" title="ffprobe">
         <NTag :type="status.ffprobe.available ? 'success' : 'error'">
           {{ status.ffprobe.available ? t('setting.media_available') : t('setting.media_unavailable') }}
         </NTag>
-        <div class="mt-2 break-all text-xs text-gray-500">{{ status.ffprobe.version || status.ffprobe.error }}</div>
-        <div v-if="status.ffprobe.path" class="mt-1 break-all text-xs text-gray-400">{{ status.ffprobe.path }}</div>
+        <div class="mt-2 break-all text-xs text-gray-500 dark:text-app-muted">{{ status.ffprobe.version || status.ffprobe.error }}</div>
+        <div v-if="status.ffprobe.path" class="mt-1 break-all text-xs text-gray-400 dark:text-app-muted">{{ status.ffprobe.path }}</div>
       </NCard>
     </div>
   </div>

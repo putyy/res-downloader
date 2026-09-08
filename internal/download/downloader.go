@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -127,6 +128,9 @@ func NewFileDownloader(url, filename string, totalTasks int, headers map[string]
 
 func NewFileDownloaderContext(parent context.Context, url, filename, checkpointPath string, totalTasks int, headers map[string]string, config *config.Config, logger *logging.Logger) *FileDownloader {
 	ctx, cancelFunc := context.WithCancel(parent)
+	// The plan and published resource can still be read by other goroutines.
+	// Default headers belong to this downloader, never to those snapshots.
+	headers = maps.Clone(headers)
 	if headers == nil {
 		headers = make(map[string]string)
 	}

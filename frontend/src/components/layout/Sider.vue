@@ -1,12 +1,12 @@
 <template>
-  <div class="app-sidebar flex pb-2 flex-col h-full min-w-[84px] border-r">
+  <div class="app-sidebar relative isolate text-app-sidebar-text bg-app-sidebar border-black/[0.12] flex pb-2 flex-col h-full min-w-[84px] shrink-0 border-r">
     <Screen v-if="envInfo.platform!=='darwin'"></Screen>
     <div class="w-full flex flex-row items-center justify-center" :class="logoPaddingClass">
       <div class="relative flex items-center justify-center cursor-pointer" @click="handleFooterUpdate('github')">
         <img class="w-12 h-12 rounded-full transition-transform duration-300 hover:scale-105 dark"
              src="@/assets/image/logo.png" alt="res-downloader logo"/>
         <span
-            class="absolute right-[-25px] top-0 font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-pulse"
+            class="absolute right-[-25px] top-0 font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-update-pulse"
             v-if="showUpdate">
             New
         </span>
@@ -27,12 +27,12 @@
               :collapsed="collapsed"
               :width="envInfo.platform==='linux' ? 160 : 140"
               :native-scrollbar="false"
-              :inverted="inverted"
+              inverted
               :on-update:collapsed="collapsedChange"
               class="bg-inherit"
           >
             <NMenu
-                :inverted="inverted"
+                inverted
                 :collapsed="collapsed"
                 :collapsed-width="collapsedWidth"
                 :collapsed-icon-size="22"
@@ -42,9 +42,9 @@
             />
           </NLayoutSider>
         </NLayout>
-        <NLayoutFooter position="absolute" :inverted="inverted" class="bg-inherit">
+        <NLayoutFooter position="absolute" inverted class="bg-inherit">
           <NMenu
-              :inverted="inverted"
+              inverted
               :collapsed="collapsed"
               :collapsed-width="collapsedWidth"
               :collapsed-icon-size="22"
@@ -75,7 +75,6 @@ import {compareVersions} from "@/func"
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
-const inverted = ref(false)
 const collapsed = ref(false)
 const showAppName = ref(false)
 const showAppInfo = ref(false)
@@ -194,20 +193,3 @@ const collapsedChange = (value: boolean) => {
   localStorage.setItem("collapsed", JSON.stringify({collapsed: value}))
 }
 </script>
-<style scoped>
-@keyframes pulse {
-  0% {
-    transform: scale(0.9);
-  }
-  50% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(0.9);
-  }
-}
-
-.animate-pulse {
-  animation: pulse 2s infinite;
-}
-</style>

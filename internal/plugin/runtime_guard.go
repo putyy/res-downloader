@@ -12,7 +12,7 @@ import (
 
 const (
 	pluginRuntimeConcurrency = 4
-	pluginRuntimeTimeout     = 2 * time.Second
+	pluginRuntimeTimeout     = 10 * time.Second
 	pluginCircuitThreshold   = 3
 	pluginCircuitPause       = 30 * time.Second
 	pluginSlowCall           = 400 * time.Millisecond
@@ -36,15 +36,18 @@ func (s *pluginRuntimeState) run(ctx context.Context, operation func(context.Con
 		return fmt.Errorf("plugin is temporarily paused after repeated failures")
 	}
 
-	select {
-	case s.semaphore <- struct{}{}:
-		defer func() { <-s.semaphore }()
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
 	callCtx, cancel := context.WithTimeout(ctx, pluginRuntimeTimeout)
 	defer cancel()
+	select {
+	case s.semaphore <- struct{}{}:
+	case <-callCtx.Done():
+		return pluginCallContextError(callCtx)
+	}
+	// A cancelled waiter must not start work even if a slot became available.
+	if callCtx.Err() != nil {
+		<-s.semaphore
+		return pluginCallContextError(callCtx)
+	}
 	started := time.Now()
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -77,16 +80,29 @@ func (s *pluginRuntimeState) run(ctx context.Context, operation func(context.Con
 			if recovered := recover(); recovered != nil {
 				callErr = fmt.Errorf("plugin panic: %v", recovered)
 			}
+			// A timeout only releases the caller. Keep the slot until the actual
+			// operation exits, including operations that ignore cancellation.
+			<-s.semaphore
 			done <- callErr
 		}()
 		callErr = operation(callCtx)
 	}()
 	select {
 	case err = <-done:
+		if callCtx.Err() != nil {
+			return pluginCallContextError(callCtx)
+		}
 		return err
 	case <-callCtx.Done():
-		return errors.New("plugin operation timed out")
+		return pluginCallContextError(callCtx)
 	}
+}
+
+func pluginCallContextError(ctx context.Context) error {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("plugin operation timed out: %w", ctx.Err())
+	}
+	return ctx.Err()
 }
 
 func (s *pluginRuntimeState) snapshot() shared.PluginRuntimeHealth {

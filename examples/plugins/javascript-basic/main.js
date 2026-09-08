@@ -23,7 +23,8 @@ function onObservation(observation, api) {
   return {decision: "continue"};
 }
 
-function createDownloadPlan(input) {
+function createDownloadPlan(input, api) {
+  api.log("Creating download plan, plugin version: " + api.pluginVersion);
   var track = input.resource.tracks[0];
   return {
     inputs: [{

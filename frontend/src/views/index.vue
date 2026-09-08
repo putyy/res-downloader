@@ -2,19 +2,19 @@
   <div class="h-full flex flex-col px-5 pt-5 overflow-y-auto [&::-webkit-scrollbar]:hidden">
     <div class="pb-2 z-40" id="header">
       <NSpace>
-        <NButton v-if="isProxy" secondary type="primary" @click.stop="close" style="--wails-draggable:no-drag">
+        <NButton v-if="isProxy" secondary type="primary" @click.stop="close" class="[--wails-draggable:no-drag]">
           <span class="inline-block w-1.5 h-1.5 bg-red-600 rounded-full mr-1 animate-pulse"></span>
           {{ t("index.close_grab") }}{{ resourceTotal > 0 ? `&nbsp;${t('index.total_resources', {count: resourceTotal})}` : '' }}
         </NButton>
-        <NButton v-else tertiary type="tertiary" @click.stop="open" style="--wails-draggable:no-drag">
+        <NButton v-else tertiary type="tertiary" @click.stop="open" class="[--wails-draggable:no-drag]">
           {{ t("index.open_grab") }}{{ resourceTotal > 0 ? `&nbsp;${t('index.total_resources', {count: resourceTotal})}` : '' }}
         </NButton>
-        <NSelect style="min-width: 100px;--wails-draggable:no-drag" :placeholder="t('index.grab_type')"
+        <NSelect class="min-w-[100px] [--wails-draggable:no-drag]" :placeholder="t('index.grab_type')"
                  :value="resourcesType" multiple clearable
                  :max-tag-count="3" :options="captureTypeOptions" @update:value="updateResourceTypes"></NSelect>
-        <NButtonGroup style="--wails-draggable:no-drag">
+        <NButtonGroup class="[--wails-draggable:no-drag]">
 
-          <NButton v-if="rememberChoice" tertiary type="error" @click.stop="clear" style="--wails-draggable:no-drag">
+          <NButton v-if="rememberChoice" tertiary type="error" @click.stop="clear" class="[--wails-draggable:no-drag]">
             <template #icon>
               <n-icon>
                 <TrashOutline/>
@@ -28,7 +28,7 @@
               :show-icon="false"
           >
             <template #trigger>
-              <NButton tertiary type="error" style="--wails-draggable:no-drag">
+              <NButton tertiary type="error" class="[--wails-draggable:no-drag]">
                 <template #icon>
                   <n-icon>
                     <TrashOutline/>
@@ -47,7 +47,7 @@
               <NCheckbox
                   v-model:checked="rememberChoiceTmp"
               >
-                <span class="app-muted-text">{{ t('index.remember_clear_choice') }}</span>
+                <span class="text-app-muted">{{ t('index.remember_clear_choice') }}</span>
               </NCheckbox>
             </div>
           </n-popconfirm>
@@ -111,7 +111,7 @@
     </div>
     <div class="min-h-0 flex-1">
       <NDataTable
-          class="resource-table"
+          class="resource-table [--wails-draggable:no-drag]"
           :columns="columns"
           :data="filteredData"
           :bordered="false"
@@ -126,10 +126,9 @@
           @update:checked-row-keys="handleCheck"
           @update:expanded-row-keys="(keys: any) => expandedRowKeys = keys"
           @update:filters="updateFilters"
-          style="--wails-draggable:no-drag"
       />
     </div>
-    <div class="resource-footer flex items-center justify-center" id="bottom">
+    <div class="text-app-muted [&_span]:transition-colors [&_span]:duration-[160ms] [&_span]:ease-[ease] [&_span:hover]:text-app-accent flex items-center justify-center" id="bottom">
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL(certUrl)">{{ t('footer.cert_download') }}</span>
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://res.putyy.com')">{{ t('footer.documentation') }}</span>
       <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</span>
@@ -162,6 +161,7 @@ import Password from "@/components/Password.vue"
 import {useI18n} from 'vue-i18n'
 import {Apps, ArrowRedoCircleOutline, CloseOutline, DownloadOutline, ServerOutline, TrashOutline} from "@vicons/ionicons5"
 import {useCertificateStore} from '@/stores/certificate'
+import type {MessageReactive} from 'naive-ui'
 
 const {t, locale} = useI18n()
 const eventStore = useEventStore()
@@ -176,6 +176,31 @@ const resourceTotal = ref(0)
 const nextResourceOffset = ref(0)
 const loadingMoreResources = ref(false)
 const resourcePageSize = 1000
+const resourceWarningStart = 1500
+const resourceWarningStep = 500
+let nextResourceWarningAt = resourceWarningStart
+let resourceWarning: MessageReactive | undefined
+
+const updateResourceRecordCount = (value: unknown, afterCleanup = false) => {
+  const count = Number(value)
+  if (!Number.isFinite(count) || count < 0) return
+  const nextThreshold = Math.max(resourceWarningStart,
+      (Math.floor(count / resourceWarningStep) + 1) * resourceWarningStep)
+  if (afterCleanup) {
+    nextResourceWarningAt = nextThreshold
+    resourceWarning?.destroy()
+    resourceWarning = undefined
+    return
+  }
+  if (count < nextResourceWarningAt) return
+  // A large batch gets one warning; repeated updates of the same count do not.
+  nextResourceWarningAt = nextThreshold
+  resourceWarning?.destroy()
+  resourceWarning = window.$message?.warning(t('index.resource_count_warning', {count}), {
+    duration: 10000,
+    closable: true,
+  })
+}
 const filterKinds = ref<string[]>([])
 const filteredData = computed(() => {
   let result = data.value
@@ -331,6 +356,7 @@ onMounted(() => {
     }
     appendResourcePage(res.data?.items ?? [])
     resourceTotal.value = Number(res.data?.total ?? data.value.length)
+    updateResourceRecordCount(res.data?.recordCount)
     nextResourceOffset.value = Number(res.data?.nextOffset ?? 0)
     data.value.forEach(item => visitResource(item, child => ensureResourceKind(child.kind)))
     appApi.downloadTasks().then((tasksResponse: appType.Res<appType.DownloadTaskRecord[]>) => {
@@ -377,13 +403,14 @@ onMounted(() => {
 
   disposers.push(eventStore.addHandle({
     type: 'resourcesBatch',
-    event: (payload: {items?: appType.ResourceView[], total?: number}) => {
+    event: (payload: {items?: appType.ResourceView[], total?: number, recordCount?: number}) => {
       for (const resource of payload?.items ?? []) upsertResourceRoot(resource)
       const nextTotal = Number(payload?.total ?? Math.max(resourceTotal.value, data.value.length))
       if (nextResourceOffset.value > 0 && nextTotal > resourceTotal.value) {
         nextResourceOffset.value += nextTotal - resourceTotal.value
       }
       resourceTotal.value = nextTotal
+      updateResourceRecordCount(payload?.recordCount)
     },
   }))
 
@@ -410,6 +437,7 @@ onUnmounted(() => {
   if (pageCommandPoll) clearTimeout(pageCommandPoll)
   window.removeEventListener('resize', handleWindowResize)
   disposers.splice(0).forEach(dispose => dispose())
+  resourceWarning?.destroy()
 })
 
 const loadMoreResources = async () => {
@@ -423,6 +451,7 @@ const loadMoreResources = async () => {
 	  }
 	  appendResourcePage(response.data?.items ?? [])
 	  resourceTotal.value = Number(response.data?.total ?? data.value.length)
+	  updateResourceRecordCount(response.data?.recordCount)
 	  nextResourceOffset.value = Number(response.data?.nextOffset ?? 0)
 	} finally {
 	  loadingMoreResources.value = false
@@ -684,6 +713,7 @@ const dataAction = (row: appType.ResourceView, index: number, type: string) => {
 		if (res.code === 1) {
 		  removeResource(row.id)
 		  resourceTotal.value = Math.max(0, resourceTotal.value - 1)
+		  updateResourceRecordCount(res.data?.recordCount, true)
 		}
         else window?.$message?.error(res.message)
       })
@@ -877,6 +907,7 @@ const clear = async () => {
 	}
 	data.value = []
 	resourceTotal.value = 0
+	updateResourceRecordCount(response.data?.recordCount ?? 0, true)
 	nextResourceOffset.value = 0
 	return
   }
@@ -888,6 +919,7 @@ const clear = async () => {
   }
   deletedIds.forEach(removeResource)
 	resourceTotal.value = Math.max(0, resourceTotal.value - deletedIds.length)
+	updateResourceRecordCount(response.data?.recordCount, true)
 }
 
 const handleImport = (content: string) => {
@@ -915,6 +947,7 @@ const handleImport = (content: string) => {
 	  appApi.listResources({offset: 0, limit: resourcePageSize}).then((page: appType.Res) => {
 		data.value = page.data?.items ?? []
 		resourceTotal.value = Number(page.data?.total ?? data.value.length)
+		updateResourceRecordCount(page.data?.recordCount)
 		nextResourceOffset.value = Number(page.data?.nextOffset ?? 0)
 		data.value.forEach(item => visitResource(item, child => ensureResourceKind(child.kind)))
 	  })

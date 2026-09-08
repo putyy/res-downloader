@@ -77,6 +77,7 @@
     "export_url": "导出链接",
     "import_success": "导出成功",
     "total_resources": "共{count}个资源",
+    "resource_count_warning": "已捕获 {count} 条资源（含合集子资源），可能增加内存占用并影响运行稳定性，建议清理不再需要的资源。",
     "load_more": "加载更多（已显示 {loaded}/{total}）",
     "all": "全部",
     "image": "图片",

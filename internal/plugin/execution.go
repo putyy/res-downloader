@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	shared "res-downloader/internal/model"
+	"slices"
 	"strings"
 	"time"
 )
@@ -418,12 +420,25 @@ func normalizeDownloadPlan(plan shared.DownloadPlan) shared.DownloadPlan {
 }
 
 func (m *PluginManager) bindDownloadPlanProcessors(pluginID string, plan *shared.DownloadPlan) error {
+	// Native/fallback plans may still share tracks with the resource catalog.
+	plan.Inputs = slices.Clone(plan.Inputs)
 	for index := range plan.Inputs {
+		plan.Inputs[index].Headers = maps.Clone(plan.Inputs[index].Headers)
+		plan.Inputs[index].Processors = cloneDownloadProcessors(plan.Inputs[index].Processors)
 		if err := m.bindDownloadProcessors(pluginID, plan.Inputs[index].Processors); err != nil {
 			return err
 		}
 	}
+	plan.Output.Processors = cloneDownloadProcessors(plan.Output.Processors)
 	return m.bindDownloadProcessors(pluginID, plan.Output.Processors)
+}
+
+func cloneDownloadProcessors(processors []shared.DownloadStep) []shared.DownloadStep {
+	cloned := slices.Clone(processors)
+	for index := range cloned {
+		cloned[index].Options = maps.Clone(cloned[index].Options)
+	}
+	return cloned
 }
 
 func (m *PluginManager) BodyLimit(obs shared.Observation) int64 {

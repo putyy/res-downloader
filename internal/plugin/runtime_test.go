@@ -78,7 +78,7 @@ func TestJavaScriptPluginTopLevelTimeout(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("expected timeout, got %v", err)
 	}
-	if time.Since(started) > 2*time.Second {
+	if time.Since(started) > pluginExecutionTime+2*time.Second {
 		t.Fatal("JavaScript timeout took too long")
 	}
 }

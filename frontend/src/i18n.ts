@@ -3,7 +3,7 @@ import en from './locales/en.json'
 import zh from './locales/zh.json'
 
 const i18n = createI18n({
-    locale: 'zh',
+    locale: 'en',
     fallbackLocale: 'en',
     messages: {
         en,

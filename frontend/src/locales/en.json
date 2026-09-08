@@ -77,6 +77,7 @@
     "export_url": "Export Url",
     "import_success": "Export Success",
     "total_resources": "total of {count} resources",
+    "resource_count_warning": "There are {count} captured resources, including collection items. This may increase memory usage and affect stability. Consider clearing resources you no longer need.",
     "load_more": "Load more ({loaded}/{total})",
     "all": "All",
     "image": "Image",

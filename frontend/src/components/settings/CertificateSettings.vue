@@ -18,7 +18,7 @@
         <span v-if="status.desktop.error" class="text-xs text-red-500">{{ status.desktop.error }}</span>
       </div>
       <div class="text-sm">{{ t('setting.certificate_fingerprint') }}</div>
-      <div class="mt-1 break-all font-mono text-xs text-gray-500">{{
+      <div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-app-muted">{{
           status.fingerprintSha256 || status.error || '-'
         }}
       </div>
@@ -51,7 +51,7 @@
         <NTag :type="migrationTagType">
           {{ migrationStatusLabel }}
         </NTag>
-        <span class="text-xs text-gray-500">{{ status.migration.message }}</span>
+        <span class="text-xs text-gray-500 dark:text-app-muted">{{ status.migration.message }}</span>
       </div>
       <div class="mt-4 flex gap-2">
         <NButton secondary :loading="cleaning" @click="beginCleanup">{{
@@ -62,7 +62,7 @@
     </NCard>
     <NModal v-model:show="showAuthorization" preset="dialog" :title="authorizationTitle">
       <div class="space-y-3">
-        <div class="text-sm text-gray-500">{{ authorizationTip }}</div>
+        <div class="text-sm text-gray-500 dark:text-app-muted">{{ authorizationTip }}</div>
         <NInput
             v-model:value="password"
             type="password"

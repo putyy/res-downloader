@@ -1,5 +1,5 @@
 <template>
-  <NCard size="small" :bordered="false" class="app-card app-card--interactive plugin-card h-full" style="--wails-draggable:no-drag">
+  <NCard size="small" :bordered="false" class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto hover:-translate-y-0.5 h-full [--wails-draggable:no-drag]">
     <template #header>
       <div class="min-w-0">
         <div class="truncate font-medium" :title="name">{{ name }}</div>
@@ -21,16 +21,16 @@
       </div>
     </template>
 
-    <div class="app-muted-text text-xs">
+    <div class="text-app-muted text-xs">
       {{ extension.repository }}<span v-if="extension.license"> · {{ extension.license }}</span>
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>
-        <div class="app-muted-text ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">{{ description }}</div>
+        <div class="text-app-muted ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">{{ description }}</div>
       </template>
       <div class="max-w-[min(360px,calc(100vw-48px))] whitespace-pre-wrap break-words text-sm">{{ description }}</div>
     </NTooltip>
-    <div class="app-muted-text mt-3 text-xs">
+    <div class="text-app-muted mt-3 text-xs">
       {{ t('plugin.developer') }}：{{ extension.manifest?.author?.name || extension.owner }}
     </div>
     <NTooltip v-if="capabilities.length" trigger="hover">
@@ -39,13 +39,13 @@
           <NTag
               v-for="capability in visibleCapabilities"
               :key="capability"
-              class="plugin-permission-tag"
+              class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:truncate"
               size="small"
               type="warning"
           >
             {{ capability }}
           </NTag>
-          <NTag v-if="hiddenCapabilityCount" class="plugin-permission-tag" size="small" type="warning">
+          <NTag v-if="hiddenCapabilityCount" class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:truncate" size="small" type="warning">
             +{{ hiddenCapabilityCount }}
           </NTag>
         </div>

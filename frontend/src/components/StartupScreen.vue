@@ -1,33 +1,33 @@
 <template>
   <div class="app-shell relative flex h-full w-full items-center justify-center px-6">
-    <div class="absolute inset-x-0 top-0 h-10" style="--wails-draggable:drag">
-      <div v-if="showCustomWindowControls" class="w-[84px]" style="--wails-draggable:no-drag">
+    <div class="absolute inset-x-0 top-0 h-10 [--wails-draggable:drag]">
+      <div v-if="showCustomWindowControls" class="w-[84px] [--wails-draggable:no-drag]">
         <Screen/>
       </div>
     </div>
 
-    <div class="relative z-10 w-full max-w-[620px] rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-8 shadow-xl">
+    <div class="relative z-10 w-full max-w-[620px] rounded-2xl border border-app-border bg-app-surface p-8 shadow-xl">
       <div class="flex items-center gap-4">
         <img class="h-14 w-14 rounded-full" src="@/assets/image/logo.png" alt="res-downloader logo"/>
         <div>
           <div class="text-xl font-semibold">res-downloader</div>
-          <div class="app-muted-text mt-1 text-sm">{{ statusSummary }}</div>
+          <div class="text-app-muted mt-1 text-sm">{{ statusSummary }}</div>
         </div>
       </div>
 
       <div v-if="store.startupState === 'loading'" class="flex flex-col items-center py-14">
         <NSpin size="large"/>
         <div class="mt-5 text-base font-medium">{{ t('startup.loading_title') }}</div>
-        <div class="app-muted-text mt-2 text-sm">{{ t('startup.loading_tip') }}</div>
+        <div class="text-app-muted mt-2 text-sm">{{ t('startup.loading_tip') }}</div>
       </div>
 
       <div v-else class="mt-7">
         <NAlert type="error" :show-icon="false" :title="t('startup.failed_title')">
           {{ t('startup.failed_tip') }}
         </NAlert>
-        <div class="app-muted-text mt-4 text-xs font-medium">{{ t('startup.error_details') }}</div>
+        <div class="text-app-muted mt-4 text-xs font-medium">{{ t('startup.error_details') }}</div>
         <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/5 p-3 text-xs leading-5 dark:bg-white/5">{{ store.startupError }}</pre>
-        <div class="mt-6 flex flex-wrap gap-2" style="--wails-draggable:no-drag">
+        <div class="mt-6 flex flex-wrap gap-2 [--wails-draggable:no-drag]">
           <NButton type="primary" secondary @click="retry">
             <template #icon><NIcon><RefreshOutline/></NIcon></template>
             {{ t('startup.retry') }}

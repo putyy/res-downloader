@@ -81,7 +81,7 @@ func (r *Resource) PublishCandidates(candidates []shared.ResourceCandidate) {
 	}
 	r.catalogMux.Unlock()
 	if len(updates) > 0 {
-		r.emitEvent("resourcesBatch", map[string]interface{}{"items": updates, "total": len(tree)})
+		r.emitEvent("resourcesBatch", map[string]interface{}{"items": updates, "total": len(tree), "recordCount": len(all)})
 	}
 }
 

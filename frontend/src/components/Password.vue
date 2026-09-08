@@ -2,14 +2,13 @@
   <n-modal
       :show="showModal"
       :on-update:show="changeShow"
-      style="--wails-draggable:no-drag"
       preset="dialog"
       :title="t('components.password_title')"
       content=""
       :show-icon="false"
       :mask-closable="false"
       :close-on-esc="false"
-      class="rounded-lg"
+      class="rounded-lg [--wails-draggable:no-drag]"
   >
     <div>
       <div class="text-red-500 text-base">

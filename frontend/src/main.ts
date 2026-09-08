@@ -23,5 +23,18 @@ window.addEventListener('unhandledrejection', event => {
     void reportFrontendError('unhandledrejection', event.reason)
 })
 
-app.mount('#app')
-void useIndexStore(pinia).init()
+const store = useIndexStore(pinia)
+
+const bootstrap = async () => {
+    try {
+        // Resolve saved/system language before the startup screen's first render.
+        await store.loadConfig()
+    } catch (error) {
+        // Mount with the English fallback; init retries and exposes startup errors.
+        void reportFrontendError('startup.config', error)
+    }
+    app.mount('#app')
+    void store.init()
+}
+
+void bootstrap()

@@ -38,15 +38,18 @@ const activeTheme = computed(() => resolveAppTheme(store.globalConfig.Theme))
 watch(activeTheme, (theme) => {
   document.documentElement.classList.toggle('dark', theme.dark)
   document.documentElement.dataset.appTheme = theme.id
+  document.documentElement.dataset.menuInset = String(theme.menuInset)
+  Object.entries(theme.cssVars).forEach(([name, value]) => {
+    document.documentElement.style.setProperty(name, value)
+  })
 }, {immediate: true})
 
-const uiLocale = computed(() => {
-  locale.value = store.globalConfig.Locale
-  if (store.globalConfig.Locale === "zh") {
-    return zhCN
-  }
-  return enUS
-})
+watch(() => store.globalConfig.Locale, value => {
+  locale.value = value
+  document.documentElement.lang = value === 'zh' ? 'zh-CN' : 'en'
+}, {immediate: true})
+
+const uiLocale = computed(() => store.globalConfig.Locale === 'zh' ? zhCN : enUS)
 
 let eventsInitialized = false
 const initializeEvents = () => {

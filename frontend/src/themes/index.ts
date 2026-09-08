@@ -12,125 +12,194 @@ export const appThemeIds = [
 
 export type AppThemeName = typeof appThemeIds[number]
 
+interface ThemePalette {
+    background: string
+    surface: string
+    surfaceMuted: string
+    surfaceHover: string
+    border: string
+    text: string
+    textMuted: string
+    accent: string
+    accentHover: string
+    accentPressed: string
+    accentSoft: string
+    sidebar: string
+    sidebarText: string
+    sidebarAccent: string
+    sidebarActive: string
+}
+
 export interface AppThemeDefinition {
     id: AppThemeName
     nameKey: string
     dark: boolean
+    menuInset: boolean
+    menuSelection: {background: string, text: string, shadow: string}
     naiveTheme: GlobalTheme
     overrides: GlobalThemeOverrides
-    preview: {
-        background: string
-        surface: string
-        accent: string
-        muted: string
-        text: string
+    cssVars: Record<string, string>
+    preview: ThemePalette
+}
+
+// Navigation has its own inverted colors, independent of the workspace theme.
+// Keep existing theme IDs so saved preferences continue to resolve.
+const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThemeDefinition => {
+    const isDark = id === 'darkTheme'
+    const subtleSelection = id === 'darkTheme' || id === 'sakuraTheme'
+    const menuHoverText = isDark ? p.text : '#ffffff'
+    const menuSelection = {
+        background: subtleSelection ? 'rgba(255, 255, 255, 0.12)' : p.sidebarActive,
+        text: subtleSelection ? menuHoverText : p.sidebarAccent,
+        shadow: subtleSelection ? 'none' : `inset 2px 0 0 ${p.sidebarAccent}`,
+    }
+    return {
+        id,
+        nameKey,
+        dark: isDark,
+        menuInset: subtleSelection || id === 'lightTheme' || id === 'seaSaltTheme',
+        menuSelection,
+        naiveTheme: isDark ? darkTheme : lightTheme,
+        preview: p,
+        cssVars: {
+            '--app-background': p.background,
+            '--app-surface': p.surface,
+            '--app-surface-muted': p.surfaceMuted,
+            '--app-surface-hover': p.surfaceHover,
+            '--app-border': p.border,
+            '--app-text': p.text,
+            '--app-text-muted': p.textMuted,
+            '--app-accent': p.accent,
+            '--app-accent-soft': p.accentSoft,
+            '--app-sidebar': p.sidebar,
+            '--app-sidebar-text': p.sidebarText,
+            '--app-sidebar-accent': p.sidebarAccent,
+            '--app-sidebar-active': p.sidebarActive,
+            '--app-menu-selection-shadow': menuSelection.shadow,
+        },
+        overrides: {
+            common: {
+                primaryColor: p.accent,
+                primaryColorHover: p.accentHover,
+                primaryColorPressed: p.accentPressed,
+                primaryColorSuppl: p.accentHover,
+                bodyColor: p.background,
+                cardColor: p.surface,
+                modalColor: p.surface,
+                popoverColor: p.surface,
+                tableColor: p.surface,
+                inputColor: p.surface,
+                borderColor: p.border,
+                dividerColor: p.border,
+                textColorBase: p.text,
+                textColor1: p.text,
+                textColor2: p.textMuted,
+                textColor3: p.textMuted,
+                borderRadius: '6px',
+            },
+            ...(isDark ? {
+                Switch: {
+                    railColor: '#44453e',
+                    railColorActive: '#477354',
+                    buttonColor: '#f5f0e6',
+                    buttonBoxShadow: '0 1px 3px rgba(0, 0, 0, 0.24)',
+                    textColor: '#f5f0e6',
+                    iconColor: '#477354',
+                    loadingColor: '#477354',
+                    boxShadowFocus: '0 0 0 2px rgba(143, 198, 164, 0.3)',
+                    railBorderRadiusSmall: '999px',
+                    railBorderRadiusMedium: '999px',
+                    railBorderRadiusLarge: '999px',
+                    buttonBorderRadiusSmall: '999px',
+                    buttonBorderRadiusMedium: '999px',
+                    buttonBorderRadiusLarge: '999px',
+                },
+            } : {}),
+            Layout: {
+                color: p.background,
+                textColor: p.text,
+                siderColorInverted: p.sidebar,
+                footerColorInverted: p.sidebar,
+                textColorInverted: p.sidebarText,
+                siderToggleButtonColor: p.sidebarActive,
+                siderToggleButtonBorder: '1px solid rgba(255, 255, 255, 0.14)',
+                siderToggleButtonIconColor: p.sidebarText,
+                siderToggleButtonIconColorInverted: p.sidebarText,
+            },
+            Menu: {
+                borderRadius: '8px',
+                itemHeight: '44px',
+                colorInverted: p.sidebar,
+                itemColorHoverInverted: 'rgba(255, 255, 255, 0.06)',
+                itemColorActiveInverted: menuSelection.background,
+                itemColorActiveHoverInverted: menuSelection.background,
+                itemColorActiveCollapsedInverted: menuSelection.background,
+                itemTextColorInverted: p.sidebarText,
+                itemTextColorHoverInverted: menuHoverText,
+                itemTextColorActiveInverted: menuSelection.text,
+                itemTextColorActiveHoverInverted: menuSelection.text,
+                itemIconColorInverted: p.sidebarText,
+                itemIconColorHoverInverted: menuHoverText,
+                itemIconColorCollapsedInverted: p.sidebarText,
+                itemIconColorActiveInverted: menuSelection.text,
+                itemIconColorActiveHoverInverted: menuSelection.text,
+            },
+            DataTable: {
+                borderRadius: '0px',
+                borderColor: p.border,
+                thColor: p.surfaceMuted,
+                thColorHover: p.surfaceHover,
+                thColorSorting: p.surfaceHover,
+                thButtonColorHover: p.surfaceHover,
+                thIconColorActive: p.accent,
+                thTextColor: p.textMuted,
+                thFontWeight: '500',
+                tdColor: p.surface,
+                tdColorHover: p.surfaceHover,
+                tdColorSorting: p.surfaceHover,
+                tdColorStriped: p.surfaceMuted,
+            },
+        },
     }
 }
 
-const createCommonOverrides = (
-    primary: string,
-    hover: string,
-    pressed: string,
-    body: string,
-    surface: string,
-    surfaceMuted: string,
-    surfaceHover: string,
-    border: string,
-    text: string,
-    secondaryText: string,
-): GlobalThemeOverrides => ({
-    common: {
-        primaryColor: primary,
-        primaryColorHover: hover,
-        primaryColorPressed: pressed,
-        primaryColorSuppl: hover,
-        bodyColor: body,
-        cardColor: surface,
-        modalColor: surface,
-        popoverColor: surface,
-        tableColor: surface,
-        inputColor: surface,
-        borderColor: border,
-        dividerColor: border,
-        textColorBase: text,
-        textColor1: text,
-        textColor2: secondaryText,
-    },
-    DataTable: {
-        borderColor: border,
-        thColor: surfaceMuted,
-        thColorHover: surfaceHover,
-        thColorSorting: surfaceHover,
-        thButtonColorHover: surfaceHover,
-        thIconColorActive: primary,
-        tdColor: surface,
-        tdColorHover: surfaceHover,
-        tdColorSorting: surfaceHover,
-        tdColorStriped: surfaceMuted,
-    },
-})
-
 export const appThemes: readonly AppThemeDefinition[] = [
-    {
-        id: 'lightTheme',
-        nameKey: 'setting.theme_light_name',
-        dark: false,
-        naiveTheme: lightTheme,
-        overrides: createCommonOverrides(
-            '#18a058', '#36ad6a', '#0c7a43', '#ffffff', '#ffffff', '#eef3f0', '#f8faf9', '#e5e7eb', '#1f2937', '#4b5563',
-        ),
-        preview: {background: '#f5f7f6', surface: '#ffffff', accent: '#18a058', muted: '#dcefe4', text: '#27332c'},
-    },
-    {
-        id: 'darkTheme',
-        nameKey: 'setting.theme_dark_name',
-        dark: true,
-        naiveTheme: darkTheme,
-        overrides: createCommonOverrides(
-            '#63c58b', '#7bd39d', '#4cad76', '#181a1f', '#202329', '#292d33', '#25292f', '#343840', '#f3f4f6', '#c4c8cf',
-        ),
-        preview: {background: '#17191d', surface: '#25282e', accent: '#63c58b', muted: '#34443b', text: '#f3f4f6'},
-    },
-    {
-        id: 'sakuraTheme',
-        nameKey: 'setting.theme_sakura_name',
-        dark: false,
-        naiveTheme: lightTheme,
-        overrides: createCommonOverrides(
-            '#d96c8d', '#e3829e', '#bd526f', '#fff8fa', '#fffdfd', '#fbeef2', '#fff5f8', '#f2dce3', '#4b343c', '#765761',
-        ),
-        preview: {background: '#fff4f7', surface: '#fffdfd', accent: '#d96c8d', muted: '#f8dce5', text: '#553942'},
-    },
-    {
-        id: 'forestTheme',
-        nameKey: 'setting.theme_forest_name',
-        dark: false,
-        naiveTheme: lightTheme,
-        overrides: createCommonOverrides(
-            '#557a5b', '#698f6e', '#3f6246', '#f6f8f3', '#fdfefb', '#edf2e9', '#f8fbf5', '#dce4d7', '#29382c', '#566459',
-        ),
-        preview: {background: '#f1f5ed', surface: '#fdfefb', accent: '#557a5b', muted: '#dce8d7', text: '#304034'},
-    },
-    {
-        id: 'autumnTheme',
-        nameKey: 'setting.theme_autumn_name',
-        dark: false,
-        naiveTheme: lightTheme,
-        overrides: createCommonOverrides(
-            '#b96d32', '#ca8248', '#965425', '#fffaf3', '#fffefd', '#f7eee2', '#fff9f1', '#eadfce', '#46372c', '#715e4e',
-        ),
-        preview: {background: '#fbf3e8', surface: '#fffefd', accent: '#b96d32', muted: '#f0dfc6', text: '#493a2f'},
-    },
-    {
-        id: 'seaSaltTheme',
-        nameKey: 'setting.theme_sea_salt_name',
-        dark: false,
-        naiveTheme: lightTheme,
-        overrides: createCommonOverrides(
-            '#347f7a', '#48938e', '#286964', '#f4faf9', '#fcfefe', '#e9f3f1', '#f7fcfb', '#d4e6e3', '#263e3c', '#526b68',
-        ),
-        preview: {background: '#edf7f5', surface: '#fcfefe', accent: '#347f7a', muted: '#d2e9e5', text: '#29413f'},
-    },
+    createTheme('lightTheme', 'setting.theme_light_name', {
+        background: '#f3f5f4', surface: '#ffffff', surfaceMuted: '#edf1ef', surfaceHover: '#f5f8f6',
+        border: '#dfe5e1', text: '#27332e', textMuted: '#616e67',
+        accent: '#357458', accentHover: '#408164', accentPressed: '#285c44', accentSoft: '#e5efe9',
+        sidebar: '#252d2a', sidebarText: '#b9c5be', sidebarAccent: '#c2e6d1', sidebarActive: '#354b40',
+    }),
+    createTheme('darkTheme', 'setting.theme_dark_name', {
+        background: '#1b1c19', surface: '#242521', surfaceMuted: '#2d2e29', surfaceHover: '#32342e',
+        border: '#3d3f37', text: '#eee9df', textMuted: '#b9b2a5',
+        accent: '#8fc6a4', accentHover: '#a4d6b6', accentPressed: '#79b48e', accentSoft: '#2a3b31',
+        sidebar: '#11120f', sidebarText: '#beb8ac', sidebarAccent: '#eee9df', sidebarActive: '#2d3028',
+    }),
+    createTheme('sakuraTheme', 'setting.theme_sakura_name', {
+        background: '#fcf4f7', surface: '#fffdfd', surfaceMuted: '#f5e9ef', surfaceHover: '#fcf0f5',
+        border: '#e9dde2', text: '#46353d', textMuted: '#78626d',
+        accent: '#9e4869', accentHover: '#aa5475', accentPressed: '#873d5a', accentSoft: '#f3e3eb',
+        sidebar: '#382830', sidebarText: '#cfbbc5', sidebarAccent: '#f2c4d6', sidebarActive: '#583b49',
+    }),
+    createTheme('forestTheme', 'setting.theme_forest_name', {
+        background: '#f3f5f0', surface: '#fdfefa', surfaceMuted: '#eaf0e6', surfaceHover: '#f3f7ef',
+        border: '#dde4d6', text: '#303c2e', textMuted: '#616e5c',
+        accent: '#526d3e', accentHover: '#5f7a4b', accentPressed: '#415b31', accentSoft: '#e5eddc',
+        sidebar: '#243128', sidebarText: '#bdcbb8', sidebarAccent: '#cde2b5', sidebarActive: '#3b4e37',
+    }),
+    createTheme('autumnTheme', 'setting.theme_autumn_name', {
+        background: '#f8f5ef', surface: '#fffefa', surfaceMuted: '#f1eadf', surfaceHover: '#faf5ec',
+        border: '#e7dfd2', text: '#44382d', textMuted: '#766655',
+        accent: '#905725', accentHover: '#9d6431', accentPressed: '#7d4b20', accentSoft: '#f1e5d5',
+        sidebar: '#352b24', sidebarText: '#cec1b2', sidebarAccent: '#efc99b', sidebarActive: '#544232',
+    }),
+    createTheme('seaSaltTheme', 'setting.theme_sea_salt_name', {
+        background: '#f1f6f5', surface: '#fcfefd', surfaceMuted: '#e7efed', surfaceHover: '#f0f7f5',
+        border: '#d9e4e1', text: '#2c3e3b', textMuted: '#5b6f6a',
+        accent: '#2e7269', accentHover: '#397d74', accentPressed: '#275f58', accentSoft: '#dfefea',
+        sidebar: '#233536', sidebarText: '#b5ccca', sidebarAccent: '#b9e4d9', sidebarActive: '#354f4e',
+    }),
 ]
 
 const themeMap = new Map<string, AppThemeDefinition>(appThemes.map(theme => [theme.id, theme]))

@@ -722,7 +722,8 @@ func (m *PluginManager) processPageMessage(ctx context.Context, session *pageBri
 			return callErr
 		})
 		if err != nil {
-			return result, err
+			// The timed-out operation may still be assigning its result.
+			return shared.PageMessageResult{}, err
 		}
 		if !handled {
 			return shared.PageMessageResult{OK: false, Error: "plugin does not handle page messages"}, nil

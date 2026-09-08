@@ -1,10 +1,9 @@
 <template>
   <NModal
-      style="--wails-draggable:no-drag"
       :show="showModal"
       :on-update:show="changeShow"
       preset="card"
-      class="w-[720px] h-auto"
+      class="w-[720px] h-auto [--wails-draggable:no-drag]"
       :title="t('index.preview')"
       display-directive="show"
       :on-after-enter="onAfterEnter"

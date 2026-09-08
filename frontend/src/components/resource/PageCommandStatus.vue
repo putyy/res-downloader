@@ -2,7 +2,7 @@
   <NTooltip>
     <template #trigger>
       <div class="px-1 py-1 min-w-0 cursor-default" role="status">
-        <div class="text-xs truncate" :class="failed ? 'text-red-500' : 'app-muted-text'">
+        <div class="text-xs truncate" :class="failed ? 'text-red-500' : 'text-app-muted'">
           {{ t(command.syncUnavailable ? 'index.page_command_sync_label' : `index.page_command_${command.state}`) }}<span v-if="!command.syncUnavailable && command.progress != null"> · {{ Math.floor(command.progress) }}%</span>
         </div>
         <NProgress v-if="active" type="line" :percentage="command.progress ?? 0"

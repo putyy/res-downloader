@@ -2,7 +2,7 @@
   <NCard
       size="small"
       :bordered="false"
-      class="app-card app-card--interactive task-card"
+      class="app-card app-card--interactive"
       :class="{'app-card--selected': selected}"
   >
     <div class="flex items-start gap-3">
@@ -13,9 +13,9 @@
             @update:checked="$emit('select', task, $event)"
         />
       </div>
-      <div class="app-muted-surface relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl">
+      <div class="bg-app-surface-muted relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl">
         <img v-if="task.resource?.coverUrl" :src="task.resource.coverUrl" class="h-full w-full object-cover" alt=""/>
-        <NIcon v-else :size="26" class="app-muted-text">
+        <NIcon v-else :size="26" class="text-app-muted">
           <DocumentOutline/>
         </NIcon>
         <NTag
@@ -34,7 +34,7 @@
         <div class="flex items-start gap-3">
           <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium" :title="title">{{ title }}</div>
-            <div class="app-muted-text mt-1 truncate text-xs" :title="metadataText">{{ metadataText }}</div>
+            <div class="text-app-muted mt-1 truncate text-xs" :title="metadataText">{{ metadataText }}</div>
           </div>
           <div class="flex shrink-0 flex-wrap items-center justify-end gap-1">
             <NButton v-if="canPause" size="tiny" quaternary type="warning" @click="$emit('pause', task)">
@@ -74,7 +74,7 @@
           />
         </div>
 
-        <div v-if="showProgress || task.outputPath" class="app-muted-text mt-1 flex min-w-0 items-center gap-3 text-xs">
+        <div v-if="showProgress || task.outputPath" class="text-app-muted mt-1 flex min-w-0 items-center gap-3 text-xs">
           <span v-if="showProgress" class="shrink-0" :title="progressSummary">{{ progressSummary }}</span>
           <span
               v-if="task.outputPath"
@@ -193,33 +193,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.task-card.app-card--interactive:hover {
-  transform: none;
-}
-
 .task-status-badge.n-tag {
-  max-width: none;
-  height: 18px;
-  padding: 0 4px;
-  justify-content: center;
-  border-radius: 0;
+  @apply max-w-none h-[18px] px-1 justify-center rounded-none backdrop-blur-[2px] text-[10px] pointer-events-none;
   background-color: color-mix(in srgb, var(--n-text-color) 24%, transparent);
-  backdrop-filter: blur(2px);
-  font-size: 10px;
-  pointer-events: none;
 }
 
 .task-status-badge--on-cover.n-tag {
-  color: #fff;
+  @apply text-white font-semibold;
   background-color: color-mix(in srgb, var(--n-text-color) 38%, rgba(0, 0, 0, 0.62));
-  font-weight: 600;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 }
 
 .task-status-badge.n-tag :deep(.n-tag__content) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply min-w-0 truncate;
 }
 </style>

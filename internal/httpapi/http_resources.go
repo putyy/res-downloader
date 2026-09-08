@@ -25,7 +25,7 @@ func (h *Server) filterResources(w http.ResponseWriter, r *http.Request) {
 
 func (h *Server) clearResources(w http.ResponseWriter, _ *http.Request) {
 	h.resources.Clear()
-	h.success(w)
+	h.success(w, respData{"recordCount": h.resources.RecordCount()})
 }
 
 func (h *Server) deleteResources(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +37,7 @@ func (h *Server) deleteResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.resources.DeleteMany(data.IDs)
-	h.success(w)
+	h.success(w, respData{"recordCount": h.resources.RecordCount()})
 }
 
 func (h *Server) updateResource(w http.ResponseWriter, r *http.Request) {

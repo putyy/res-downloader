@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	shared "res-downloader/internal/model"
@@ -14,7 +13,7 @@ import (
 
 const (
 	maxPluginScriptSize = 1024 * 1024
-	pluginExecutionTime = 500 * time.Millisecond
+	pluginExecutionTime = 5 * time.Second
 )
 
 type javaScriptPlugin struct {
@@ -59,12 +58,12 @@ func (p *javaScriptPlugin) Manifest() shared.PluginManifest { return p.manifest 
 func (p *javaScriptPlugin) Handle(ctx context.Context, obs shared.Observation) (shared.PluginResult, error) {
 	result := shared.PluginResult{}
 	emitted := make([]shared.ResourceCandidate, 0)
-	value, called, err := p.call(ctx, "onObservation", obs, p.apiFactory(&emitted))
+	value, called, err := p.call(ctx, "onObservation", obs, p.apiFactory(&emitted, obs.Settings))
 	if err != nil {
 		return result, err
 	}
-	if called && value != nil && !goja.IsUndefined(value) && !goja.IsNull(value) {
-		if err := exportJSON(value, &result); err != nil {
+	if called && len(value) > 0 {
+		if err := json.Unmarshal(value, &result); err != nil {
 			return result, fmt.Errorf("export onObservation result: %w", err)
 		}
 	}
@@ -75,20 +74,36 @@ func (p *javaScriptPlugin) Handle(ctx context.Context, obs shared.Observation) (
 func (p *javaScriptPlugin) HandlePageMessage(ctx context.Context, message interface{}, pageContext shared.PageMessageContext) (shared.PageMessageResult, bool, error) {
 	result := shared.PageMessageResult{}
 	emitted := make([]shared.ResourceCandidate, 0)
-	value, called, err := p.callArguments(ctx, "onPageMessage", []interface{}{message, pageContext}, p.apiFactory(&emitted))
-	if err != nil || !called || value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+	value, called, err := p.callArguments(ctx, "onPageMessage", []interface{}{message, pageContext}, p.apiFactory(&emitted, pageContext.Settings))
+	if err != nil || !called || len(value) == 0 {
 		return result, called, err
 	}
-	if err := exportJSON(value, &result); err != nil {
+	if err := json.Unmarshal(value, &result); err != nil {
 		return result, true, fmt.Errorf("export onPageMessage result: %w", err)
 	}
 	result.Resources = append(result.Resources, emitted...)
 	return result, true, nil
 }
 
-func (p *javaScriptPlugin) apiFactory(emitted *[]shared.ResourceCandidate) func(*goja.Runtime) *goja.Object {
+func (p *javaScriptPlugin) baseAPI(settings map[string]interface{}) func(*goja.Runtime) *goja.Object {
+	enableLog, _ := settings["enableLog"].(bool)
 	return func(vm *goja.Runtime) *goja.Object {
 		api := vm.NewObject()
+		_ = api.Set("log", func(call goja.FunctionCall) goja.Value {
+			if enableLog && p.services.logger != nil {
+				p.services.logger.Info().Msgf("plugin %s: %s", p.manifest.ID, call.Argument(0).String())
+			}
+			return goja.Undefined()
+		})
+		_ = api.Set("pluginVersion", p.manifest.Version)
+		return api
+	}
+}
+
+func (p *javaScriptPlugin) apiFactory(emitted *[]shared.ResourceCandidate, settings map[string]interface{}) func(*goja.Runtime) *goja.Object {
+	base := p.baseAPI(settings)
+	return func(vm *goja.Runtime) *goja.Object {
+		api := base(vm)
 		emit := func(call goja.FunctionCall) goja.Value {
 			var candidate shared.ResourceCandidate
 			if exportJSON(call.Argument(0), &candidate) == nil {
@@ -147,13 +162,6 @@ func (p *javaScriptPlugin) apiFactory(emitted *[]shared.ResourceCandidate) func(
 			})
 			_ = api.Set("page", page)
 		}
-		_ = api.Set("log", func(call goja.FunctionCall) goja.Value {
-			if p.services.logger != nil {
-				p.services.logger.Info().Msgf("plugin %s: %s", p.manifest.ID, call.Argument(0).String())
-			}
-			return goja.Undefined()
-		})
-		_ = api.Set("pluginVersion", p.manifest.Version)
 		return api
 	}
 }
@@ -163,12 +171,12 @@ func (p *javaScriptPlugin) Resolve(ctx context.Context, resource shared.Resource
 		return shared.DownloadPlan{}, false, nil
 	}
 	argument := map[string]interface{}{"resource": resource, "options": options}
-	value, called, err := p.call(ctx, "createDownloadPlan", argument, nil)
-	if err != nil || !called || value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+	value, called, err := p.call(ctx, "createDownloadPlan", argument, p.baseAPI(options.Settings))
+	if err != nil || !called || len(value) == 0 {
 		return shared.DownloadPlan{}, false, err
 	}
 	var plan shared.DownloadPlan
-	if err := exportJSON(value, &plan); err != nil {
+	if err := json.Unmarshal(value, &plan); err != nil {
 		return plan, false, fmt.Errorf("export createDownloadPlan result: %w", err)
 	}
 	return plan, true, nil
@@ -179,12 +187,12 @@ func (p *javaScriptPlugin) RefreshResource(ctx context.Context, resource shared.
 		return shared.ResourceRefreshResult{}, false, nil
 	}
 	argument := map[string]interface{}{"resource": resource, "options": options}
-	value, called, err := p.call(ctx, "refreshResource", argument, nil)
-	if err != nil || !called || value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+	value, called, err := p.call(ctx, "refreshResource", argument, p.baseAPI(options.Settings))
+	if err != nil || !called || len(value) == 0 {
 		return shared.ResourceRefreshResult{}, called, err
 	}
 	var result shared.ResourceRefreshResult
-	if err := exportJSON(value, &result); err != nil {
+	if err := json.Unmarshal(value, &result); err != nil {
 		return result, true, fmt.Errorf("export refreshResource result: %w", err)
 	}
 	return result, true, nil
@@ -195,7 +203,7 @@ func (p *javaScriptPlugin) call(
 	name string,
 	argument interface{},
 	apiFactory func(*goja.Runtime) *goja.Object,
-) (goja.Value, bool, error) {
+) (json.RawMessage, bool, error) {
 	return p.callArguments(ctx, name, []interface{}{argument}, apiFactory)
 }
 
@@ -204,38 +212,73 @@ func (p *javaScriptPlugin) callArguments(
 	name string,
 	input []interface{},
 	apiFactory func(*goja.Runtime) *goja.Object,
-) (goja.Value, bool, error) {
+) (raw json.RawMessage, called bool, err error) {
 	vm := goja.New()
-	deadline := pluginExecutionTime
-	if contextDeadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(contextDeadline); remaining < deadline {
-			deadline = remaining
-		}
-	}
-	timer := time.AfterFunc(deadline, func() {
-		vm.Interrupt(errors.New("plugin execution timed out"))
+	callCtx, cancel := context.WithTimeout(ctx, pluginExecutionTime)
+	defer cancel()
+	interruptDone := make(chan struct{})
+	stopInterrupt := context.AfterFunc(callCtx, func() {
+		defer close(interruptDone)
+		vm.Interrupt(pluginCallContextError(callCtx))
 	})
-	defer timer.Stop()
-	if _, err := vm.RunProgram(p.program); err != nil {
-		return nil, false, fmt.Errorf("initialise %s: %w", p.filename, err)
+	defer func() {
+		if !stopInterrupt() {
+			<-interruptDone
+		}
+	}()
+	// Export can execute getters outside a normal JS function call. Goja's
+	// uncatchable interrupts must also become errors at this boundary.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			switch failure := recovered.(type) {
+			case *goja.InterruptedError:
+				raw, err = nil, fmt.Errorf("call %s: %w", name, failure)
+			default:
+				panic(recovered)
+			}
+		}
+	}()
+	if callCtx.Err() != nil {
+		return nil, false, pluginCallContextError(callCtx)
 	}
-	functionValue := vm.Get(name)
-	function, ok := goja.AssertFunction(functionValue)
-	if !ok {
-		return nil, false, nil
+	if exception := vm.Try(func() {
+		if _, err = vm.RunProgram(p.program); err != nil {
+			err = fmt.Errorf("initialise %s: %w", p.filename, err)
+			return
+		}
+		function, ok := goja.AssertFunction(vm.Get(name))
+		if !ok {
+			return
+		}
+		arguments := make([]goja.Value, 0, len(input)+1)
+		for _, argument := range input {
+			arguments = append(arguments, vm.ToValue(jsonValue(argument)))
+		}
+		if apiFactory != nil {
+			arguments = append(arguments, apiFactory(vm))
+		}
+		called = true
+		var value goja.Value
+		value, err = function(goja.Undefined(), arguments...)
+		if err != nil {
+			err = fmt.Errorf("call %s: %w", name, err)
+			return
+		}
+		if value != nil && !goja.IsUndefined(value) && !goja.IsNull(value) {
+			// Keep the VM interrupt active through getters and JSON encoding.
+			// No live VM value escapes to the caller after this scope closes.
+			raw, err = json.Marshal(value.Export())
+			if err != nil {
+				err = fmt.Errorf("export %s result: %w", name, err)
+			}
+		}
+	}); exception != nil {
+		return nil, called, fmt.Errorf("call %s: %w", name, exception)
 	}
-	arguments := make([]goja.Value, 0, len(input)+1)
-	for _, argument := range input {
-		arguments = append(arguments, vm.ToValue(jsonValue(argument)))
+	if callCtx.Err() != nil {
+		return nil, called, pluginCallContextError(callCtx)
 	}
-	if apiFactory != nil {
-		arguments = append(arguments, apiFactory(vm))
-	}
-	value, err := function(goja.Undefined(), arguments...)
-	if err != nil {
-		return nil, true, fmt.Errorf("call %s: %w", name, err)
-	}
-	return value, true, nil
+	return raw, called, err
 }
 
 func jsonValue(value interface{}) interface{} {

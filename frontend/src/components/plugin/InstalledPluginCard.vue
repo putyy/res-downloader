@@ -2,8 +2,7 @@
   <NCard
       size="small"
       :bordered="false"
-      class="app-card app-card--interactive plugin-card h-full"
-      style="--wails-draggable:no-drag"
+      class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto hover:-translate-y-0.5 h-full [--wails-draggable:no-drag]"
   >
     <template #header>
       <div class="min-w-0">
@@ -27,25 +26,25 @@
       />
     </template>
 
-    <div class="app-muted-text text-xs">
+    <div class="text-app-muted text-xs">
       {{ plugin.manifest.id || '-' }} · v{{ plugin.manifest.version || '-' }} · API {{
         plugin.manifest.apiVersion || '-'
       }}
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>
-        <div class="app-muted-text ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">{{ description }}</div>
+        <div class="text-app-muted ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">{{ description }}</div>
       </template>
       <div class="max-w-[min(360px,calc(100vw-48px))] whitespace-pre-wrap break-words text-sm">{{ description }}</div>
     </NTooltip>
-    <div class="app-muted-text mt-3 flex items-center gap-1 text-xs">
+    <div class="text-app-muted mt-3 flex items-center gap-1 text-xs">
       <span>{{ t('plugin.developer') }}：</span>
       <NButton v-if="plugin.manifest.author?.url" text type="primary" size="tiny" @click="openHomepage">
         {{ plugin.manifest.author?.name || t('plugin.unknown_developer') }}
       </NButton>
       <span v-else>{{ plugin.manifest.author?.name || t('plugin.unknown_developer') }}</span>
     </div>
-    <div v-if="plugin.manifest.requires?.ffmpeg" class="app-muted-text mt-2 text-xs">
+    <div v-if="plugin.manifest.requires?.ffmpeg" class="text-app-muted mt-2 text-xs">
       {{ t('plugin.requires_ffmpeg', {version: plugin.manifest.requires.ffmpeg}) }}
     </div>
     <NAlert v-if="plugin.error" class="mt-3" type="error">

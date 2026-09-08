@@ -2,9 +2,8 @@
   <NModal
       :show="showModal"
       :on-update:show="changeShow"
-      style="--wails-draggable:no-drag"
       preset="card"
-      class="w-[640px]"
+      class="w-[640px] [--wails-draggable:no-drag]"
       :title="t('index.batch_import')"
   >
     <NForm
@@ -12,7 +11,7 @@
         label-placement="left"
         label-width="auto"
         require-mark-placement="right-hanging"
-        style="--wails-draggable:no-drag"
+        class="[--wails-draggable:no-drag]"
     >
       <NFormItem>
         <NInput type="textarea" v-model:value="content" rows="8" :autosize="false" :placeholder="t('index.import_placeholder')"></NInput>

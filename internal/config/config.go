@@ -49,11 +49,14 @@ type configState struct {
 	applyMu sync.Mutex
 }
 
-func New(userDir string, logger *logging.Logger) *Config {
+func New(userDir string, logger *logging.Logger, defaultLocale string) *Config {
+	if defaultLocale != "zh" {
+		defaultLocale = "en"
+	}
 	defaultConfig := &Config{
 		state:            &configState{},
 		Theme:            "lightTheme",
-		Locale:           "zh",
+		Locale:           defaultLocale,
 		Host:             "127.0.0.1",
 		Port:             "8899",
 		SaveDirectory:    getDefaultDownloadDir(),

@@ -55,7 +55,7 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
         {
             title: () => {
                 if (options.checkedRowKeys.value.length > 0) {
-                    return h('span', {class: 'resource-selected-count'}, options.t('index.choice') + `(${options.checkedRowKeys.value.length})`)
+                    return h('span', {class: 'text-app-accent font-semibold'}, options.t('index.choice') + `(${options.checkedRowKeys.value.length})`)
                 }
                 return searchTitle(
                     options.t('index.domain'),
@@ -101,7 +101,7 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
                 const canPreview = options.hasCapability(row, 'preview') && !!row.preview?.renderer
                 if (canPreview && row.preview?.renderer === 'image') {
                     return h('div', {
-                        class: 'resource-preview-surface flex h-[76px] w-full items-center justify-center overflow-hidden',
+                        class: 'bg-app-surface-muted flex h-[76px] w-full items-center justify-center overflow-hidden',
                     }, h(NImage, {
                         width: 72,
                         height: 72,
@@ -183,12 +183,12 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
                     if (!command.syncUnavailable && command.state === 'running' && command.progress != null && !/[%％]/.test(message)) {
                         message += ` · ${Math.floor(command.progress)}%`
                     }
-                    return h('span', {class: 'app-muted-text ellipsis-2', title: message}, message)
+                    return h('span', {class: 'text-app-muted ellipsis-2', title: message}, message)
                 }
                 const download = row.download
                 if (download?.state === 'completed' && download.outputPath) {
                     return h('a', {
-                        href: '#', class: 'resource-path-link ellipsis-2',
+                        href: '#', class: 'text-app-accent ellipsis-2',
                         onClick: (event: MouseEvent) => {
                             event.preventDefault()
                             appApi.openFolder({filePath: download.outputPath})
@@ -200,7 +200,7 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
                     // Download byte percentage is not the media-processing percentage.
                     const detail = download.state === 'processing' ? '' : download.message
                     const message = detail && detail !== label ? `${label} · ${detail}` : label
-                    return h('span', {class: 'app-muted-text ellipsis-2', title: message}, message)
+                    return h('span', {class: 'text-app-muted ellipsis-2', title: message}, message)
                 }
                 return ''
             },
@@ -258,7 +258,7 @@ const searchTitle = (
     }, {
         trigger: () => h(NIcon, {
             size: '18',
-            class: `resource-search-icon ml-1 cursor-pointer ${value.value ? 'resource-search-icon--active' : ''}`,
+            class: `ml-1 cursor-pointer ${value.value ? 'text-app-accent' : 'text-app-muted'}`,
             onClick: (event: MouseEvent) => event.stopPropagation(),
         }, h(SearchOutline)),
         default: () => h('div', {class: 'p-2 w-64'}, [

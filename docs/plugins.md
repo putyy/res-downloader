@@ -54,6 +54,8 @@ go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plug
 
 脚手架包含 `plugin.json`、`main.js`、`README.md`、`.gitignore` 和空的 `fixtures/` 目录；`.gitignore` 默认忽略 `.idea` 和 `.vscode`。目标目录非空时命令会拒绝覆盖。
 
+新插件默认包含“启用日志”设置 `enableLog`，类型为 `boolean`、默认值为 `false`。手工创建插件时也应声明该设置，并提供中英文本地化名称。
+
 复制示例和 CLI 创建任选一种。下文统一使用 `./plugins/com.example.my-plugin`；如选择其他目录，请替换后续命令中的路径。
 
 ### 2. 修改 Manifest 和入口
@@ -175,6 +177,12 @@ resourceKinds:
 settingsSchema:
   type: object
   properties:
+    enableLog:
+      type: boolean
+      default: false
+      x-locales:
+        zh: {name: 启用日志, description: 记录插件调试日志，排查问题时开启。}
+        en: {name: Enable logging, description: Record plugin debug logs for troubleshooting.}
     minimumSize:
       type: number
       default: 0
@@ -253,11 +261,11 @@ quality:
 
 Body 只有在域名、规则和读取权限同时满足时才会进入插件。超过 `bodyLimit` 后快照会标记 `truncated`，截断响应不能被插件修改。
 
-JavaScript 每次钩子调用使用独立运行时，限制为 500ms 和 1MiB 脚本。插件还有并发上限、慢调用统计和连续失败熔断；它没有 Node.js、Promise 等待、`fetch`、文件系统或系统命令 API。跨请求状态必须使用核心提供的关联接口，而不是依赖 JS 全局变量。
+JavaScript 每次钩子调用使用独立运行时，脚本上限为 1MiB，单次执行最多 5 秒，包含运行时初始化、钩子执行和返回值导出。外层调用最多 10 秒，包含等待并发名额的时间；请求取消也会中断 JavaScript。每插件最多同时执行 4 次，超时返回后仍未结束的执行继续占用名额，直到实际退出。插件还保留慢调用统计和连续失败熔断；它没有 Node.js、Promise 等待、`fetch`、文件系统或系统命令 API。跨请求状态必须使用核心提供的关联接口，而不是依赖 JS 全局变量。
 
 ## 页面脚本和双向消息桥
 
-JavaScript 插件可声明由宿主注入目标网页主世界的 `pageScripts`。注入由 MITM 代理完成，因此目标域名必须已被当前拦截规则捕获；不经过 `onObservation`，也不占用 `bodyLimit` 或 500ms 的 Goja 调用时间。当前仅支持 `document-start`；`frames` 可为 `top`（默认）或 `all`。
+JavaScript 插件可声明由宿主注入目标网页主世界的 `pageScripts`。注入由 MITM 代理完成，因此目标域名必须已被当前拦截规则捕获；不经过 `onObservation`，也不占用 `bodyLimit` 或 5 秒的 Goja 钩子执行时间。当前仅支持 `document-start`；`frames` 可为 `top`（默认）或 `all`。
 
 ```json
 {
@@ -456,7 +464,8 @@ function onObservation(observation, api) {
   return {decision: "continue", handled: true}
 }
 
-function createDownloadPlan(input) {
+function createDownloadPlan(input, api) {
+  api.log("生成下载计划，插件版本：" + api.pluginVersion)
   var track = input.resource.tracks[0]
   return {
     inputs: [{
@@ -473,6 +482,17 @@ function createDownloadPlan(input) {
 ```
 
 `observation.settings` 和 `input.options.settings` 是应用中保存的插件设置。`api.pluginVersion` 是 manifest 版本。`decision` 可为 `continue` 或 `stop`。
+
+四个钩子的 API 参数如下：
+
+| 钩子 | API 参数 |
+| --- | --- |
+| `onObservation(observation, api)` | 完整 `PluginAPI` |
+| `onPageMessage(message, context, api)` | 完整 `PluginAPI` |
+| `createDownloadPlan(input, api)` | 基础 `PluginBaseAPI`，仅包含 `log` 和 `pluginVersion` |
+| `refreshResource(input, api)` | 基础 `PluginBaseAPI`，仅包含 `log` 和 `pluginVersion` |
+
+基础 API 不需要额外权限。下载计划和刷新结果通过返回值提交。每次钩子调用使用独立运行时，不能跨调用保存 API 对象。
 
 ### Observation 结构
 
@@ -528,11 +548,13 @@ interface PluginResult {
 
 ### 运行时 API
 
+下表中的 `api.log` 和 `api.pluginVersion` 在四个钩子中均可使用，其他接口仅供 `onObservation` 和 `onPageMessage` 使用。
+
 | API | 返回值 | 说明 |
 | --- | --- | --- |
 | `api.emit(resource)` | `void` | 上报资源；与 `upsert` 使用相同的合并语义 |
 | `api.upsert(resource)` | `void` | 推荐用于具有稳定 `groupKey` 的增量资源 |
-| `api.log(message)` | `void` | 写入插件日志；调用方负责脱敏 |
+| `api.log(message)` | `void` | 仅当当前插件设置 `enableLog` 为布尔值 `true` 时写入日志；调用方负责脱敏 |
 | `api.pluginVersion` | `string` | 当前 Manifest 版本 |
 | `api.correlate.register(value)` | `void` | 登记 URL 别名与逻辑资源、轨道的关联 |
 | `api.correlate.find(url)` | `ResourceReference[]` | 查找当前插件登记的关联 |
@@ -541,6 +563,8 @@ interface PluginResult {
 | `api.page.sessions(filter?)` | `PageMessageContext[]` | 列出当前插件可见的页面会话 |
 
 `emit` 只把资源加入本次调用的输出队列，最终仍会经过字段、大小、URL、轨道、处理器和操作校验。不要依赖无效资源被静默修复。
+
+宿主统一控制四个钩子的 `api.log()`：从 `observation.settings`、页面消息的 `context.settings` 或 `input.options.settings` 读取本次调用的有效设置。`enableLog` 未配置、为 `false` 或类型不正确时不写日志，插件可直接调用 `api.log()`，无需自行判断开关。插件加载失败、钩子执行异常等宿主错误日志不受此开关影响。需要在插件管理页提供开关时，在 `settingsSchema.properties` 中声明 `enableLog`；保存设置仍须通过 Manifest 校验。正式版日志位置和轮转规则见[如何查看软件日志](troubleshooting.md#如何查看软件日志)。
 
 需要复用浏览器已经成功取得、但无法用同一 URL 再次请求的数据时，插件可以在响应钩子中返回通用捕获指令。宿主只负责缓存当前响应字节，不理解站点协议；捕获键会自动限定在当前插件内：
 
@@ -570,7 +594,7 @@ return {
 
 平台插件确认自己已经接管当前响应时应返回 `handled: true`。插件管理器仍会让其他高优先级平台插件完成处理，但会跳过最后的 `builtin.generic-detector`，因此不会再生成一条通用 MIME/HLS 资源。`decision: "stop"` 则会立即终止整个后续插件链，只有确实需要排他处理时才使用。仅输出诊断、修改响应但仍希望通用探测器运行时，不要设置 `handled`。
 
-资源 URL、Header 或签名会过期时，可实现 `refreshResource(input)`。它接收与 `createDownloadPlan` 相同的 `{resource, options}`，并返回：
+资源 URL、Header 或签名会过期时，可实现 `refreshResource(input, api)`。它接收与 `createDownloadPlan` 相同的 `{resource, options}` 和基础 API，可用 `api.log` 记录刷新诊断，并返回：
 
 ```javascript
 return {
@@ -599,7 +623,7 @@ return {
 
 ## 下载计划
 
-`createDownloadPlan(input)` 把逻辑资源转换为可持久化的下载 DAG：
+`createDownloadPlan(input, api)` 把逻辑资源转换为可持久化的下载 DAG：
 
 ```javascript
 return {
@@ -968,7 +992,7 @@ fixture 编写建议：
 | 页面脚本未注入 | 页面未经过 TLS 拦截、响应被压缩、CSP 不允许或未找到可注入位置 |
 | fixture 通过但线上失败 | fixture 遗漏分支、站点数据变化、凭据过期或线上请求顺序不同 |
 
-每次 JavaScript 钩子最多运行 500ms。不要在循环中处理超大对象，也不要把完整响应、Cookie 或带签名 URL 写入日志。需要长期复现的数据应制作脱敏 fixture。
+每次 JavaScript 钩子（含初始化和返回值导出）最多运行 5 秒，外层调用含排队最多 10 秒。页面脚本中的长时间抓取不受这个单次钩子时限约束，页面命令仍使用独立的领取、心跳和总时长限制。不要在循环中处理超大对象，也不要把完整响应、Cookie 或带签名 URL 写入日志。需要长期复现的数据应制作脱敏 fixture。
 
 ## 发布前检查
 

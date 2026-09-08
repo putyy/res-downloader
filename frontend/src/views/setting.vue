@@ -15,8 +15,7 @@
             label-placement="left"
             label-width="auto"
             require-mark-placement="right-hanging"
-            style="--wails-draggable:no-drag"
-            class="w-[700px]"
+            class="w-[700px] [--wails-draggable:no-drag]"
         >
           <NFormItem :label="t('setting.save_dir')" path="SaveDirectory">
             <NInput :value="formValue.SaveDirectory" :placeholder="t('setting.save_dir')"/>
@@ -27,7 +26,7 @@
             <NInput v-model:value="formValue.FilenameTemplate" :placeholder="filenameTemplateExample"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -43,7 +42,7 @@
             <NSwitch v-model:value="formValue.AutoProxy"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -55,7 +54,7 @@
             <NSwitch v-model:value="formValue.InsertTail"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -67,13 +66,13 @@
             <NSpace>
               <n-popconfirm @positive-click="resetHandle">
                 <template #trigger>
-                  <NButton tertiary type="error" :loading="resetting" style="--wails-draggable:no-drag">
+                  <NButton tertiary type="error" :loading="resetting" class="[--wails-draggable:no-drag]">
                     {{ t("index.start_err_positiveText") }}
                   </NButton>
                 </template>
                 {{ t("index.reset_app_tip") }}
               </n-popconfirm>
-              <NButton secondary @click="openLogDirectory" style="--wails-draggable:no-drag">
+              <NButton secondary @click="openLogDirectory" class="[--wails-draggable:no-drag]">
                 <template #icon><NIcon><FolderOpenOutline/></NIcon></template>
                 {{ t('setting.open_log_directory') }}
               </NButton>
@@ -86,7 +85,7 @@
         <AppearanceSettings/>
       </NTabPane>
 
-      <NTabPane name="resource-rules" :tab="t('setting.capture_rules')" style="--wails-draggable:no-drag">
+      <NTabPane name="resource-rules" :tab="t('setting.capture_rules')" class="[--wails-draggable:no-drag]">
         <div class="w-[900px] space-y-3">
           <NAlert type="info" :show-icon="false">
             {{ t('setting.capture_rules_tip') }}
@@ -109,22 +108,22 @@
                 <NCollapse>
                   <NCollapseItem :title="t('setting.capture_rule_details')" :name="value.id">
 
-                    <div class="text-xs font-medium text-gray-500 mb-1">{{ t('setting.capture_match') }}</div>
+                    <div class="text-xs font-medium text-gray-500 dark:text-app-muted mb-1">{{ t('setting.capture_match') }}</div>
                     <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <div class="text-xs text-gray-500 mb-1">MIME</div>
+                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">MIME</div>
                         <NDynamicTags v-model:value="value.match.mime"/>
                       </div>
                       <div>
-                        <div class="text-xs text-gray-500 mb-1">URL</div>
+                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">URL</div>
                         <NDynamicTags v-model:value="value.match.url"/>
                       </div>
                       <div>
-                        <div class="text-xs text-gray-500 mb-1">Content-Disposition</div>
+                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">Content-Disposition</div>
                         <NDynamicTags v-model:value="value.match.contentDisposition"/>
                       </div>
                       <div>
-                        <div class="text-xs text-gray-500 mb-1">HTTP Status</div>
+                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">HTTP Status</div>
                         <NSelect v-model:value="value.match.status" multiple tag :options="httpStatusOptions"/>
                       </div>
                       <div class="grid grid-cols-2 gap-2">
@@ -136,7 +135,7 @@
                     </div>
 
                     <NDivider class="!my-3"/>
-                    <div class="text-xs font-medium text-gray-500 mb-1">{{ t('setting.capture_output') }}</div>
+                    <div class="text-xs font-medium text-gray-500 dark:text-app-muted mb-1">{{ t('setting.capture_output') }}</div>
                     <div class="grid grid-cols-3 gap-2">
                       <NInput v-model:value="value.resource.kind" :placeholder="t('setting.capture_kind')"/>
                       <NInput v-model:value="value.resource.role" :placeholder="t('setting.capture_role')"/>
@@ -148,7 +147,7 @@
                       <NSelect v-model:value="value.resource.capabilities" multiple :options="resourceCapabilityOptions"
                                :placeholder="t('setting.capture_capabilities')"/>
                     </div>
-                    <div class="mt-2 text-xs text-gray-400">#{{ index + 1 }} · {{
+                    <div class="mt-2 text-xs text-gray-400 dark:text-app-muted">#{{ index + 1 }} · {{
                         t('setting.capture_rule_order_tip')
                       }}
                     </div>
@@ -160,7 +159,7 @@
         </div>
       </NTabPane>
 
-      <NTabPane name="media" :tab="t('setting.media_engine')" style="--wails-draggable:no-drag">
+      <NTabPane name="media" :tab="t('setting.media_engine')" class="[--wails-draggable:no-drag]">
         <MediaEngineSettings
             :config="formValue"
             @update:ffmpeg="(value: any) => formValue.FFmpegPath = value"
@@ -168,7 +167,7 @@
         />
       </NTabPane>
 
-      <NTabPane name="certificate" :tab="t('setting.certificate')" style="--wails-draggable:no-drag">
+      <NTabPane name="certificate" :tab="t('setting.certificate')" class="[--wails-draggable:no-drag]">
         <CertificateSettings :certificate-url="store.baseUrl + '/api/certificate/download'"/>
       </NTabPane>
 
@@ -179,14 +178,13 @@
             label-placement="left"
             label-width="auto"
             require-mark-placement="right-hanging"
-            style="--wails-draggable:no-drag"
-            class="w-[700px]"
+            class="w-[700px] [--wails-draggable:no-drag]"
         >
           <NFormItem label="Host" path="Host" :validation-status="hostValidationFeedback==='' ? undefined : 'error'" :feedback="hostValidationFeedback">
             <NInput v-model:value="formValue.Host" placeholder="127.0.0.1"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -198,7 +196,7 @@
             <NInput v-model:value="formValue.Port" placeholder="8899"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -211,7 +209,7 @@
             <NSwitch v-model:value="formValue.OpenProxy" class="ml-1"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -223,7 +221,7 @@
             <NSwitch v-model:value="formValue.DownloadProxy"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -235,7 +233,7 @@
             <NInputNumber v-model:value="formValue.TaskNumber" :min="2" :max="64"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -247,7 +245,7 @@
             <NInputNumber v-model:value="formValue.DownNumber" :min="1" :max="10"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -259,7 +257,7 @@
             <NInput v-model:value="formValue.UserAgent" placeholder="UserAgent"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -271,7 +269,7 @@
             <NInput v-model:value="formValue.UseHeaders" placeholder="User-Agent,Referer,Authorization,Cookie"/>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -288,16 +286,16 @@
                     <NSelect v-model:value="value.action" :options="interceptionActionOptions"/>
                     <NSwitch v-model:value="value.enabled"/>
                   </div>
-                  <div class="mt-2 text-xs text-gray-500">{{ t('setting.policy_domains') }}</div>
+                  <div class="mt-2 text-xs text-gray-500 dark:text-app-muted">{{ t('setting.policy_domains') }}</div>
                   <NDynamicTags v-model:value="value.domains"/>
-                  <div class="mt-2 text-xs text-gray-500">{{ t('setting.policy_exclude') }}</div>
+                  <div class="mt-2 text-xs text-gray-500 dark:text-app-muted">{{ t('setting.policy_exclude') }}</div>
                   <NDynamicTags v-model:value="value.exclude"/>
                 </NCard>
               </template>
             </NDynamicInput>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500">
+                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
               </template>
@@ -311,7 +309,7 @@
 
     <NModal v-model:show="showResetAuthorization" preset="dialog" :title="t('index.reset_app_authorize')">
       <div class="space-y-3">
-        <div class="text-sm text-gray-500">{{ t('index.reset_app_authorize_tip') }}</div>
+        <div class="text-sm text-gray-500 dark:text-app-muted">{{ t('index.reset_app_authorize_tip') }}</div>
         <NInput
             v-model:value="resetPassword"
             type="password"
