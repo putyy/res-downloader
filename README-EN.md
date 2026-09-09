@@ -57,6 +57,70 @@ Clean UI, easy to use, and supports a wide range of resource sniffing and downlo
 
 ---
 
+## 🛠️ Local Development
+
+The desktop app uses Go + Wails v2.12.0, with Vue 3 + TypeScript + Vite in `frontend/`. Run Wails commands from the repository root, where `wails.json` is located.
+
+### Prerequisites
+
+- Go 1.23.2 or newer (`go.mod` declares Go 1.22.0 and toolchain `go1.23.2`). On macOS 15+, use Go 1.23.3 or newer.
+- Node.js with npm. The Linux build image uses Node.js 20; the locked frontend dependencies require at least Node.js 18.12.
+- Platform dependencies: Xcode Command Line Tools on macOS (`xcode-select --install`), WebView2 Runtime on Windows, or a C compiler, GTK3 and WebKitGTK development packages on Linux. See the [Wails installation guide](https://wails.io/docs/gettingstarted/installation/) for platform setup.
+
+Install the CLI version matching `go.mod`, then check your environment:
+
+```sh
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+wails doctor
+```
+
+If `wails` is not found, add Go's binary directory to `PATH` (normally `~/go/bin` on macOS/Linux or `%USERPROFILE%\go\bin` on Windows). For macOS/Linux with the default Go binary location:
+
+```sh
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### Start development
+
+```sh
+git clone https://github.com/putyy/res-downloader.git
+cd res-downloader
+wails dev
+```
+
+If you already have a checkout, run `wails dev` from its root. Wails uses these settings in [`wails.json`](./wails.json):
+
+| Setting | Command / behavior |
+| --- | --- |
+| `frontend:install` | `npm install` in `frontend/` when dependencies need installing |
+| `frontend:dev:watcher` | `npm run dev` starts Vite |
+| `frontend:dev:serverUrl` | `auto` detects Vite's development URL |
+| `frontend:build` | `npm run build` checks TypeScript and builds frontend assets |
+
+Use the desktop window for development. Wails reloads frontend changes and rebuilds/restarts the app for Go changes. Running Vite alone does not start the Go backend required by the app. See the [Wails CLI reference](https://wails.io/docs/reference/cli/) for development flags.
+
+On Linux systems using WebKitGTK 4.1, add the tag to both development and build commands:
+
+```sh
+wails dev -tags webkit2_41
+wails build -tags webkit2_41
+```
+
+### Build and check changes
+
+```sh
+# From the repository root: type-check and build only the frontend
+npm --prefix frontend ci
+npm --prefix frontend run build
+
+# Build the desktop app for your current platform
+wails build
+```
+
+Desktop output is written to `build/bin/`. See [packaging instructions](./build/README.md) for platform-specific installers and release packages.
+
+Backend code lives in `core/`, the desktop entry point is `main.go`, and UI code lives in `frontend/src/`. Wails generates the Go/JavaScript bindings in `frontend/wailsjs/`; update the Go methods and regenerate through Wails instead of editing those bindings manually. Read the [contributing guide](./CONTRIBUTING.md) before submitting a PR.
+
 ## ❓ FAQ
 
 ### 📺 m3u8 Video Resources

@@ -68,6 +68,70 @@
 4. 在外部打开资源页面（如视频号、小程序、网页等）
 5. 返回软件首页，即可看到资源列表
 
+## 🛠️ 本地开发
+
+桌面端使用 Go + Wails v2.12.0，`frontend/` 使用 Vue 3 + TypeScript + Vite。请在包含 `wails.json` 的项目根目录执行 Wails 命令。
+
+### 环境准备
+
+- Go 1.23.2 或更新版本（`go.mod` 声明 Go 1.22.0，工具链为 `go1.23.2`）。macOS 15 及以上请使用 Go 1.23.3 或更新版本。
+- Node.js 和 npm。项目 Linux 构建镜像使用 Node.js 20；锁定的前端依赖至少需要 Node.js 18.12。
+- 系统依赖：macOS 安装 Xcode Command Line Tools（`xcode-select --install`）；Windows 安装 WebView2 Runtime；Linux 安装 C 编译器、GTK3 和 WebKitGTK 开发包。具体步骤见 [Wails 安装文档](https://wails.io/docs/gettingstarted/installation/)。
+
+安装与 `go.mod` 一致的 Wails CLI 版本，并检查环境：
+
+```sh
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+wails doctor
+```
+
+如果提示找不到 `wails`，请将 Go 的二进制目录加入 `PATH`（macOS/Linux 通常为 `~/go/bin`，Windows 通常为 `%USERPROFILE%\go\bin`）。macOS/Linux 使用默认 Go 二进制目录时可执行：
+
+```sh
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### 启动开发模式
+
+```sh
+git clone https://github.com/putyy/res-downloader.git
+cd res-downloader
+wails dev
+```
+
+已有本地代码时，直接在项目根目录执行 `wails dev`。Wails 会使用 [`wails.json`](./wails.json) 中的配置：
+
+| 配置项 | 命令 / 行为 |
+| --- | --- |
+| `frontend:install` | 需要安装依赖时，在 `frontend/` 执行 `npm install` |
+| `frontend:dev:watcher` | 执行 `npm run dev` 启动 Vite |
+| `frontend:dev:serverUrl` | `auto` 自动识别 Vite 开发地址 |
+| `frontend:build` | 执行 `npm run build`，检查 TypeScript 并构建前端资源 |
+
+在启动的桌面窗口中调试。修改前端会触发热更新，修改 Go 代码会触发重新构建并重启应用。单独运行 Vite 不会启动应用所需的 Go 后端。更多开发参数见 [Wails CLI 文档](https://wails.io/docs/reference/cli/)。
+
+Linux 使用 WebKitGTK 4.1 时，开发和构建命令均需添加以下标签：
+
+```sh
+wails dev -tags webkit2_41
+wails build -tags webkit2_41
+```
+
+### 构建与检查
+
+```sh
+# 在项目根目录执行：仅检查类型并构建前端
+npm --prefix frontend ci
+npm --prefix frontend run build
+
+# 构建当前平台的桌面应用
+wails build
+```
+
+桌面构建产物位于 `build/bin/`。各平台安装包及发布打包步骤见 [打包文档](./build/README.md)。
+
+后端代码位于 `core/`，桌面入口为 `main.go`，界面代码位于 `frontend/src/`。`frontend/wailsjs/` 中的 Go/JavaScript 绑定由 Wails 生成；修改 Go 方法后通过 Wails 重新生成，不要手动编辑绑定文件。提交 PR 前请阅读 [贡献指南](./CONTRIBUTING.md)。
+
 ## ❓ 常见问题
 
 ### 📺 m3u8 视频资源
