@@ -3,14 +3,19 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 
 	application "res-downloader/internal/app"
+	"res-downloader/internal/automation"
+	"res-downloader/internal/config"
 	"res-downloader/internal/plugin"
+	"res-downloader/internal/system"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
@@ -19,6 +24,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -31,6 +37,19 @@ var icon []byte
 var wailsJson string
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "cli" || os.Args[1] == "mcp") {
+		system.PrepareCommandConsole()
+		var metadata struct {
+			Info struct {
+				Version string `json:"productVersion"`
+			} `json:"info"`
+		}
+		_ = json.Unmarshal([]byte(wailsJson), &metadata)
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		code := automation.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, metadata.Info.Version)
+		cancel()
+		os.Exit(code)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "plugin" {
 		if err := plugin.RunPluginCLI(os.Args[2:], os.Stdout); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "plugin command failed:", err)
@@ -55,12 +74,13 @@ func main() {
 	}
 
 	// Create application with options
+	windowWidth, windowHeight := appRuntime.Config.WindowSize()
 	err := wails.Run(&options.App{
 		Title:                    app.AppName,
-		Width:                    1280,
-		MinWidth:                 960,
-		Height:                   800,
-		MinHeight:                600,
+		Width:                    windowWidth,
+		MinWidth:                 config.MinWindowWidth,
+		Height:                   windowHeight,
+		MinHeight:                config.MinWindowHeight,
 		Frameless:                !isMac,
 		Menu:                     appMenu,
 		EnableDefaultContextMenu: true,
@@ -70,6 +90,9 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup: func(ctx context.Context) {
+			wailsruntime.EventsOn(ctx, "window:resized", func(...interface{}) {
+				app.SaveWindowSize(ctx)
+			})
 			logo := `
 	 _ __    ___   ___            __| |   ___   __      __  _ __   | |   ___     __ _     __| |   ___   _ __
 	| '__|  / _ \ / __|  _____   / _· |  / _ \  \ \ /\ / / | '_ \  | |  / _ \   / _· |   / _· |  / _ \ | ·__|
@@ -79,6 +102,10 @@ func main() {
 			log.Println(logo)
 			fmt.Println("version:", app.Version)
 			app.Startup(ctx)
+		},
+		OnBeforeClose: func(ctx context.Context) bool {
+			app.SaveWindowSize(ctx)
+			return false
 		},
 		OnShutdown: func(ctx context.Context) {
 			app.OnExit()
@@ -118,22 +145,20 @@ func main() {
 
 func windowsRuntimeMessages() *windows.Messages {
 	messages := windows.DefaultMessages()
-	recoveryZH := "如果安装失败，请手动安装与系统架构匹配的 WebView2 Runtime。"
-	recoveryEN := "If installation fails, manually install the WebView2 Runtime matching the system architecture."
+	recovery := "If installation fails, manually install the WebView2 Runtime matching the system architecture."
 	if runtime.GOARCH == "amd64" {
-		recoveryZH = "如果安装失败，请使用 fixed_webview2 安装包。"
-		recoveryEN = "If installation fails, use the fixed_webview2 installer."
+		recovery = "If installation fails, use the fixed_webview2 installer."
 	}
-	messages.Error = "错误 / Error"
-	messages.MissingRequirements = "缺少运行环境 / Missing Requirements"
-	messages.Webview2NotInstalled = "未检测到 WebView2 Runtime / WebView2 Runtime was not found"
+	messages.Error = "Error"
+	messages.MissingRequirements = "Missing Requirements"
+	messages.Webview2NotInstalled = "WebView2 Runtime was not found"
 	messages.PressOKToInstall = ""
-	messages.InstallationRequired = fmt.Sprintf("运行此应用需要安装 WebView2 Runtime。点击确定后将尝试安装。%s\n\nWebView2 Runtime is required. Press OK to install it. %s", recoveryZH, recoveryEN)
-	messages.UpdateRequired = "WebView2 Runtime 版本过低，需要更新后才能启动。\n\nWebView2 Runtime must be updated before the application can start."
-	messages.FailedToInstall = fmt.Sprintf("WebView2 Runtime 安装失败，请检查网络。%s\n\nWebView2 Runtime installation failed. Check the network. %s", recoveryZH, recoveryEN)
-	messages.ContactAdmin = fmt.Sprintf("当前系统无法安装 WebView2 Runtime，请联系系统管理员。%s\n\nWebView2 Runtime could not be installed. Contact your administrator. %s", recoveryZH, recoveryEN)
-	messages.InvalidFixedWebview2 = "安装包内的 WebView2 Runtime 不完整、无权限访问或已被安全软件隔离，请重新安装并检查安全软件。\n\nThe bundled WebView2 Runtime is incomplete, inaccessible, or quarantined by security software."
-	messages.WebView2ProcessCrash = "WebView2 渲染进程已崩溃，需要重新启动应用。如果问题反复出现，请打开日志目录并反馈。\n\nThe WebView2 process crashed. Restart the application and provide the application log if this continues."
+	messages.InstallationRequired = fmt.Sprintf("WebView2 Runtime is required. Press OK to install it. %s", recovery)
+	messages.UpdateRequired = "WebView2 Runtime must be updated before the application can start."
+	messages.FailedToInstall = fmt.Sprintf("WebView2 Runtime installation failed. Check your network connection. %s", recovery)
+	messages.ContactAdmin = fmt.Sprintf("WebView2 Runtime could not be installed. Contact your administrator. %s", recovery)
+	messages.InvalidFixedWebview2 = "The bundled WebView2 Runtime is incomplete, inaccessible, or quarantined by security software. Reinstall the application and check your security software."
+	messages.WebView2ProcessCrash = "The WebView2 process crashed. Restart the application. If the problem persists, open the log directory and include the application log in your report."
 	return messages
 }
 
@@ -144,6 +169,15 @@ func bundledWebView2Path() string {
 
 	executablePath, err := os.Executable()
 	if err != nil {
+		return ""
+	}
+	return bundledWebView2PathForExecutable(executablePath)
+}
+
+func bundledWebView2PathForExecutable(executablePath string) string {
+	// Standard installers opt into Evergreen even if a legacy fixed payload
+	// cannot safely be removed. Fixed installers remove this marker again.
+	if _, err := os.Stat(filepath.Join(filepath.Dir(executablePath), ".res-downloader-system-webview2")); err == nil {
 		return ""
 	}
 

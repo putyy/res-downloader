@@ -630,7 +630,7 @@ func (m *PluginManager) handlePageBridgeMessage(request *http.Request, session *
 	result, err := m.processPageMessage(request.Context(), session, message)
 	if err != nil {
 		if m.logger != nil {
-			m.logger.Esg(err, "plugin "+session.pluginID+" page message")
+			m.logger.Esg(err, "plugin %s page message", session.pluginID)
 		}
 		return pageBridgeJSONResponse(request, http.StatusInternalServerError, map[string]interface{}{"ok": false, "error": "plugin page message failed"})
 	}
@@ -736,7 +736,7 @@ func (m *PluginManager) processPageMessage(ctx context.Context, session *pageBri
 				result.Error = "automatic download permission is unavailable"
 			} else if err := m.enqueuePageDownloads(published); err != nil {
 				if m.logger != nil {
-					m.logger.Esg(err, "plugin "+session.pluginID+" automatic page download")
+					m.logger.Esg(err, "plugin %s automatic page download", session.pluginID)
 				}
 				result.OK = false
 				result.Error = "automatic download could not be started"

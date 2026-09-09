@@ -29,7 +29,7 @@
 
 ### 🎉 爱享素材下载器
 
-> 一款简洁易用的跨平台资源发现与下载工具，支持多种资源抓取、预览和下载方式。
+> 一款简洁易用的跨平台资源发现与下载工具，支持多种资源抓取、预览和下载。
 
 ## ✨ 功能特色
 
@@ -40,14 +40,16 @@
 - 🌍 **网络抓取**：支持捕获浏览器、手机和桌面应用中的 HTTP / HTTPS 资源
 - 🧩 **插件扩展**：可以为更多站点增加专用识别、下载和处理能力
 - 📥 **任务中心**：独立管理下载进度、暂停、继续、取消、重试和历史记录
+- 🤖 **CLI / MCP**：通过命令或 Agent 查询已抓取资源、创建下载和管理任务，需要桌面应用保持运行
 - 📡 **HLS 与直播**：支持 M3U8 点播预览与下载，配置 FFmpeg 后可以录制直播
 
 ## 📚 文档 & 版本
 
-- 📘 [在线文档](https://res.putyy.com/)
-- 🧩 [插件管理](./docs/plugin-management.md)
-- 🛠️ [插件开发](./docs/plugins.md)
-- 🤝 [参与贡献](./docs/contributing.md)
+- 📘 [在线文档](https://res.putyy.com/zh/)
+- 🤖 [CLI 与 MCP](./docs/zh/guide/automation.md)
+- 🧩 [插件管理](./docs/zh/guide/plugin-management.md)
+- 🛠️ [插件开发](./docs/zh/development/plugins.md)
+- 🤝 [参与贡献](./docs/zh/development/contributing.md)
 - 💬 [加入交流群](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
 - 🧩 [版本发布](https://github.com/putyy/res-downloader/releases) ｜ [Mini 版](https://github.com/putyy/resd-mini) ｜ [旧版归档](https://github.com/putyy/res-downloader/tree/old)
   > *群满时可加微信 `AmorousWorld`，请备注“github”*
@@ -60,7 +62,7 @@
 
 ## 🖼️ 预览
 
-![预览](docs/images/show.png)
+![预览](docs/public/images/show.png)
 --- 
 
 ## 🚀 使用方法
@@ -98,11 +100,10 @@
 ### 🧠 更多问题
 
 - [GitHub Issues](https://github.com/putyy/res-downloader/issues)
-- [爱享论坛讨论帖](https://s.gowas.cn/d/4089)
 
 ## 💡 工作原理与初衷
 
-本工具通过本地代理发现网络请求中的可用资源。它提供更直观的筛选、预览和下载操作，降低普通用户管理网页资源的门槛。开发者可以查看[架构文档](./docs/architecture.md)了解内部组成。
+本工具通过本地代理发现网络请求中的可用资源。它提供更直观的筛选、预览和下载操作，降低普通用户管理网页资源的门槛。开发者可以查看[架构文档](./docs/zh/development/architecture.md)了解内部组成。
 
 ---
 

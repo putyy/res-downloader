@@ -1,0 +1,219 @@
+:root {
+  --vp-c-brand-1: #177858;
+  --vp-c-brand-2: #218764;
+  --vp-c-brand-3: #177858;
+  --vp-c-brand-soft: rgba(23, 120, 88, 0.1);
+  --vp-c-bg: #fdfdfb;
+  --vp-c-bg-alt: #f5f6f2;
+  --vp-c-bg-soft: #f3f5f0;
+  --vp-home-hero-name-color: var(--vp-c-text-1);
+  --vp-font-family-base: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --resd-content-width: 1152px;
+  --resd-page-gutter: 24px;
+  --vp-sidebar-width: 220px;
+  --resd-sidebar-gap: 32px;
+  --resd-outline-width: 184px;
+  --resd-outline-gap: 28px;
+  --resd-page-edge: max(var(--resd-page-gutter), calc((100% - var(--resd-content-width)) / 2));
+}
+
+.dark {
+  --vp-c-brand-1: #79d6ae;
+  --vp-c-brand-2: #59bd93;
+  --vp-c-brand-3: #29845f;
+  --vp-c-brand-soft: rgba(121, 214, 174, 0.12);
+  --vp-c-bg: #191c1a;
+  --vp-c-bg-alt: #141715;
+  --vp-c-bg-soft: #222723;
+}
+
+/* Align the homepage navigation, hero, feature grid and Markdown content. */
+.VPNavBar.home .wrapper,
+.VPHome .VPHomeHero,
+.VPHome .VPHomeFeatures {
+  padding-left: var(--resd-page-gutter);
+  padding-right: var(--resd-page-gutter);
+}
+
+.VPNavBar.home .container,
+.VPHome .VPHomeHero > .container,
+.VPHome .VPHomeFeatures > .container {
+  width: 100%;
+  max-width: var(--resd-content-width);
+  margin-inline: auto;
+}
+
+.VPHomeHero .text {
+  max-width: 680px;
+  font-size: clamp(32px, 4.5vw, 54px);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.VPHomeHero .tagline {
+  max-width: 620px;
+  font-size: 19px;
+  line-height: 1.8;
+}
+
+.VPFeature {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 16px;
+  background: var(--vp-c-bg);
+}
+
+.VPFeature .title {
+  font-size: 18px;
+}
+
+.VPFeature .details {
+  line-height: 1.8;
+}
+
+.vp-doc h2 {
+  letter-spacing: -0.015em;
+}
+
+.vp-doc p,
+.vp-doc li {
+  line-height: 1.85;
+}
+
+.VPHome > .vp-doc.container {
+  width: 100%;
+  max-width: calc(var(--resd-content-width) + 2 * var(--resd-page-gutter));
+  margin: 0 auto;
+  padding: 16px var(--resd-page-gutter) 64px;
+}
+
+.VPHome .vp-doc h2 {
+  margin-top: 48px;
+}
+
+.vp-doc img {
+  margin-top: 24px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(24, 40, 31, 0.08);
+}
+
+/* Keep document navigation inside the same frame as the homepage. The Layout
+   prefix overrides the default theme's scoped sidebar layout selectors. */
+.Layout .VPNavBar.has-sidebar > .wrapper {
+  padding-inline: var(--resd-page-gutter);
+}
+
+.Layout .VPNavBar.has-sidebar .container {
+  width: 100%;
+  max-width: var(--resd-content-width);
+}
+
+.Layout .VPNavBar.has-sidebar .container > .title {
+  position: static;
+  width: auto;
+  padding: 0;
+}
+
+.Layout .VPNavBar.has-sidebar .container > .content {
+  min-width: 0;
+  padding: 0;
+}
+
+.Layout .VPNavBarTitle.has-sidebar > .title {
+  border-bottom-color: transparent;
+}
+
+.Layout .VPNavBar.has-sidebar {
+  background-color: var(--vp-nav-bg-color);
+}
+
+.Layout .VPNavBar.has-sidebar > .divider {
+  width: calc(100% - 2 * var(--resd-page-gutter));
+  max-width: var(--resd-content-width);
+  margin-inline: auto;
+  padding: 0;
+}
+
+.Layout .VPDoc.has-sidebar {
+  padding-inline: var(--resd-page-gutter);
+}
+
+.Layout .VPLocalNav.has-sidebar > .container {
+  padding-inline: var(--resd-page-gutter);
+}
+
+.Layout .VPLocalNav.has-sidebar .menu,
+.Layout .VPLocalNav.has-sidebar .VPOutlineDropdown {
+  padding-inline: 0;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --resd-page-gutter: 48px;
+  }
+}
+
+@media (min-width: 960px) {
+  :root {
+    --resd-page-gutter: 64px;
+  }
+
+  /* The sidebar occupies only its own column, including on wide screens. */
+  .Layout .VPSidebar {
+    left: var(--resd-page-edge);
+    width: var(--vp-sidebar-width);
+    padding: var(--vp-nav-height) 24px 96px 0;
+    background-color: var(--vp-c-bg);
+  }
+
+  .Layout .VPSidebar > .curtain {
+    margin-inline: 0 -24px;
+    background-color: var(--vp-c-bg);
+  }
+
+  .Layout .VPContent.has-sidebar {
+    width: calc(100% - 2 * var(--resd-page-gutter));
+    max-width: var(--resd-content-width);
+    margin-inline: auto;
+    padding-left: calc(var(--vp-sidebar-width) + var(--resd-sidebar-gap));
+    padding-right: 0;
+  }
+
+  .Layout .VPDoc.has-sidebar {
+    padding-inline: 0;
+  }
+
+  .Layout .VPDoc.has-sidebar > .container > .content {
+    flex: 1;
+    min-width: 0;
+    padding: 0 0 128px;
+  }
+
+  .Layout .VPDoc.has-sidebar .content-container {
+    max-width: 688px;
+    margin-inline: 0;
+  }
+
+  .Layout .VPLocalNav.has-sidebar {
+    padding-left: calc(var(--resd-page-edge) + var(--vp-sidebar-width) + var(--resd-sidebar-gap));
+    padding-right: var(--resd-page-edge);
+  }
+
+  .Layout .VPLocalNav.has-sidebar > .container {
+    padding-inline: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .Layout .VPDoc.has-sidebar > .container > .aside {
+    flex: 0 0 calc(var(--resd-outline-width) + var(--resd-outline-gap));
+    width: calc(var(--resd-outline-width) + var(--resd-outline-gap));
+    max-width: none;
+    padding-left: var(--resd-outline-gap);
+  }
+
+  .Layout .VPDoc.has-sidebar .aside-container,
+  .Layout .VPDoc.has-sidebar .aside-curtain {
+    width: var(--resd-outline-width);
+  }
+}

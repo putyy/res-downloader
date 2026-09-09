@@ -9,7 +9,7 @@ Use the repository command to replace the host's bundled snapshot with the final
 
 ## Preconditions
 
-- Read `docs/plugins.md` and inspect the source Manifest and the existing matching directory under `internal/plugin/bundled/`.
+- Read `docs/zh/development/plugins.md` and inspect the source Manifest and the existing matching directory under `internal/plugin/bundled/`.
 - Require a source directory outside `internal/plugin/bundled/` with an `official.*` plugin ID. Do not grant an official identity or bundle a community plugin.
 - Require plugin development to be complete. This skill does not fix site behavior, alter the host API, publish a plugin, or package a Release.
 - Before changing the host snapshot, require the source plugin to pass ordinary `plugin lint` and every documented sanitized fixture replay. Identify fixture files that are intentionally not replay inputs.

@@ -71,4 +71,5 @@ chore: 升级依赖版本
 
 请耐心等待，不要重复提交相同内容或频繁催促。
 
-### 如果您有长期参与项目维护或贡献的意向，欢迎联系我：微信AmorousWorld（请备注 GitHub）
+
+## 详细注意事项，请查阅[文档贡献指南](docs/zh/development/contributing.md#本地预览文档)

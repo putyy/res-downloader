@@ -10,7 +10,7 @@ Add a reusable host capability when a plugin requirement cannot be met by the cu
 ## Authorization and boundary
 
 - Require an explicit user request to modify host capabilities. A `plugin-dev` report of a missing capability is evidence for a follow-up, not authorization to change the host.
-- Read `docs/architecture.md` and `docs/plugins.md` completely, then inspect `docs/plugin-sdk/README.md` and the closest protocol implementation and examples.
+- Read `docs/zh/development/architecture.md` and `docs/zh/development/plugins.md` completely, then inspect `docs/zh/development/plugin-sdk.md` and the closest protocol implementation and examples.
 - Demonstrate the capability gap before designing a new contract: identify the consumer plugin requirement, enumerate the closest existing protocol primitives, and explain why they cannot express the requirement safely. Implementation complexity or site-specific inconvenience alone is not a host capability gap.
 - State the missing capability, affected plugin behavior, proposed generic contract, permissions, compatibility impact, and files likely to change before implementation.
 - Do not embed target-site hostnames, selectors, signing constants, private endpoint shapes, or site-specific decryption logic in the host. The capability must be reusable and expose only the minimal primitive the plugin needs.
@@ -33,9 +33,9 @@ Trace the feature end to end and update only applicable layers:
 - JavaScript, declarative, page-script, download-plan, processor, or lifecycle runtime code;
 - host integration needed to supply the generic primitive;
 - focused protocol, validation, and runtime tests;
-- `docs/plugin-sdk/plugin-v1.schema.json`;
-- `docs/plugin-sdk/plugin-v1.d.ts`;
-- `docs/plugins.md` and `docs/plugin-sdk/README.md`;
+- `docs/public/plugin-sdk/plugin-v1.schema.json`;
+- `docs/public/plugin-sdk/plugin-v1.d.ts`;
+- `docs/zh/development/plugins.md` and `docs/zh/development/plugin-sdk.md`;
 - the smallest representative example or sanitized fixture under `examples/plugins/`.
 
 If a layer is not affected, do not modify it merely for symmetry. Never place real credentials, account data, private URLs, or captured user responses in tests or examples.

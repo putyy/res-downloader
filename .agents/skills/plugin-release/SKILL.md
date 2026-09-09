@@ -9,7 +9,7 @@ Prepare a plugin release whose committed source, packaged ZIP, version, tag, Git
 
 ## Source of truth
 
-- Read `docs/plugins.md` and `docs/extension-store.md` from the res-downloader host repository before release work.
+- Read `docs/zh/development/plugins.md` and `docs/zh/development/extension-store.md` from the res-downloader host repository before release work.
 - Inspect the target plugin's Manifest, README, fixtures, runtime files, and existing release convention.
 - Follow the current repository documentation when it conflicts with this skill.
 

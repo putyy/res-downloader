@@ -21,7 +21,8 @@
 import NaiveProvider from '@/components/NaiveProvider.vue'
 import {enUS, zhCN} from 'naive-ui'
 import {useIndexStore} from "@/stores"
-import {computed, watch} from "vue"
+import {computed, onMounted, onUnmounted, watch} from "vue"
+import {EventsEmit} from '../wailsjs/runtime'
 import {useEventStore} from "@/stores/event"
 import type {appType} from "@/types/app"
 import {useI18n} from 'vue-i18n'
@@ -32,6 +33,18 @@ import StartupScreen from '@/components/StartupScreen.vue'
 const store = useIndexStore()
 const eventStore = useEventStore()
 const {locale} = useI18n()
+
+let resizeTimer: ReturnType<typeof setTimeout> | undefined
+const rememberWindowSize = () => {
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => EventsEmit('window:resized'), 300)
+}
+
+onMounted(() => window.addEventListener('resize', rememberWindowSize))
+onUnmounted(() => {
+  window.removeEventListener('resize', rememberWindowSize)
+  clearTimeout(resizeTimer)
+})
 
 const activeTheme = computed(() => resolveAppTheme(store.globalConfig.Theme))
 

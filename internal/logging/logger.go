@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -25,7 +24,7 @@ func (l *Logger) Close() {
 func (l *Logger) Err(err error) { l.Error().Stack().Err(err) }
 
 func (l *Logger) Esg(err error, format string, values ...interface{}) {
-	l.Error().Stack().Err(err).Msgf(fmt.Sprintf(format, values...))
+	l.Error().Stack().Err(err).Msgf(format, values...)
 }
 
 func New(logFile bool, logPath string) *Logger {

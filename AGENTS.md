@@ -5,8 +5,8 @@
 - Reply in the language used by the user unless the user explicitly requests another language.
 - Perform static validation only. If a change requires runtime, browser, or manual verification, list the verification steps in the handoff and clearly state that the user must perform them.
 - Before changing code or documentation, present the proposed changes and obtain explicit user confirmation, unless the user explicitly asks to proceed without confirmation.
-- Read `docs/architecture.md` when project architecture context is needed.
-- Read `docs/plugins.md` for plugin-related work.
+- Read `docs/zh/development/architecture.md` when project architecture context is needed.
+- Read `docs/zh/development/plugins.md` for plugin-related work.
 
 ## Git and Commits
 

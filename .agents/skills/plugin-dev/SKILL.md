@@ -19,7 +19,7 @@ Turn a target media page into a minimal-permission res-downloader plugin with re
 
 ## Source of truth
 
-Before implementation, read `docs/plugins.md` completely and inspect the closest relevant plugins under `plugins/`, `examples/plugins/`, or `internal/plugin/bundled/`.
+Before implementation, read `docs/zh/development/plugins.md` completely and inspect the closest relevant plugins under `plugins/`, `examples/plugins/`, or `internal/plugin/bundled/`.
 
 Follow the current documentation when it conflicts with this skill. Do not duplicate the plugin protocol inside the skill. Use existing project commands and examples rather than inventing alternate tooling.
 
@@ -38,7 +38,7 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
    ```
 
    Do not run the scaffold command over an existing plugin. Keep the generated `README.md` and `.gitignore`; the default `.gitignore` entries are `.idea` and `.vscode`, and it must not ignore `dist/` unless the user explicitly requests that change.
-   Keep the generated `settingsSchema.properties.enableLog` boolean setting with `default: false` and localized labels. Include the same setting when creating a new plugin by copying an example or writing a manifest. The host gates all `api.log()` calls on `enableLog === true`; do not duplicate this check in each hook. An absent setting disables plugin logging; do not add it to existing plugins unless requested. See `docs/plugins.md` for the setting contract.
+   Keep the generated `settingsSchema.properties.enableLog` boolean setting with `default: false` and localized labels. Include the same setting when creating a new plugin by copying an example or writing a manifest. The host gates all `api.log()` calls on `enableLog === true`; do not duplicate this check in each hook. An absent setting disables plugin logging; do not add it to existing plugins unless requested. See `docs/zh/development/plugins.md` for the setting contract.
 5. Implement the plugin with narrowly scoped host, path, content-type, body-read, body-limit, and capability declarations. New community plugins must not claim reserved `builtin.*` or `official.*` identities. Preserve an existing official plugin identity only when updating that plugin.
 6. Complete the generated README with behavior, usage, limitations, and exact development commands. Add the smallest representative fixtures needed for each supported observation path and meaningful edge case.
 7. Sanitize every fixture and log artifact. Remove cookies, authorization values, access tokens, account data, administrator credentials, private URLs, and unrelated user content. Preserve only fields required for matching and extraction.
@@ -46,7 +46,7 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
    - Run `go run main.go plugin lint ./plugins/<plugin-directory>`.
    - Run `go run main.go plugin replay ./plugins/<plugin-directory> <fixture>` for every documented replay fixture. Replay is deterministic offline fixture validation; it is not live-site or application acceptance.
    - If a file under `fixtures/` is intentionally not a replay input, identify its role instead of silently skipping it.
-   - Inspect the manifest, declared capabilities, source layout, fixture sanitization, and package inputs for consistency with `docs/plugins.md`.
+   - Inspect the manifest, declared capabilities, source layout, fixture sanitization, and package inputs for consistency with `docs/zh/development/plugins.md`.
    - Run only other checks that are explicitly repository-local and documented by the plugin or repository.
    - Fix failures and repeat the affected checks.
    - Do not start the host application, install or reload the plugin, or perform live capture, preview, download, playback, or network integration as acceptance validation.

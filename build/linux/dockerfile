@@ -1,4 +1,4 @@
-FROM golang:1.24.2-bookworm
+FROM golang:1.25-bookworm
 
 WORKDIR /
 
@@ -21,7 +21,7 @@ RUN apt-get update && \
     file \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -sL https://deb.nodesource.com/setup_20.x | bash - \
+RUN curl -sL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs
 
 COPY go.mod go.sum /tmp/res-downloader-module/

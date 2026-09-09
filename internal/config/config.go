@@ -25,6 +25,8 @@ type Config struct {
 	state                *configState
 	Theme                string         `json:"Theme"`
 	Locale               string         `json:"Locale"`
+	WindowWidth          int            `json:"WindowWidth"`
+	WindowHeight         int            `json:"WindowHeight"`
 	Host                 string         `json:"Host"`
 	Port                 string         `json:"Port"`
 	SaveDirectory        string         `json:"SaveDirectory"`
@@ -57,6 +59,8 @@ func New(userDir string, logger *logging.Logger, defaultLocale string) *Config {
 		state:            &configState{},
 		Theme:            "lightTheme",
 		Locale:           defaultLocale,
+		WindowWidth:      DefaultWindowWidth,
+		WindowHeight:     DefaultWindowHeight,
 		Host:             "127.0.0.1",
 		Port:             "8899",
 		SaveDirectory:    getDefaultDownloadDir(),
@@ -171,6 +175,9 @@ func (c *Config) Apply(config Config) error {
 		return err
 	}
 	previous := c.Snapshot()
+	// Window dimensions are maintained by the desktop lifecycle. Settings forms
+	// may contain an older snapshot, so they must not overwrite the latest size.
+	config.WindowWidth, config.WindowHeight = previous.WindowWidth, previous.WindowHeight
 	c.replace(config)
 	c.state.mu.RLock()
 	hook := c.onApply
@@ -249,6 +256,7 @@ func (c *Config) Snapshot() Config {
 	}
 	return Config{
 		Theme: c.Theme, Locale: c.Locale, Host: c.Host, Port: c.Port, SaveDirectory: c.SaveDirectory,
+		WindowWidth: c.WindowWidth, WindowHeight: c.WindowHeight,
 		FilenameTemplate: c.FilenameTemplate, FilenameConflict: c.FilenameConflict,
 		UpstreamProxy: c.UpstreamProxy, OpenProxy: c.OpenProxy, DownloadProxy: c.DownloadProxy,
 		FFmpegPath: c.FFmpegPath, FFprobePath: c.FFprobePath, AutoProxy: c.AutoProxy,
@@ -264,6 +272,7 @@ func (c *Config) replace(value Config) {
 		defer c.state.mu.Unlock()
 	}
 	c.Theme, c.Locale, c.Host, c.Port = value.Theme, value.Locale, value.Host, value.Port
+	c.WindowWidth, c.WindowHeight = value.WindowWidth, value.WindowHeight
 	c.SaveDirectory, c.FilenameTemplate, c.FilenameConflict = value.SaveDirectory, value.FilenameTemplate, value.FilenameConflict
 	c.UpstreamProxy, c.OpenProxy, c.DownloadProxy = value.UpstreamProxy, value.OpenProxy, value.DownloadProxy
 	c.FFmpegPath, c.FFprobePath, c.AutoProxy = value.FFmpegPath, value.FFprobePath, value.AutoProxy

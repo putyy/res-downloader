@@ -9,3 +9,6 @@ examples/plugins/*.zip
 
 plugins/*
 !plugins/README.md
+
+docs/.vitepress/cache/
+docs/.vitepress/dist/

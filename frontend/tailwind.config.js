@@ -1,10 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'selector',
+  // Naive UI supplies its own styles; scanning its bundles slows down extraction.
   content: [
     "./index.html",
-    "./src/**/*.{vue,js,ts,jsx,tsx}",
-    'node_modules/naive-ui/**'
+    "./src/**/*.{vue,js,ts,jsx,tsx}"
   ],
   theme: {
     extend: {

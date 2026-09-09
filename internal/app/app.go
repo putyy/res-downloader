@@ -12,6 +12,7 @@ import (
 	desktopsystem "res-downloader/internal/system"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"res-downloader/internal/events"
@@ -24,6 +25,8 @@ type App struct {
 	assets           embed.FS
 	runtime          *Runtime
 	events           *events.Emitter
+	windowMu         sync.Mutex
+	windowClosed     bool
 	AppName          string `json:"AppName"`
 	Version          string `json:"Version"`
 	Description      string `json:"Description"`
@@ -83,6 +86,10 @@ func (a *App) Startup(ctx context.Context) {
 }
 
 func (a *App) OnExit() {
+	// Drain any pending size save before configuration reset or logger shutdown.
+	a.windowMu.Lock()
+	a.windowClosed = true
+	a.windowMu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := a.runtime.Close(ctx); err != nil {
@@ -100,7 +107,7 @@ func (a *App) installCertWith(setup *SystemSetup) (string, error) {
 	}
 	out, err := setup.InstallCertificate()
 	if err != nil {
-		a.runtime.Logger.Esg(err, out)
+		a.runtime.Logger.Esg(err, "%s", out)
 		return out, err
 	}
 	installed, err := setup.IsCertificateInstalled(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
@@ -126,7 +133,7 @@ func (a *App) uninstallCertWithPassword(password string) (string, error) {
 	}
 	out, err := setup.UninstallCertificate(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
 	if err != nil {
-		a.runtime.Logger.Esg(err, out)
+		a.runtime.Logger.Esg(err, "%s", out)
 		return out, err
 	}
 	installed, err := setup.IsCertificateInstalled(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))

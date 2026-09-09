@@ -53,7 +53,7 @@ func (m *PluginManager) Process(ctx context.Context, obs shared.Observation) sha
 		})
 		if err != nil {
 			combined.Diagnostics = append(combined.Diagnostics, manifest.ID+": "+err.Error())
-			m.logger.Esg(err, "plugin "+manifest.ID)
+			m.logger.Esg(err, "plugin %s", manifest.ID)
 			continue
 		}
 		if len(result.Resources) > maxPluginResources {

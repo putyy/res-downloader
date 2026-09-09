@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"res-downloader/internal/capture"
+	"res-downloader/internal/control"
 	"res-downloader/internal/events"
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/plugin"
@@ -31,6 +32,7 @@ type Runtime struct {
 	Proxy     *Proxy
 	HTTP      *HttpServer
 	Captures  *capture.Store
+	Control   *control.Server
 }
 
 func NewRuntime(assets embed.FS, wailsConfig string) (*Runtime, error) {
@@ -123,6 +125,18 @@ func (r *Runtime) Start(ctx context.Context) error {
 		return fmt.Errorf("start HTTP service: %w", err)
 	}
 	r.Downloads.Start()
+	if r.Control == nil {
+		server, err := control.Start(r.App.UserDir, r.HTTP.ControlHandler, func(err error) {
+			r.Logger.Esg(err, "local automation service stopped unexpectedly")
+		})
+		if err != nil {
+			// Automation is optional; a discovery failure must not stop capture
+			// or downloads in an otherwise working desktop application.
+			r.Logger.Esg(err, "start local automation service")
+		} else {
+			r.Control = server
+		}
+	}
 	return nil
 }
 
@@ -132,8 +146,13 @@ func (r *Runtime) Close(ctx context.Context) error {
 	}
 	var first error
 	var resetWorkspaceErr error
-	if err := r.App.UnsetSystemProxy(""); err != nil {
+	if err := r.Control.Close(ctx); err != nil {
 		first = err
+	}
+	if err := r.App.UnsetSystemProxy(""); err != nil {
+		if first == nil {
+			first = err
+		}
 	}
 	if err := r.HTTP.Close(ctx); err != nil && first == nil {
 		first = err

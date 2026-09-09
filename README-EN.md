@@ -27,14 +27,16 @@
 - 🌍 **Network Capture**: Finds HTTP and HTTPS resources used by browsers, phones, and desktop apps
 - 🧩 **Plugin Extensions**: Adds site-specific discovery, download, and processing capabilities
 - 📥 **Download Center**: Manages progress, pause, resume, cancellation, retry, and history in one place
+- 🤖 **CLI / MCP**: Lets commands and agents query captured resources, create downloads, and manage tasks while the desktop app is running
 - 📡 **HLS & Live**: Previews and downloads M3U8 video and records live streams after FFmpeg is configured
 
 ## 📚 Docs & Versions
 
-- 📘 [Online Documentation (Chinese)](https://res.putyy.com/)
-- 🧩 [Plugin Management (Chinese)](./docs/plugin-management.md)
-- 🛠️ [Plugin Development](./docs/plugins.md)
-- 🤝 [Contributing](./CONTRIBUTING.md)
+- 📘 [Online Documentation](https://res.putyy.com/en/)
+- 🤖 [CLI & MCP](./docs/en/guide/automation.md)
+- 🧩 [Plugin Management](./docs/en/guide/plugin-management.md)
+- 🛠️ [Plugin Development](./docs/en/development/plugins.md)
+- 🤝 [Contributing](./docs/en/development/contributing.md)
 - 🧩 [Releases](https://github.com/putyy/res-downloader/releases) ｜ [Mini Version](https://github.com/putyy/resd-mini) ｜ [Legacy Archive](https://github.com/putyy/res-downloader/tree/old)
 - 💬 [Join the User Group (Chinese)](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
   > *If full, you can add WeChat `AmorousWorld` with a note “github”*
@@ -82,11 +84,10 @@
 ### 🧠 More Questions?
 
 - [GitHub Issues](https://github.com/putyy/res-downloader/issues)
-- [Aixiang Forum Thread (Chinese)](https://s.gowas.cn/d/4089)
 
 ## 💡 How It Works
 
-The app uses a local proxy to find useful resources in network requests, then provides approachable filtering, preview, and download controls. Developers can read the [architecture documentation](./docs/architecture.md) for internal details.
+The app uses a local proxy to find useful resources in network requests, then provides approachable filtering, preview, and download controls. Developers can read the [architecture documentation](./docs/en/development/architecture.md) for internal details.
 
 ---
 

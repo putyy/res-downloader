@@ -12,16 +12,16 @@ Keep public documentation aligned with the current implementation without copyin
 - Inspect the actual code or configuration change before editing documentation. Do not describe planned or assumed behavior as shipped behavior.
 - Read the affected documentation completely and follow the existing terminology, audience, and language.
 - Check `README.md` and its linked English counterpart `README-EN.md` when either is affected. If a linked counterpart is missing, report or restore the broken contract rather than silently ignoring it.
-- Check `docs/_sidebar.md` and `docs/_navbar.md` whenever pages are added, removed, renamed, or moved.
-- Check `CONTRIBUTING.md` and `docs/contributing.md` only when contributor workflow changes.
+- Check `docs/.vitepress/config.mts` and the navigation in `docs/.vitepress/locales/` whenever pages are added, removed, renamed, or moved.
+- Check `CONTRIBUTING.md` and `docs/zh/development/contributing.md` only when contributor workflow changes.
 
 Use the implementation change to route documentation review. This is an impact map, not a requirement to edit every listed file:
 
 | Change area | Check first |
 | --- | --- |
-| Settings UI, defaults, configuration, or file selection | `docs/settings.md` |
-| Startup failures, logs, recovery, platform prerequisites, or user troubleshooting | `docs/troubleshooting.md` |
-| Module boundaries, lifecycle, persistence, communication, or major data flow | `docs/architecture.md` |
+| Settings UI, defaults, configuration, or file selection | `docs/zh/guide/settings.md` |
+| Startup failures, logs, recovery, platform prerequisites, or user troubleshooting | `docs/zh/guide/troubleshooting.md` |
+| Module boundaries, lifecycle, persistence, communication, or major data flow | `docs/zh/development/architecture.md` |
 | Installation, first-run behavior, supported platforms, or headline capability | `README.md`, `README-EN.md`, and the relevant user guide |
 | Plugin protocol, permissions, SDK, CLI, packaging, or publication | the plugin and SDK documentation listed below |
 
@@ -29,14 +29,14 @@ When one change affects both normal usage and failure recovery, update the task-
 
 ## Plugin and SDK consistency
 
-For plugin-facing changes, read `docs/plugins.md`, `docs/plugin-management.md`, `docs/extension-store.md`, and `docs/plugin-sdk/README.md` as applicable.
+For plugin-facing changes, read `docs/zh/development/plugins.md`, `docs/zh/guide/plugin-management.md`, `docs/zh/development/extension-store.md`, and `docs/zh/development/plugin-sdk.md` as applicable.
 
 When the public plugin protocol changes, synchronize the relevant portions of:
 
 - the Go protocol and validation behavior used as the source of truth;
-- `docs/plugin-sdk/plugin-v1.schema.json`;
-- `docs/plugin-sdk/plugin-v1.d.ts`;
-- `docs/plugins.md`;
+- `docs/public/plugin-sdk/plugin-v1.schema.json`;
+- `docs/public/plugin-sdk/plugin-v1.d.ts`;
+- `docs/zh/development/plugins.md`;
 - affected examples under `examples/plugins/`;
 - navigation and cross-links.
 
