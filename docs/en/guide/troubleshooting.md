@@ -18,6 +18,21 @@ This does not mean the app has detected low memory, and it does not clear resour
 
 Some apps do not support proxy capture or require a dedicated plugin. First confirm that capture is enabled, the certificate is installed, and the target domain is not set to **Pass through**.
 
+## Reddit does not load correctly with capture enabled
+
+If pages on `reddit.com` fail to load with capture enabled, add and enable this policy under **Setting → Advanced Setting → TLS Interception Policies**:
+
+| Setting | Value |
+| --- | --- |
+| Policy name | `*.reddit.com` |
+| Action | Pass through |
+| Domains | Add `*.reddit.com` and `*.redditstatic.com` separately |
+| Domains excluded by this policy | Leave empty |
+
+Add each domain as a separate entry, rather than combining them into a comma-separated value. Place this policy after the general **Decrypt and capture** policy. When several policies match the same domain, the later match takes precedence.
+
+Reopen Reddit after changing the settings so that new connections use the policy. Pass-through preserves the encrypted HTTPS connections for these domains; the app no longer decrypts or captures their contents. See [TLS interception policies](settings.md#tls-interception-policies) for more information.
+
 ## Certificate still shown as missing after installation
 
 Open **Setting → Certificate**, reinstall the certificate, and refresh its status. On Windows, approve the UAC prompt. On phones, manually remove the old certificate before installing the new one.
@@ -35,15 +50,19 @@ Some phone apps may still be impossible to capture even after setup.
 
 Disable the HTTP / HTTPS proxy in your system's network settings, then restart the app.
 
-## App fails to start or settings behave incorrectly
+## App fails to start
 
-Use **Clear cache and restart**, approving authorization when prompted. This keeps downloaded files and installed plugins.
+Check the [Installation guide](installation.md) to confirm that the package matches your operating system and CPU architecture, and note any startup error. If you cannot open the main interface, use the [log locations](#find-application-logs) to find `app.log` directly. Provide sanitized logs along with your system and app versions. If no log file exists, include an error screenshot and the installer filename.
+
+## Settings behave incorrectly but the interface opens
+
+Use **Clear cache and restart** under **Setting → Basic Setting**, approving authorization when prompted. This resets settings and certificates and clears captured resources, task history, and other data. Review the full scope under [Basic settings](settings.md#basic-settings) before proceeding. Downloaded files and installed plugins are preserved.
 
 ## Retry a failed Windows installation
 
-Newer installers record the validated destination before writing application files. If the first installation fails because of disk space, locked files, or WebView2 permission setup, resolve the reported problem and run the installer again with the same destination. You do not need to delete the files left behind.
+If the first installation fails because of disk space, locked files, or WebView2 permission setup, resolve the reported problem and run the installer again with the same destination. If the directory has a valid installation record or interrupted-installation record, installation can continue after validation. You do not need to delete the files left behind.
 
-An unregistered directory left by an older installer is still rejected when its ownership cannot be established. Keep that directory and install into another empty directory, or report the problem through [GitHub Issues](https://github.com/putyy/res-downloader/issues). Do not delete the entire directory to bypass the check.
+A nonempty directory without valid records is rejected when its ownership cannot be established. Keep that directory and install into another empty directory, or report the problem through [GitHub Issues](https://github.com/putyy/res-downloader/issues). Do not delete the entire directory to bypass the check.
 
 ## Cannot uninstall on Windows
 

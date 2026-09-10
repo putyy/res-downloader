@@ -39,7 +39,7 @@ res-downloader 是一个基于 Wails 的跨平台桌面应用。Vue 前端负责
 └──────────────────────────────────────────────────────────────┘
 ```
 
-`internal/app.Runtime` 是应用的组合根。它创建各模块并注入依赖，但构造阶段不会启动监听器或后台任务。Wails 启动回调触发 `Runtime.Start`，关闭回调触发 `Runtime.Close`。
+`internal/app.Runtime` 是应用的组合根。它创建各模块并注入依赖，但构造阶段不会启动监听器或后台任务。
 
 CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`Agent / Shell → internal/automation → internal/control → httpapi.ControlHandler → 资源与下载服务`。客户端不构造桌面 Runtime、不打开业务数据库，也不启动下载调度器。
 

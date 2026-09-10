@@ -41,7 +41,7 @@ Browser / phone / desktop app
 └──────────────────────────────────────────────────────────────┘
 ```
 
-`internal/app.Runtime` is the application's composition root. It creates modules and injects dependencies, but construction does not start listeners or background tasks. Wails startup calls `Runtime.Start`; shutdown calls `Runtime.Close`.
+`internal/app.Runtime` is the application's composition root. It creates modules and injects dependencies, but construction does not start listeners or background tasks.
 
 CLI / MCP invoke existing HTTP business handlers through a separate local control entry point: `Agent / Shell → internal/automation → internal/control → httpapi.ControlHandler → resource and download services`. Clients do not construct the desktop Runtime, open business databases, or start the download scheduler.
 

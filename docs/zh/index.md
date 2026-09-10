@@ -10,37 +10,37 @@ hero:
   actions:
     - theme: brand
       text: 快速开始
-      link: /zh/guide/getting-started
+      link: /guide/getting-started
     - theme: alt
       text: 下载与安装
-      link: /zh/guide/installation
+      link: /guide/installation
     - theme: alt
       text: GitHub
       link: https://github.com/putyy/res-downloader
 features:
   - title: 跨平台使用
     details: 支持 Windows、macOS 和 Linux，操作简单，界面清晰，提供统一的资源发现与下载体验。
-    link: /zh/guide/installation
+    link: /guide/installation
     linkText: 查看安装指南
   - title: 网络资源抓取
     details: 捕获浏览器、手机和桌面应用中的 HTTP / HTTPS 资源，支持视频、音频、图片等多种类型。
-    link: /zh/guide/examples
+    link: /guide/examples
     linkText: 了解资源抓取
   - title: 站点与插件扩展
     details: 预装微信视频号插件，抖音等站点可通过插件商店扩展，为更多站点增加专用识别、下载和处理能力。
-    link: /zh/guide/plugin-management
+    link: /guide/plugin-management
     linkText: 管理与安装插件
   - title: 下载任务中心
     details: 独立管理下载进度、暂停、继续、取消、重试和历史记录，让资源获取与下载任务各有条理。
-    link: /zh/guide/getting-started#_4-查看下载
+    link: /guide/getting-started#_4-查看下载
     linkText: 开始使用下载任务
   - title: HLS 与直播
     details: 支持 M3U8 点播预览与下载，HLS / FLV 直播可直接预览，配置 FFmpeg 后可以录制直播。
-    link: /zh/guide/settings#媒体处理
+    link: /guide/settings#媒体处理
     linkText: 配置媒体处理
   - title: CLI 与 MCP
     details: 通过命令或 Agent 查询已抓取资源、创建下载和管理任务，使用时需要桌面应用保持运行。
-    link: /zh/guide/automation
+    link: /guide/automation
     linkText: 接入命令与 Agent
 ---
 
@@ -72,6 +72,10 @@ res-downloader 通过本地代理发现网络请求中的可用资源，提供�
 
 维护者近期可投入的时间有限，Issue 回复、PR Review 和版本发布可能有所延迟。感谢每一位使用者、反馈者和贡献者的支持。
 
-[查看更新日志](https://github.com/putyy/res-downloader/releases) · [加入交流群](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
+[查看更新日志](https://github.com/putyy/res-downloader/releases)
+
+## 交流群
+
+欢迎交流软件使用和插件开发。添加微信 `AmorousWorld`，由维护者邀请加入交流群。
 
 > 请确保对所处理的资源拥有合法权利，并遵守所在地法律、平台协议和版权规定。

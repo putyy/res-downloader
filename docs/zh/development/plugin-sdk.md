@@ -30,4 +30,4 @@ go run main.go plugin replay <插件目录> <fixture 文件>
 
 新增或调整插件协议时，应同步更新 Schema、类型声明、示例、fixture 和插件开发文档。
 
-JSON Schema 负责字段提示，无法证明插件包的分发来源。本地和社区插件的 `builtin.` / `official.` 保留前缀规则由 `plugin lint` 和安装器执行；只有宿主内嵌插件以及固定官方账号发布、由商店索引确认来源的插件可以使用 `official.`。
+JSON Schema 负责字段提示，无法证明插件包的分发来源。`plugin lint`、`plugin replay` 和 `plugin pack` 也不授予官方身份；它们允许开发阶段处理 `official.` 插件。安装时的来源判定、`builtin.` / `official.` 保留前缀限制见[插件来源与保留 ID](extension-store.md#插件来源与保留-id)。

@@ -6,14 +6,14 @@ export const zh = {
   description: 'res-downloader 官方文档：跨平台网络资源发现与下载工具，提供安装、资源抓取、下载管理、插件和 CLI / MCP 使用指南。',
   themeConfig: {
     nav: [
-      { text: '使用指南', link: '/zh/guide/getting-started', activeMatch: '^/zh/guide/(getting-started|installation|examples|settings|more|troubleshooting)' },
-      { text: '插件', link: '/zh/guide/plugin-management', activeMatch: '^/zh/(guide/plugin-management|development/(plugin|extension-store))' },
-      { text: 'CLI / MCP', link: '/zh/guide/automation' },
+      { text: '使用指南', link: '/guide/getting-started', activeMatch: '^/guide/(getting-started|installation|examples|settings|more|troubleshooting)' },
+      { text: '插件', link: '/guide/plugin-management', activeMatch: '^/(guide/plugin-management|development/(plugin|extension-store))' },
+      { text: 'CLI / MCP', link: '/guide/automation' },
       {
         text: '项目',
         items: [
-          { text: '参与贡献', link: '/zh/development/contributing' },
-          { text: '架构说明', link: '/zh/development/architecture' },
+          { text: '参与贡献', link: '/development/contributing' },
+          { text: '架构说明', link: '/development/architecture' },
           { text: '更新日志', link: 'https://github.com/putyy/res-downloader/releases' },
           { text: '问题反馈', link: 'https://github.com/putyy/res-downloader/issues' },
         ],
@@ -23,34 +23,34 @@ export const zh = {
       {
         text: '开始使用',
         items: [
-          { text: '快速开始', link: '/zh/guide/getting-started' },
-          { text: '安装指南', link: '/zh/guide/installation' },
-          { text: '功能演示', link: '/zh/guide/examples' },
+          { text: '快速开始', link: '/guide/getting-started' },
+          { text: '安装指南', link: '/guide/installation' },
+          { text: '功能演示', link: '/guide/examples' },
         ],
       },
       {
         text: '资源与下载',
         items: [
-          { text: '插件管理', link: '/zh/guide/plugin-management' },
-          { text: '资源与下载设置', link: '/zh/guide/settings' },
-          { text: 'CLI 与 MCP', link: '/zh/guide/automation' },
-          { text: '使用技巧', link: '/zh/guide/more' },
-          { text: '常见问题', link: '/zh/guide/troubleshooting' },
+          { text: '插件管理', link: '/guide/plugin-management' },
+          { text: '资源与下载设置', link: '/guide/settings' },
+          { text: 'CLI 与 MCP', link: '/guide/automation' },
+          { text: '使用技巧', link: '/guide/more' },
+          { text: '常见问题', link: '/guide/troubleshooting' },
         ],
       },
       {
         text: '插件开发',
         items: [
-          { text: '开发指南', link: '/zh/development/plugins' },
-          { text: '插件 SDK v1', link: '/zh/development/plugin-sdk' },
-          { text: '发布到扩展商店', link: '/zh/development/extension-store' },
+          { text: '开发指南', link: '/development/plugins' },
+          { text: '插件 SDK v1', link: '/development/plugin-sdk' },
+          { text: '发布到扩展商店', link: '/development/extension-store' },
         ],
       },
       {
         text: '参与项目',
         items: [
-          { text: '参与贡献', link: '/zh/development/contributing' },
-          { text: '架构说明', link: '/zh/development/architecture' },
+          { text: '参与贡献', link: '/development/contributing' },
+          { text: '架构说明', link: '/development/architecture' },
         ],
       },
     ],

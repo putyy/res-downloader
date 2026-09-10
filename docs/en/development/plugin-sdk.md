@@ -30,4 +30,4 @@ See [Plugin Development](plugins.md) for the complete Manifest, permissions, hoo
 
 When adding or changing the plugin protocol, update the Schema, type declarations, examples, fixtures, and developer guide together.
 
-JSON Schema provides field assistance but cannot establish a package's distribution source. `plugin lint` and the installer enforce the reserved `builtin.` / `official.` prefix rules for local and community plugins. Only bundled plugins and plugins published by the fixed official account with their origin confirmed by the store index may use `official.`.
+JSON Schema provides field assistance but cannot establish a package's distribution source. `plugin lint`, `plugin replay`, and `plugin pack` also do not grant official status; they allow authors to work with `official.` plugins during development. See [Plugin sources and reserved IDs](extension-store.md#plugin-sources-and-reserved-ids) for installation source classification and restrictions on the `builtin.` / `official.` prefixes.

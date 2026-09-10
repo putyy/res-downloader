@@ -45,7 +45,7 @@
 
 ## 📚 文档 & 版本
 
-- 📘 [在线文档](https://res.putyy.com/zh/)
+- 📘 [在线文档](https://res.putyy.com/)
 - 🤖 [CLI 与 MCP](./docs/zh/guide/automation.md)
 - 🧩 [插件管理](./docs/zh/guide/plugin-management.md)
 - 🛠️ [插件开发](./docs/zh/development/plugins.md)

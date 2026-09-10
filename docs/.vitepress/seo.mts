@@ -12,9 +12,6 @@ export function createPageHead(
     page.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '.html'),
     `${hostname}${siteData.base}`,
   ).href
-  if (pageData.relativePath === 'index.md') {
-    return [['link', { rel: 'canonical', href: pageUrl('zh/index.md') }]]
-  }
   const url = pageUrl(pageData.relativePath)
   const head: HeadConfig[] = [
     ['link', { rel: 'canonical', href: url }],
@@ -33,7 +30,7 @@ export function createPageHead(
   const relativePage = currentLocale
     ? pageData.relativePath.slice(currentLocale.length + 1)
     : pageData.relativePath
-  const pages = new Set(siteConfig.pages)
+  const pages = new Set(siteConfig.pages.map((page) => siteConfig.rewrites.map[page] || page))
   const translations = locales.flatMap(([key, locale]) => {
     const page = key === 'root' ? relativePage : `${key}/${relativePage}`
     return locale.lang && pages.has(page)
@@ -47,7 +44,7 @@ export function createPageHead(
     for (const translation of translations) {
       head.push(['link', { rel: 'alternate', hreflang: translation.lang, href: translation.url }])
     }
-    const defaultLocale = translations.find(({ key }) => key === 'zh')
+    const defaultLocale = translations.find(({ key }) => key === 'root')
     if (defaultLocale) head.push(['link', { rel: 'alternate', hreflang: 'x-default', href: defaultLocale.url }])
   }
 

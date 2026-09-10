@@ -89,7 +89,7 @@ MCP exposes the same operations as tools that an agent can discover and call. It
 res-downloader mcp --stdio
 ```
 
-An MCP-compatible agent client should launch the process. Running it manually in a terminal leaves it waiting for protocol input; this is expected.
+An MCP-compatible agent client should launch the process. Running it manually in a terminal leaves it waiting for protocol input.
 
 For clients that support the `mcpServers` configuration format, add the following and replace `command` with the actual absolute path on your computer:
 

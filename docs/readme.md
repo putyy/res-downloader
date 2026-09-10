@@ -24,7 +24,6 @@ docs/
 │   ├── guide/           # 中文使用指南
 │   └── development/     # 中文开发文档
 ├── en/                  # 英文首页、使用指南和开发文档（与 zh/ 对应）
-├── index.md             # 根路径跳转到 /zh/
 ├── public/              # 各语言共用的静态资源，原样发布
 │   ├── images/
 │   └── plugin-sdk/
@@ -33,17 +32,19 @@ docs/
 └── tsconfig.json
 ```
 
-中文与英文分别位于 `zh/` 和 `en/`，目录和文件名一一对应，分别使用 `/zh/` 和 `/en/` 地址。根路径默认进入中文首页。语言配置分别位于 `.vitepress/locales/zh.mts` 和 `en.mts`，统一在 `config.mts` 注册。新增或修改页面时同步维护两个语言版本。图片和 SDK 文件共用 `public/`，不按语言复制。
+中文与英文源码分别位于 `zh/` 和 `en/`，目录和文件名一一对应。构建时通过 `rewrites` 将中文页面映射到根路径，英文页面保留 `/en/` 前缀。例如，`zh/index.md` 对应 `/`，`zh/guide/settings.md` 对应 `/guide/settings.html`，英文对应 `/en/` 和 `/en/guide/settings.html`。访问根路径会直接显示中文首页。
+
+语言配置分别位于 `.vitepress/locales/zh.mts` 和 `en.mts`，在 `config.mts` 中以 `root` 和 `en` 注册。新增或修改页面时同步维护两个语言版本。图片和 SDK 文件共用 `public/`，不按语言复制。
 
 完整规则见[多语言文档说明](zh/development/contributing.md#多语言文档)。
 
-## 静态检查与发布
+## 静态检查
 
 ```bash
 npm run check
 npm run build
 ```
 
-构建产物位于 `.vitepress/dist/`。发布该目录的内容到网站根目录；构建后可运行 `npm run preview` 人工检查。页面使用独立 `.html` 地址，例如 `/zh/guide/getting-started.html` 和 `/en/guide/getting-started.html`。
+构建产物位于 `.vitepress/dist/`，不提交到仓库。构建后可运行 `npm run preview` 人工检查。
 
-部署和人工验证步骤见[文档贡献指南](zh/development/contributing.md#构建与部署文档)。
+提交要求和验证说明见[文档贡献指南](zh/development/contributing.md#检查文档修改)。

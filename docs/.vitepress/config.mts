@@ -11,7 +11,10 @@ export default defineConfig({
   lang: zh.lang,
   title: 'res-downloader',
   description: zh.description,
-  locales: { zh, en },
+  locales: { root: zh, en },
+  rewrites: {
+    'zh/:path*': ':path*',
+  },
   cleanUrls: false,
   vite: {
     publicDir: fileURLToPath(new URL('../public', import.meta.url)),
@@ -27,12 +30,6 @@ export default defineConfig({
   ],
   sitemap: {
     hostname,
-    transformItems: (items) => items
-      .filter((item) => item.url !== '')
-      .map((item) => ({
-        ...item,
-        links: item.links?.filter((link) => link.url !== ''),
-      })),
   },
   transformHead: (context) => createPageHead(context, hostname),
   themeConfig: {
@@ -55,7 +52,7 @@ export default defineConfig({
           },
           searchOptions: { prefix: true, fuzzy: 0.2 },
         },
-        locales: { zh: zhSearch, en: enSearch },
+        locales: { root: zhSearch, en: enSearch },
       },
     },
   },

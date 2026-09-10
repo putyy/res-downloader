@@ -72,6 +72,10 @@ Report bugs and suggest features through [GitHub Issues](https://github.com/puty
 
 The maintainer currently has limited time, so issue responses, PR reviews, and releases may take longer. Thank you to everyone who uses, tests, and contributes to the project.
 
-[Release notes](https://github.com/putyy/res-downloader/releases) · [User group (Chinese)](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
+[Release notes](https://github.com/putyy/res-downloader/releases)
+
+## Community group
+
+Share tips on using the app and developing plugins in our Chinese-speaking group. Add `AmorousWorld` on WeChat, and the maintainer will invite you to join.
 
 > Make sure you have the rights to the resources you process and comply with local laws, platform terms, and copyright requirements.

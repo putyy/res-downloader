@@ -32,6 +32,9 @@
               </template>
               {{ t("setting.filename_template_tip") }}
             </NTooltip>
+            <NButton text type="primary" class="ml-2 shrink-0" @click="BrowserOpenURL(filenameTemplateDocsUrl)">
+              {{ t('setting.filename_template_docs') }}
+            </NButton>
           </NFormItem>
 
           <NFormItem :label="t('setting.filename_conflict')" path="FilenameConflict">
@@ -337,16 +340,20 @@ import {useRoute} from 'vue-router'
 import {isValidHost, isValidPort} from '@/func'
 import {NButton, NIcon} from "naive-ui"
 import * as bind from "../../wailsjs/go/app/Bind"
+import {BrowserOpenURL} from "../../wailsjs/runtime"
 import MediaEngineSettings from '@/components/settings/MediaEngineSettings.vue'
 import CertificateSettings from '@/components/settings/CertificateSettings.vue'
 import AppearanceSettings from '@/components/settings/AppearanceSettings.vue'
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const route = useRoute()
 const store = useIndexStore()
 const activeTab = ref(route.query.tab === 'resource-rules' ? 'resource-rules' : 'basic')
 
 const filenameTemplateExample = "{{author}}/{{title|default:resource|sanitize|truncate:80}}_{{date:20060102}}.{{ext}}"
+const filenameTemplateDocsUrl = computed(() => locale.value.startsWith('zh')
+  ? 'https://res.putyy.com/guide/settings.html#文件命名模板'
+  : 'https://res.putyy.com/en/guide/settings.html#filename-template')
 const filenameConflictOptions = computed(() => [
   {value: 'rename', label: t('setting.filename_conflict_rename')},
   {value: 'overwrite', label: t('setting.filename_conflict_overwrite')},
