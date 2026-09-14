@@ -10,14 +10,21 @@
     },
     "response": {
       "statusCode": 200,
-      "headers": {"Content-Type": ["text/html"]},
+      "headers": {
+        "Content-Type": [
+          "text/html"
+        ]
+      },
       "contentType": "text/html",
       "body": "<script src=\"chunk.js\"></script>"
+    },
+    "settings": {
+      "enableLog": true
     }
   },
   "expected": {
     "resourceCount": 0,
     "decision": "continue",
-    "patchBodyContains": ".js?v=1.0.1-6-log0\""
+    "patchBodyContains": ".js?v=1.0.1-6-log1\""
   }
 }

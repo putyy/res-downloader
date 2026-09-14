@@ -4,6 +4,12 @@ function onObservation(observation, api) {
   var minimumSize = settings.minimumSize || 0;
   if ((payload.size || 0) < minimumSize) return {decision: "continue"};
 
+  var metadata = {"example.assetId": payload.id};
+  // This example API provides Unix milliseconds. Convert seconds or dated text
+  // in the site plugin before assigning these standard metadata fields.
+  if (typeof payload.createdAt === "number") metadata.createdAt = payload.createdAt;
+  if (typeof payload.publishedAt === "number") metadata.publishedAt = payload.publishedAt;
+
   api.emit({
     title: payload.title || "",
     kind: "media.video",
@@ -18,7 +24,7 @@ function onObservation(observation, api) {
     requiredTracks: ["video"],
     capabilities: ["download", "preview", "open", "copy"],
     preview: {renderer: "video", mode: "proxy", mime: "video/mp4", trackId: "video-primary"},
-    metadata: {"example.assetId": payload.id}
+    metadata: metadata
   });
   return {decision: "continue"};
 }

@@ -46,6 +46,7 @@ Do not update the SDK files speculatively. If code and SDK disagree, identify wh
 
 - Preserve meaning across Chinese and English README variants; use natural language rather than sentence-by-sentence literal translation.
 - Keep user guides task-oriented and move developer-only detail to developer documentation.
+- For plugin READMEs, follow the user's chosen reference or a mature plugin README in the repository. Prioritize functionality, installation and usage, settings, and necessary limitations; development commands may be collapsed. Keep implementation internals, debugging history, fixture inventories, and acceptance evidence in the handoff unless separate developer documentation is needed for maintenance.
 - Reuse one canonical explanation and link to it when duplication would drift.
 - Update commands, paths, option names, UI labels, defaults, limitations, and screenshots only when supported by current repository state.
 - Remove or repair stale links and navigation entries. Check relative paths and filename case because the documentation site and GitHub may resolve them differently.
@@ -54,5 +55,7 @@ Do not update the SDK files speculatively. If code and SDK disagree, identify wh
 ## Validation and handoff
 
 Perform static validation only: inspect changed Markdown structure, relative links, navigation coverage, JSON validity for SDK schemas, and code/example consistency. Do not start the documentation site or use browser rendering as automated acceptance validation.
+
+For README-only edits, check accuracy against the implementation, Markdown structure, and links. Do not rerun plugin lint or fixture replay without a relevant change. Check package inclusion before repacking: if only an excluded README changed, the existing ZIP remains valid and does not need regeneration.
 
 Report which source behavior drove the documentation changes, every synchronized document family, link or navigation checks, and any remaining translation or visual-rendering work. Tell the user exactly what to inspect manually on GitHub or the documentation site when rendering matters.

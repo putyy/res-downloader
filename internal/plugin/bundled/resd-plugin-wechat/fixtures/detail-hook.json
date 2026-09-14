@@ -1,0 +1,30 @@
+{
+  "observation": {
+    "stage": "response",
+    "settings": {
+      "enableLog": false
+    },
+    "request": {
+      "method": "GET",
+      "url": "https://res.wx.qq.com/t/wx_fed/finder/web/web-finder/res/js/virtual_svg-icons-register.publish.demo.js",
+      "host": "res.wx.qq.com",
+      "path": "/t/wx_fed/finder/web/web-finder/res/js/virtual_svg-icons-register.publish.demo.js",
+      "headers": {}
+    },
+    "response": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": [
+          "application/javascript"
+        ]
+      },
+      "contentType": "application/javascript",
+      "body": "class Detail { async finderGetCommentDetail(input){return await this.load(input)}async next(){} }"
+    }
+  },
+  "expected": {
+    "resourceCount": 0,
+    "decision": "continue",
+    "patchBodyContains": "body:JSON.stringify({objectDesc:res.data.object.objectDesc,createtime:res.data.object.createtime})"
+  }
+}

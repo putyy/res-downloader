@@ -1,0 +1,27 @@
+{
+  "observation": {
+    "stage": "request",
+    "settings": {
+      "fullIntercept": false
+    },
+    "request": {
+      "method": "POST",
+      "url": "https://wxapp.tc.qq.com/res-downloader/wechat?type=2",
+      "host": "wxapp.tc.qq.com",
+      "path": "/res-downloader/wechat",
+      "headers": {
+        "Content-Type": [
+          "application/json"
+        ]
+      },
+      "body": "{\"createtime\": 1774790002, \"objectDesc\": {\"description\": \"Example creation time\", \"media\": [{\"url\": \"https://cdn.example.com/created.mp4\", \"fileSize\": 1234}]}}"
+    }
+  },
+  "expected": {
+    "resourceCount": 1,
+    "resourceUrls": [
+      "https://cdn.example.com/created.mp4"
+    ],
+    "decision": "stop"
+  }
+}

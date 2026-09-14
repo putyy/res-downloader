@@ -7,7 +7,7 @@
       "host": "wxapp.tc.qq.com",
       "path": "/res-downloader/wechat",
       "headers": {"Content-Type": ["application/json"]},
-      "body": "{\"description\":\"示例视频\",\"media\":[{\"url\":\"https://finder.video.qq.com/example.mp4?token=demo\",\"urlToken\":\"&extra=1\",\"fileSize\":\"1234\",\"decodeKey\":\"2136343393\",\"spec\":[{\"fileFormat\":\"sd\"},{\"fileFormat\":\"hd\"}]}]}"
+      "body": "{\"objectDesc\":{\"description\":\"示例视频\",\"media\":[{\"url\":\"https://finder.video.qq.com/example.mp4?token=demo\",\"urlToken\":\"&extra=1\",\"fileSize\":\"1234\",\"decodeKey\":\"2136343393\",\"spec\":[{\"fileFormat\":\"sd\"},{\"fileFormat\":\"hd\"}]}]}}"
     }
   },
   "expected": {

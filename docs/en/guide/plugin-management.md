@@ -12,6 +12,10 @@ Open **Plugins** to install from the extension store or select a local ZIP file.
 
 Descriptions on installed plugin and store cards show up to two lines. Hover over a description to read it in full.
 
+The extension store keeps its default order. Use the selector beside the search field to choose **Most stars**, **Latest release**, or **Recently updated**, with higher counts or newer dates first. Release dates refer to the latest Release; update dates refer to the GitHub repository. Ties keep the default order, and entries without a valid date appear last when sorting by that date.
+
+Store cards show the repository update date after the developer, in your local time zone. Hover over the date for the full timestamp. Entries without a valid update time omit it.
+
 Before installing, check that the developer, requested domains, and permissions fit the plugin's purpose. Community plugins are provided by third parties and are not necessarily security-reviewed by the project.
 
 ## Enable and configure
@@ -23,7 +27,7 @@ Before installing, check that the developer, requested domains, and permissions 
 
 ## Update and uninstall
 
-Plugin cards show a notice when an update is available. The extension store lists updatable plugins first.
+Plugin cards show a notice when an update is available. The extension store lists updatable plugins first when using the default order.
 
 If an update fails, retry or roll back to the previous version. Uninstalling a plugin does not delete downloaded files.
 

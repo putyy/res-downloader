@@ -1,6 +1,8 @@
 package naming
 
 import (
+	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	shared "res-downloader/internal/model"
@@ -9,6 +11,63 @@ import (
 	"time"
 	"unicode/utf8"
 )
+
+func TestFilenameTemplateOptionalResourceTimes(t *testing.T) {
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	created := time.Date(2026, 9, 1, 18, 2, 3, 0, time.UTC).UnixMilli()
+	published := created + 24*60*60*1000
+	metadata := map[string]interface{}{"createdAt": created, "publishedAt": published}
+	// Persistence decodes JSON numbers as float64; formatting must survive it.
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored map[string]interface{}
+	if err := json.Unmarshal(encoded, &restored); err != nil {
+		t.Fatal(err)
+	}
+	for _, fields := range []map[string]interface{}{metadata, restored} {
+		got, err := ExpandFilenameTemplate("{{created_at:2006-01-02_15-04-05}}_{{published_at}}_{{date}}", nil, fields, now)
+		if err != nil || got != "2026-09-02_02-02-03_20260903_20260914" {
+			t.Fatalf("time formatting = %q, %v", got, err)
+		}
+		path, err := RenderResourcePath(t.TempDir(), "{{title|sanitize}}{{created_at|prefix:_}}.{{ext}}",
+			shared.ResourceCandidate{Title: "旅行记录", Metadata: fields},
+			shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}, now)
+		if err != nil || filepath.Base(path) != "旅行记录_20260902.mp4" {
+			t.Fatalf("dated filename = %q, %v", path, err)
+		}
+	}
+	for _, raw := range []interface{}{nil, "1788285723000", "2026-09-02", true, 0, -1, 1.5, math.NaN(), math.Inf(1), int64(253402300800000), map[string]interface{}{}} {
+		resource := shared.ResourceCandidate{Title: "旅行记录", Metadata: map[string]interface{}{"createdAt": raw, "publishedAt": raw}}
+		path, err := RenderResourcePath(t.TempDir(), "{{title}}{{created_at|prefix:_}}{{published_at|prefix:_|suffix:_}}.{{ext}}", resource,
+			shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}, now)
+		if err != nil || filepath.Base(path) != "旅行记录.mp4" {
+			t.Fatalf("invalid timestamp %#v: path = %q, %v", raw, path, err)
+		}
+	}
+}
+
+func TestFilenameTemplateConditionalAffixes(t *testing.T) {
+	for _, tc := range []struct {
+		template string
+		value    string
+		want     string
+	}{
+		{"{{title|prefix:_|suffix:-}}", "", ""},
+		{"{{title|prefix:_|suffix:-}}", " \t ", ""},
+		{"{{title|prefix:_|suffix:-}}", "标题", "_标题-"},
+		{"{{title|sanitize|prefix:_}}", "...", ""},
+		{"{{title|default:resource|prefix:_}}", "", "_resource"},
+		{"{{title|prefix:_|default:resource}}", "", "resource"},
+		{"{{title|prefix:https://}}", "example", "https://example"},
+	} {
+		got, err := ExpandFilenameTemplate(tc.template, map[string]string{"title": tc.value}, nil, time.Now())
+		if err != nil || got != tc.want {
+			t.Fatalf("%s with %q = %q, %v; want %q", tc.template, tc.value, got, err, tc.want)
+		}
+	}
+}
 
 func TestRenderResourcePathWithMagicVariables(t *testing.T) {
 	resource := shared.ResourceCandidate{

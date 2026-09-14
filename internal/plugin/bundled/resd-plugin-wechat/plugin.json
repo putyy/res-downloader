@@ -19,7 +19,7 @@
       "description": "Captures WeChat Channels resources and processes encrypted media with plugin-bundled WASM."
     }
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "apiVersion": 1,
   "runtime": "javascript",
   "entry": "main.js",
@@ -124,17 +124,31 @@
   "settingsSchema": {
     "type": "object",
     "properties": {
+      "enableLog": {
+        "type": "boolean",
+        "default": false,
+        "x-locales": {
+          "zh": {
+            "name": "启用日志",
+            "description": "插件调试日志开关，默认关闭；当前没有主动输出调试日志。"
+          },
+          "en": {
+            "name": "Enable logging",
+            "description": "Plugin debug logging switch, disabled by default. No debug messages are currently emitted."
+          }
+        }
+      },
       "fullIntercept": {
         "type": "boolean",
         "default": true,
         "x-locales": {
           "zh": {
             "name": "完整抓取模式",
-            "description": "开启时从页面媒体对象捕获资源；关闭时仅从详情捕获。通常建议保持开启。"
+            "description": "开启时从页面媒体对象和详情捕获资源；关闭时仅从详情捕获。"
           },
           "en": {
             "name": "Full capture mode",
-            "description": "Capture from page media objects when enabled; capture only from details when disabled. Usually keep this enabled."
+            "description": "Capture from page media objects and details when enabled; capture only from details when disabled. "
           }
         }
       },

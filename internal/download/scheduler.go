@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"res-downloader/internal/config"
 	"res-downloader/internal/logging"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -238,20 +239,24 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 	if resource.ID == "" {
 		return shared.DownloadTaskRecord{}, errors.New("resource id is required")
 	}
-	s.mu.Lock()
+	s.mu.RLock()
 	if taskID := s.byResource[resource.ID]; taskID != "" {
 		task := s.tasks[taskID]
-		s.mu.Unlock()
+		s.mu.RUnlock()
 		return task, nil
 	}
+	s.mu.RUnlock()
+	if s.ctx.Err() != nil {
+		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
+	}
+	// Resolving plugin plans may block. Keep it outside the scheduler lock and
+	// check resource ownership again before publishing the prepared task.
 	configuredDirectory := s.config.Snapshot().SaveDirectory
 	if configuredDirectory == "" {
-		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("save directory is empty")
 	}
 	saveDirectory, err := filepath.Abs(configuredDirectory)
 	if err != nil {
-		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, fmt.Errorf("resolve save directory: %w", err)
 	}
 	id, _ := gonanoid.New()
@@ -282,22 +287,28 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 	} else if resource.Lifecycle.Availability != shared.ResourceAvailabilityNeedsRefresh {
 		plan, err := s.plugins.CreateDownloadPlan(s.ctx, resource, shared.DownloadOptions{})
 		if err != nil {
-			s.mu.Unlock()
 			return shared.DownloadTaskRecord{}, err
 		}
 		task.Plan = plan
 		task.Resumable = planIsResumable(plan)
 		task.Recording = planIsRecording(plan)
 	}
-	s.tasks[id], s.byResource[resource.ID] = task, id
-	s.mu.Unlock()
+	s.mu.Lock()
+	if s.ctx.Err() != nil {
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
+	}
+	if taskID := s.byResource[resource.ID]; taskID != "" {
+		existing := s.tasks[taskID]
+		s.mu.Unlock()
+		return existing, nil
+	}
 	if err := s.persist(task); err != nil {
-		s.mu.Lock()
-		delete(s.tasks, id)
-		delete(s.byResource, resource.ID)
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, err
 	}
+	s.tasks[id], s.byResource[resource.ID] = task, id
+	s.mu.Unlock()
 	s.resources.EmitDownloadTaskEvent(task)
 	select {
 	case s.queue <- id:
@@ -322,33 +333,34 @@ func (s *Scheduler) worker(stop <-chan struct{}) {
 }
 
 func (s *Scheduler) execute(id string) {
-	s.mu.RLock()
+	s.mu.Lock()
 	task, exists := s.tasks[id]
-	s.mu.RUnlock()
-	if !exists || task.State != shared.DownloadTaskPending {
+	if !exists || task.State != shared.DownloadTaskPending || s.cancelFuncs[id] != nil || s.ctx.Err() != nil {
+		s.mu.Unlock()
 		return
 	}
+	task.Items = slices.Clone(task.Items)
 	taskCtx, cancel := context.WithCancelCause(s.ctx)
-	s.mu.Lock()
 	s.cancelFuncs[id] = cancel
-	s.mu.Unlock()
-	var releaseCancelOnce sync.Once
-	releaseCancel := func() {
-		releaseCancelOnce.Do(func() {
-			s.mu.Lock()
-			delete(s.cancelFuncs, id)
-			s.mu.Unlock()
-		})
-	}
-	defer func() {
-		cancel(context.Canceled)
-		releaseCancel()
-	}()
 	if task.StartedAt == 0 {
 		task.Attempts++
 		task.StartedAt = time.Now().UnixMilli()
 	}
-	s.update(&task, shared.DownloadTaskResolving, "createDownloadPlan", "")
+	s.updateLocked(&task, shared.DownloadTaskResolving, "createDownloadPlan", "")
+	s.mu.Unlock()
+	var releaseCancelOnce sync.Once
+	releaseCancelLocked := func() {
+		releaseCancelOnce.Do(func() {
+			delete(s.cancelFuncs, id)
+		})
+	}
+	defer func() {
+		cancel(context.Canceled)
+		s.mu.Lock()
+		releaseCancelLocked()
+		s.mu.Unlock()
+	}()
+	s.resources.EmitDownloadTaskEvent(task)
 
 	resource := task.Resource
 	if resource.ID == "" {
@@ -360,7 +372,7 @@ func (s *Scheduler) execute(id string) {
 			s.fail(&task, errors.New("collection has no downloadable children"))
 			return
 		}
-		s.executeCollection(taskCtx, &task, releaseCancel)
+		s.executeCollection(taskCtx, &task, releaseCancelLocked)
 		return
 	}
 	if resource.Lifecycle.Availability == shared.ResourceAvailabilityNeedsRefresh ||
@@ -391,8 +403,7 @@ func (s *Scheduler) execute(id string) {
 	task.Resource = resource
 	if err := taskCtx.Err(); err != nil {
 		if errors.Is(context.Cause(taskCtx), errTaskPaused) {
-			releaseCancel()
-			s.update(&task, shared.DownloadTaskPaused, "", "")
+			s.finishPause(&task, releaseCancelLocked)
 			return
 		}
 		s.update(&task, shared.DownloadTaskCancelled, "", "cancelled")
@@ -408,8 +419,7 @@ func (s *Scheduler) execute(id string) {
 	})
 	if err != nil {
 		if errors.Is(context.Cause(taskCtx), errTaskPaused) {
-			releaseCancel()
-			s.update(&task, shared.DownloadTaskPaused, "", "")
+			s.finishPause(&task, releaseCancelLocked)
 			return
 		}
 		if s.ctx.Err() != nil {
@@ -442,7 +452,7 @@ func contains(values []string, target string) bool {
 	return false
 }
 
-func (s *Scheduler) executeCollection(ctx context.Context, task *shared.DownloadTaskRecord, releaseCancel func()) {
+func (s *Scheduler) executeCollection(ctx context.Context, task *shared.DownloadTaskRecord, releaseCancelLocked func()) {
 	resource := task.Resource
 	folderName := naming.TruncateFilenameSegment(naming.SanitizeFilenameSegment(resource.Title), naming.MaxFilenameSegmentBytes)
 	if folderName == "" {
@@ -470,8 +480,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 		}
 		if err := ctx.Err(); err != nil {
 			if errors.Is(context.Cause(ctx), errTaskPaused) {
-				releaseCancel()
-				s.update(task, shared.DownloadTaskPaused, "", "")
+				s.finishPause(task, releaseCancelLocked)
 				return
 			}
 			if s.ctx.Err() != nil {
@@ -511,8 +520,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 		if itemErr != nil {
 			if errors.Is(context.Cause(ctx), errTaskPaused) {
 				item.State = shared.DownloadTaskPaused
-				releaseCancel()
-				s.update(task, shared.DownloadTaskPaused, "", "")
+				s.finishPause(task, releaseCancelLocked)
 				return
 			}
 			if s.ctx.Err() != nil {
@@ -531,12 +539,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 			item.State = shared.DownloadTaskCompleted
 		}
 		task.Downloaded++
-		task.UpdatedAt = time.Now().UnixMilli()
-		s.mu.Lock()
-		s.tasks[task.ID] = *task
-		s.mu.Unlock()
-		_ = s.persist(*task)
-		s.resources.EmitDownloadTaskEvent(*task)
+		s.update(task, task.State, task.Step, task.Error)
 	}
 	if failed > 0 {
 		s.fail(task, fmt.Errorf("%d of %d collection children failed", failed, len(task.Items)))
@@ -553,22 +556,46 @@ func (s *Scheduler) fail(task *shared.DownloadTaskRecord, err error) {
 }
 
 func (s *Scheduler) update(task *shared.DownloadTaskRecord, state, step, message string) {
-	task.State, task.Step, task.Error, task.UpdatedAt = state, step, message, time.Now().UnixMilli()
 	s.mu.Lock()
+	s.updateLocked(task, state, step, message)
+	s.mu.Unlock()
+	s.resources.EmitDownloadTaskEvent(*task)
+}
+
+func (s *Scheduler) finishPause(task *shared.DownloadTaskRecord, releaseCancelLocked func()) {
+	s.mu.Lock()
+	// Publish the paused state and release the old execution together so a
+	// resume cannot overlap it or lose its newly registered cancel function.
+	releaseCancelLocked()
+	s.updateLocked(task, shared.DownloadTaskPaused, "", "")
+	s.mu.Unlock()
+	s.resources.EmitDownloadTaskEvent(*task)
+}
+
+// updateLocked requires s.mu. Persist in the same order as in-memory state
+// changes so an older worker snapshot cannot overwrite a pause on disk.
+func (s *Scheduler) updateLocked(task *shared.DownloadTaskRecord, state, step, message string) {
+	task.State, task.Step, task.Error, task.UpdatedAt = state, step, message, time.Now().UnixMilli()
 	// HTTP download progress is reported through Progress and therefore lives in
 	// the scheduler's current task record, while execute keeps its own snapshot.
 	// Preserve the current counters when that snapshot transitions state so a
 	// pause or completion event cannot overwrite the latest visible progress.
-	if current, exists := s.tasks[task.ID]; exists && len(task.Items) == 0 {
-		task.Downloaded, task.Total = current.Downloaded, current.Total
+	if current, exists := s.tasks[task.ID]; exists {
+		if len(task.Items) == 0 {
+			task.Downloaded, task.Total = current.Downloaded, current.Total
+		}
+		if current.State == shared.DownloadTaskPausing &&
+			(state == shared.DownloadTaskResolving || state == shared.DownloadTaskDownloading || state == shared.DownloadTaskProcessing) {
+			task.State = shared.DownloadTaskPausing
+		}
 	}
-	s.tasks[task.ID] = *task
-	if !taskOwnsResource(state) {
+	snapshot := *task
+	snapshot.Items = slices.Clone(task.Items)
+	s.tasks[task.ID] = snapshot
+	if !taskOwnsResource(task.State) && s.byResource[task.ResourceID] == task.ID {
 		delete(s.byResource, task.ResourceID)
 	}
-	s.mu.Unlock()
 	_ = s.persist(*task)
-	s.resources.EmitDownloadTaskEvent(*task)
 }
 
 func (s *Scheduler) persist(task shared.DownloadTaskRecord) error {
@@ -613,10 +640,10 @@ func (s *Scheduler) Progress(resourceID string, downloaded, total int64) {
 	shouldPersist := time.Since(s.lastProgress[id]) >= 500*time.Millisecond || (total > 0 && downloaded >= total)
 	if shouldPersist {
 		s.lastProgress[id] = time.Now()
+		_ = s.persist(task)
 	}
 	s.mu.Unlock()
 	if shouldPersist {
-		_ = s.persist(task)
 		s.resources.EmitDownloadTaskEvent(task)
 	}
 }
@@ -634,45 +661,45 @@ func (s *Scheduler) Processing(id string) {
 func (s *Scheduler) Cancel(resourceID string) error {
 	s.mu.RLock()
 	id := s.byResource[resourceID]
-	task, exists := s.tasks[id]
 	s.mu.RUnlock()
-	if !exists {
-		return errors.New("task not found")
-	}
-	if task.State == shared.DownloadTaskPending || task.State == shared.DownloadTaskPaused {
-		task.FinishedAt = time.Now().UnixMilli()
-		_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
-		s.update(&task, shared.DownloadTaskCancelled, "", "cancelled")
-		return nil
-	}
-	s.mu.RLock()
-	cancel := s.cancelFuncs[id]
-	s.mu.RUnlock()
-	if cancel != nil {
-		cancel(context.Canceled)
-	}
-	_ = s.resources.CancelActive(resourceID)
-	return nil
+	return s.cancelTask(id, false)
 }
 
 func (s *Scheduler) CancelTask(id string) error {
-	s.mu.RLock()
-	task, exists := s.tasks[id]
-	s.mu.RUnlock()
-	if !exists || !taskOwnsResource(task.State) {
-		return errors.New("active task not found")
-	}
-	return s.Cancel(task.ResourceID)
+	return s.cancelTask(id, false)
 }
 
 func (s *Scheduler) StopRecording(id string) error {
-	s.mu.RLock()
+	return s.cancelTask(id, true)
+}
+
+func (s *Scheduler) cancelTask(id string, recordingOnly bool) error {
+	s.mu.Lock()
 	task, exists := s.tasks[id]
-	s.mu.RUnlock()
-	if !exists || !task.Recording || !activeDownloadTaskState(task.State) {
+	if recordingOnly && (!exists || !task.Recording || !activeDownloadTaskState(task.State)) {
+		s.mu.Unlock()
 		return errors.New("active recording not found")
 	}
-	return s.Cancel(task.ResourceID)
+	if !exists || !taskOwnsResource(task.State) || s.byResource[task.ResourceID] != id {
+		s.mu.Unlock()
+		return errors.New("active task not found")
+	}
+	if task.State == shared.DownloadTaskPending || task.State == shared.DownloadTaskPaused {
+		// Keep the worker and retries out until cleanup and cancellation finish.
+		_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
+		task.FinishedAt = time.Now().UnixMilli()
+		s.updateLocked(&task, shared.DownloadTaskCancelled, "", "cancelled")
+		s.mu.Unlock()
+		s.resources.EmitDownloadTaskEvent(task)
+		return nil
+	}
+	if cancel := s.cancelFuncs[id]; cancel != nil {
+		// The execution context also cancels its active PlanRunner. Looking up
+		// a runner by resource ID after unlocking could cancel a successor task.
+		cancel(context.Canceled)
+	}
+	s.mu.Unlock()
+	return nil
 }
 
 func (s *Scheduler) Pause(id string) (shared.DownloadTaskRecord, error) {
@@ -713,14 +740,19 @@ func (s *Scheduler) Resume(id string) (shared.DownloadTaskRecord, error) {
 	s.mu.Lock()
 	task, exists := s.tasks[id]
 	resumableState := task.State == shared.DownloadTaskPaused || task.State == shared.DownloadTaskInterrupted
-	if !exists || !resumableState || !task.Resumable {
+	if !exists || !resumableState || !task.Resumable || s.cancelFuncs[id] != nil || s.ctx.Err() != nil {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("task cannot be resumed")
+	}
+	if active := s.byResource[task.ResourceID]; active != "" && active != id {
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, errors.New("resource already has an active task")
 	}
 	task.State, task.Step, task.Error = shared.DownloadTaskPending, "", ""
 	task.FinishedAt = 0
 	task.Resumes++
 	task.UpdatedAt = time.Now().UnixMilli()
+	task.Items = slices.Clone(task.Items)
 	for index := range task.Items {
 		if task.Items[index].State == shared.DownloadTaskPaused || task.Items[index].State == shared.DownloadTaskDownloading {
 			task.Items[index].State = shared.DownloadTaskPending
@@ -733,14 +765,18 @@ func (s *Scheduler) Resume(id string) (shared.DownloadTaskRecord, error) {
 	s.tasks[id], s.byResource[task.ResourceID] = task, id
 	s.mu.Unlock()
 	s.resources.EmitDownloadTaskEvent(task)
-	s.queue <- id
-	return task, nil
+	select {
+	case s.queue <- id:
+		return task, nil
+	case <-s.ctx.Done():
+		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
+	}
 }
 
 func (s *Scheduler) Retry(id string) (shared.DownloadTaskRecord, error) {
 	s.mu.Lock()
 	task, exists := s.tasks[id]
-	if !exists || activeDownloadTaskState(task.State) {
+	if !exists || activeDownloadTaskState(task.State) || s.cancelFuncs[id] != nil || s.ctx.Err() != nil {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("task cannot be retried")
 	}
@@ -759,8 +795,12 @@ func (s *Scheduler) Retry(id string) (shared.DownloadTaskRecord, error) {
 	s.tasks[id], s.byResource[task.ResourceID] = task, id
 	s.mu.Unlock()
 	s.resources.EmitDownloadTaskEvent(task)
-	s.queue <- id
-	return task, nil
+	select {
+	case s.queue <- id:
+		return task, nil
+	case <-s.ctx.Done():
+		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
+	}
 }
 
 func (s *Scheduler) Delete(id string) error {

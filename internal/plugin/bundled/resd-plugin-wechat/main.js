@@ -1,3 +1,5 @@
+var WECHAT_INJECTION_CACHE_REVISION = 1;
+
 function endsWith(value, suffix) {
   return value.slice(-suffix.length) === suffix;
 }
@@ -55,15 +57,32 @@ function mediaGroupKey(item, rawUrl, isImage) {
   return groupKey.length <= 512 ? groupKey : "";
 }
 
-function mediaResources(body, pageUrl) {
+function creationTimeMilliseconds(value) {
+  if (typeof value === "string" && /^\d+$/.test(value)) value = Number(value);
+  if (typeof value !== "number" || !isFinite(value) || value <= 0 ||
+      Math.floor(value) !== value || value > 253402300799) return 0;
+  return value * 1000;
+}
+
+function mediaResources(body, pageUrl, api) {
   var payload;
   try {
     payload = JSON.parse(body);
   } catch (error) {
+    api.log("wechat: resource rejected: invalid JSON");
     return [];
   }
-  var media = payload.media;
-  if (!Array.isArray(media)) return [];
+  var description = payload && typeof payload === "object" && !Array.isArray(payload) ? payload.objectDesc : null;
+  if (!description || typeof description !== "object" || Array.isArray(description)) {
+    api.log("wechat: resource rejected: objectDesc is not an object");
+    return [];
+  }
+  var createdAt = creationTimeMilliseconds(payload.createtime);
+  var media = description.media;
+  if (!Array.isArray(media)) {
+    api.log("wechat: resource rejected: media is not an array");
+    return [];
+  }
 
   var resources = [];
   for (var index = 0; index < media.length; index++) {
@@ -82,6 +101,7 @@ function mediaResources(body, pageUrl) {
     }
 
     var metadata = {"wechat.fileFormats": formats};
+    if (createdAt) metadata.createdAt = createdAt;
     var processors = [];
     if (typeof item.decodeKey === "string" && item.decodeKey) {
       processors.push({
@@ -101,7 +121,7 @@ function mediaResources(body, pageUrl) {
     }
     resources.push({
       groupKey: groupKey,
-      title: typeof payload.description === "string" ? payload.description : "",
+      title: typeof description.description === "string" ? description.description : "",
       coverUrl: typeof item.coverUrl === "string" ? item.coverUrl : "",
       kind: isImage ? "media.image" : "media.video",
       tracks: [{
@@ -137,7 +157,7 @@ function injectWechatHooks(body) {
     "get media(){",
     "if(this.objectDesc){",
     "fetch(\"https://wxapp.tc.qq.com/res-downloader/wechat?type=1\",{",
-    "method:\"POST\",mode:\"no-cors\",body:JSON.stringify(this.objectDesc)",
+    "method:\"POST\",mode:\"no-cors\",body:JSON.stringify({objectDesc:this.objectDesc,createtime:this.createtime})",
     "});",
     "};"
   ].join(""));
@@ -147,7 +167,7 @@ function injectWechatHooks(body) {
     "var res=await$2;",
     "if(res&&res.data&&res.data.object&&res.data.object.objectDesc){",
     "fetch(\"https://wxapp.tc.qq.com/res-downloader/wechat?type=2\",{",
-    "method:\"POST\",mode:\"no-cors\",body:JSON.stringify(res.data.object.objectDesc)",
+    "method:\"POST\",mode:\"no-cors\",body:JSON.stringify({objectDesc:res.data.object.objectDesc,createtime:res.data.object.createtime})",
     "});",
     "}",
     "return res;",
@@ -159,14 +179,14 @@ function onObservation(observation, api) {
   var request = observation.request;
   var response = observation.response;
   var settings = observation.settings || {};
-  var version = api.pluginVersion;
+  var cacheVersion = api.pluginVersion + "-" + WECHAT_INJECTION_CACHE_REVISION;
 
   if (observation.stage === "request") {
     var type = queryValue(request.url, "type");
     var fullIntercept = settings.fullIntercept !== false;
-    var wanted = (fullIntercept && type === "1") || (!fullIntercept && type === "2");
+    var wanted = (fullIntercept && type === "1") || type === "2";
     var resources = [];
-    if (wanted && request.body) resources = mediaResources(request.body, request.url);
+    if (wanted && request.body) resources = mediaResources(request.body, request.url, api);
     return {
       decision: "stop",
       resources: resources,
@@ -188,7 +208,7 @@ function onObservation(observation, api) {
 
   var body = response.body || "";
   var changed = false;
-  var suffix = ".js?v=" + version + "\"";
+  var suffix = ".js?v=" + cacheVersion + "\"";
   if (endsWith(host, "channels.weixin.qq.com") &&
       (path.indexOf("/web/pages/feed") >= 0 || path.indexOf("/web/pages/home") >= 0)) {
     var pageBody = body.split(".js\"").join(suffix);
@@ -197,7 +217,7 @@ function onObservation(observation, api) {
   }
 
   if (endsWith(host, "res.wx.qq.com")) {
-    if (endsWith(request.url, ".js?v=" + version)) {
+    if (endsWith(request.url, ".js?v=" + cacheVersion)) {
       var dependencyBody = body.split(".js\"").join(suffix);
       changed = changed || dependencyBody !== body;
       body = dependencyBody;

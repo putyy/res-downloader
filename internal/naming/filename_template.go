@@ -3,6 +3,7 @@ package naming
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	shared "res-downloader/internal/model"
@@ -111,6 +112,12 @@ func evaluateFilenameExpression(expression string, variables map[string]string, 
 		value = now.Format(variableArgument)
 	} else if variable == "time" && variableArgument != "" {
 		value = now.Format(variableArgument)
+	} else if variable == "created_at" || variable == "published_at" {
+		key := "createdAt"
+		if variable == "published_at" {
+			key = "publishedAt"
+		}
+		value = formatMetadataTimestamp(metadata[key], variableArgument, now.Location())
 	} else if strings.HasPrefix(variable, "meta.") {
 		value = metadataPathString(metadata, strings.TrimPrefix(variable, "meta."))
 	} else {
@@ -131,6 +138,14 @@ func evaluateFilenameExpression(expression string, variables map[string]string, 
 			if strings.TrimSpace(value) == "" {
 				value = argument
 			}
+		case "prefix", "suffix":
+			if strings.TrimSpace(value) == "" {
+				value = ""
+			} else if filter == "prefix" {
+				value = argument + value
+			} else {
+				value += argument
+			}
 		case "lower":
 			value = strings.ToLower(value)
 		case "upper":
@@ -142,6 +157,35 @@ func evaluateFilenameExpression(expression string, variables map[string]string, 
 		}
 	}
 	return value, nil
+}
+
+// Metadata timestamps are positive integer Unix milliseconds, not strings or
+// seconds. Invalid optional metadata must not prevent a resource from downloading.
+func formatMetadataTimestamp(raw interface{}, layout string, location *time.Location) string {
+	var milliseconds float64
+	switch value := raw.(type) {
+	case int:
+		milliseconds = float64(value)
+	case int64:
+		milliseconds = float64(value)
+	case float64:
+		milliseconds = value
+	default:
+		return ""
+	}
+	// Limit dates to year 9999 and keep all accepted integers exactly representable
+	// in JSON/JavaScript numbers. This also rejects NaN, infinity and fractions.
+	if math.IsNaN(milliseconds) || milliseconds <= 0 || milliseconds > 253402300799999 || math.Trunc(milliseconds) != milliseconds {
+		return ""
+	}
+	if layout == "" {
+		layout = "20060102"
+	}
+	timestamp := time.UnixMilli(int64(milliseconds)).In(location)
+	if timestamp.Year() < 1 || timestamp.Year() > 9999 {
+		return ""
+	}
+	return timestamp.Format(layout)
 }
 
 func selectedFilenameTrack(resource shared.ResourceCandidate, plan shared.DownloadPlan) shared.ResourceTrack {

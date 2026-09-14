@@ -9,7 +9,7 @@ Turn a target media page into a minimal-permission res-downloader plugin with re
 
 ## Inputs and scope
 
-- Require at least one representative target URL. Ask for one only when none is provided.
+- For implementation work, require at least one representative target URL. Ask for one only when none is provided. For README-only edits, follow `docs-sync` without repeating browser observation, plugin validation, or packaging unless the change affects those artifacts.
 - Preserve user-specified plugin IDs, directories, capabilities, and acceptance criteria.
 - For a new plugin without a requested directory, derive a stable site slug and use `plugins/resd-plugin-<site>`.
 - Inspect the worktree before editing. Preserve unrelated changes and update an existing target plugin in place instead of overwriting it.
@@ -40,17 +40,22 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
    Do not run the scaffold command over an existing plugin. Keep the generated `README.md` and `.gitignore`; the default `.gitignore` entries are `.idea` and `.vscode`, and it must not ignore `dist/` unless the user explicitly requests that change.
    Keep the generated `settingsSchema.properties.enableLog` boolean setting with `default: false` and localized labels. Include the same setting when creating a new plugin by copying an example or writing a manifest. The host gates all `api.log()` calls on `enableLog === true`; do not duplicate this check in each hook. An absent setting disables plugin logging; do not add it to existing plugins unless requested. See `docs/zh/development/plugins.md` for the setting contract.
 5. Implement the plugin with narrowly scoped host, path, content-type, body-read, body-limit, and capability declarations. New community plugins must not claim reserved `builtin.*` or `official.*` identities. Preserve an existing official plugin identity only when updating that plugin.
-6. Complete the generated README with behavior, usage, limitations, and exact development commands. Add the smallest representative fixtures needed for each supported observation path and meaningful edge case.
+   - Check interaction with `builtin.generic-detector`, not only successful resource extraction. Use a resource's `source.pluginId` to distinguish generic duplicates from legitimate plugin resources, including recommended works with metadata.
+   - Define which observed player requests the plugin claims with `handled: true` and which retain generic fallback. Cover relevant default-port spellings, Range headers or query parameters, separate player tracks, preloads, and media arriving before metadata; do not rely solely on exact URL correlation when those requests differ.
+   - Scope suppression to the site's supported traffic and explain any loss of fallback when metadata is unavailable. Do not suppress an entire CDN by default or modify playback responses merely to hide duplicate records.
+6. Complete the generated README for users, following a mature plugin README in the repository or the user's chosen reference. Keep functionality, installation and usage, settings, and necessary limitations; development commands may be collapsed. Put response structures, debugging history, fixture inventories, and acceptance evidence in the handoff, not the user README. Add separate developer documentation only when the user requests it or ongoing maintenance warrants it.
+   Add the smallest representative fixtures needed for each supported observation path and meaningful edge case.
 7. Sanitize every fixture and log artifact. Remove cookies, authorization values, access tokens, account data, administrator credentials, private URLs, and unrelated user content. Preserve only fields required for matching and extraction.
 8. Perform repository-local validation from the repository root:
    - Run `go run main.go plugin lint ./plugins/<plugin-directory>`.
    - Run `go run main.go plugin replay ./plugins/<plugin-directory> <fixture>` for every documented replay fixture. Replay is deterministic offline fixture validation; it is not live-site or application acceptance.
-   - If a file under `fixtures/` is intentionally not a replay input, identify its role instead of silently skipping it.
+   - Check the current replay schema and runner before choosing assertions. Zero emitted resources does not prove that generic fallback was suppressed: when replay cannot assert a critical behavior such as `handled`, add a minimal documented offline contract check. Do not infer full plugin-chain behavior from a single-plugin replay.
+   - Observations outside the Manifest's match scope belong in offline contract checks, not fixtures expected to pass replay. Never broaden production permissions merely to make a negative fixture match. If a file under `fixtures/` is intentionally not a replay input, identify its role instead of silently skipping it.
    - Inspect the manifest, declared capabilities, source layout, fixture sanitization, and package inputs for consistency with `docs/zh/development/plugins.md`.
    - Run only other checks that are explicitly repository-local and documented by the plugin or repository.
    - Fix failures and repeat the affected checks.
    - Do not start the host application, install or reload the plugin, or perform live capture, preview, download, playback, or network integration as acceptance validation.
-9. Prepare an exact manual-verification checklist for the user. Cover installation or reload, the representative page and required login state, capture and metadata, preview, download, output playback, and any relevant refresh, merge, or site-specific processing behavior. Browser observation used during development does not count as acceptance verification.
+9. Include an exact manual-verification checklist in the handoff to the user. Cover installation or reload, the representative page and required login state, capture and metadata, preview, download, output playback, and any relevant refresh, merge, or site-specific processing behavior. Browser observation used during development does not count as acceptance verification.
 10. After implementation and static validation are final, package the plugin as the last artifact-producing step:
 
    ```bash

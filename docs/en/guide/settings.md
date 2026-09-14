@@ -50,10 +50,12 @@ Wrap a variable in double braces, for example <code v-pre>{{title}}</code>.
 | `bitrate` | Bitrate value supplied by the track, without a unit suffix | Depends on the track |
 | `date` | Local date when the save path is generated; default format `20060102` | `20260910` |
 | `time` | Local time when the save path is generated; default format `150405` | `140509` |
+| `created_at` | Content creation time from `metadata.createdAt`; default format `20060102` | `20260901` |
+| `published_at` | Content publication time from `metadata.publishedAt`; default format `20060102` | `20260902` |
 | `ext` | Download output extension, without the leading dot | `mp4` |
 | `meta.*` | Resource metadata supplied by the plugin, such as `meta.site.author` | Depends on the plugin |
 
-Author, quality, dimensions, and similar information depend on the resource and plugin and may be unavailable. Track variables prefer the track directly referenced by the download output. When the output comes from merging or other processing, they use the resource's primary track. Dates and times describe when the save path is generated, not when the content was published.
+Author, quality, dimensions, and similar information depend on the resource and plugin and may be unavailable. Track variables prefer the track directly referenced by the download output. When the output comes from merging or other processing, they use the resource's primary track. `date` and `time` describe when the save path is generated. `created_at` and `published_at` use plugin-provided Unix milliseconds, formatted in the local time zone used when generating the path. Missing or invalid values stay empty; they never fall back to the download time automatically.
 
 Missing fields, unknown variables, and width, height, or bitrate without a positive value produce empty strings. Use `default` to supply replacement text. `meta.*` supports strings, numbers, and booleans; objects and arrays do not become filenames directly. Metadata lookup checks the complete key first, then tries nested fields separated by dots. Available keys depend on the plugin.
 
@@ -68,10 +70,12 @@ Append filters to a variable with `|`. Multiple filters run from left to right.
 | `truncate:80` | Keeps at most 80 Unicode characters; the argument must be an integer from 1 to 1000 |
 | `lower` | Converts to lowercase |
 | `upper` | Converts to uppercase |
+| `prefix:_` | Adds `_` before a nonblank value; blank values stay empty |
+| `suffix:_` | Adds `_` after a nonblank value; blank values stay empty |
 
 For example, <code v-pre>{{author|default:Unknown author|sanitize}}</code> supplies a missing author before sanitizing the result. Add `sanitize` to titles and authors so that `/` or `\` within their values becomes `_` instead of creating unintended subdirectories. To supply replacement text when sanitizing leaves an empty value, put `default` after `sanitize`.
 
-Add a colon after `date` or `time` to specify a format. Formats use Go's reference time digits: year `2006`, month `01`, day `02`, 24-hour clock hour `15`, minute `04`, and second `05`. Do not use `YYYY-MM-DD`.
+Add a colon after `date`, `time`, `created_at`, or `published_at` to specify a format. Formats use Go's reference time digits: year `2006`, month `01`, day `02`, 24-hour clock hour `15`, minute `04`, and second `05`. Do not use `YYYY-MM-DD`.
 
 | Expression | Example result |
 | --- | --- |
@@ -108,6 +112,16 @@ These examples assume a title of **Beautiful Chongqing**, author **putyy**, qual
 ```text
 {{title|default:resource|sanitize|truncate:80}}_{{quality|default:Original quality|sanitize}}.{{ext}}
 ```
+
+**Include the creation date only when available**: produces `Beautiful Chongqing_20260901.mp4` when provided, or `Beautiful Chongqing.mp4` when missing.
+
+```text
+{{title|default:resource|sanitize|truncate:80}}{{created_at:20060102|prefix:_}}.{{ext}}
+```
+
+Replace `created_at` with `published_at` to use publication time. Both variables can be used together, each with its own `prefix:_`.
+
+Put optional separators inside `prefix` or `suffix`; a literal `_` outside a variable remains when the value is missing. Filters run left to right: sanitize and truncate before adding affixes. Replacement text supplied by `default` counts as a nonblank value.
 
 ### Paths, extensions, and name conflicts
 

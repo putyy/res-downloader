@@ -12,7 +12,7 @@
       "statusCode": 200,
       "headers": {"Content-Type": ["application/json"]},
       "contentType": "application/json",
-      "body": "{\"id\":\"42\",\"url\":\"https://cdn.example.com/42.mp4\",\"title\":\"Example\",\"size\":1024}"
+      "body": "{\"id\":\"42\",\"url\":\"https://cdn.example.com/42.mp4\",\"title\":\"Example\",\"size\":1024,\"createdAt\":1788220800000,\"publishedAt\":1788307200000}"
     }
   },
   "expected": {

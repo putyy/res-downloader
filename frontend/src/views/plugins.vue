@@ -64,7 +64,15 @@
             <NAlert v-if="storeStale" type="warning" :show-icon="false">
               {{ t('plugin.store_stale') }}<span v-if="storeWarning">：{{ storeWarning }}</span>
             </NAlert>
-            <NInput v-model:value="storeSearch" clearable :placeholder="t('plugin.store_search')"/>
+            <div class="flex flex-wrap gap-3">
+              <NInput v-model:value="storeSearch" class="min-w-0 flex-1 basis-64" clearable :placeholder="t('plugin.store_search')"/>
+              <NSelect
+                  v-model:value="storeSort"
+                  class="!w-44 shrink-0"
+                  :options="storeSortOptions"
+                  :aria-label="t('plugin.store_sort')"
+              />
+            </div>
           </div>
           <NSpin :show="storeLoading">
             <NEmpty v-if="!storeLoading && filteredStoreEntries.length === 0" :description="t('plugin.store_empty')"/>
@@ -241,6 +249,13 @@ const storeLoaded = ref(false)
 const storeStale = ref(false)
 const storeWarning = ref('')
 const storeSearch = ref('')
+const storeSort = ref<'default' | 'stars' | 'publishedAt' | 'updatedAt'>('default')
+const storeSortOptions = computed(() => [
+  {value: 'default', label: t('plugin.store_sort_default')},
+  {value: 'stars', label: t('plugin.store_sort_stars')},
+  {value: 'publishedAt', label: t('plugin.store_sort_published')},
+  {value: 'updatedAt', label: t('plugin.store_sort_updated')},
+])
 const storeInstallingRepository = ref('')
 const settingsModalVisible = ref(false)
 const selectedPluginID = ref('')
@@ -380,6 +395,13 @@ const storeEntryPriority = (extension: appType.PluginStoreEntry) => {
   return 2
 }
 
+const storeEntrySortValue = (extension: appType.PluginStoreEntry) => {
+  if (storeSort.value === 'stars') return extension.stars ?? 0
+  const value = storeSort.value === 'publishedAt' ? extension.release?.publishedAt : extension.updatedAt
+  const timestamp = Date.parse(value ?? '')
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY
+}
+
 const filteredStoreEntries = computed(() => {
   const keyword = storeSearch.value.trim().toLocaleLowerCase()
   const entries = keyword
@@ -388,7 +410,14 @@ const filteredStoreEntries = computed(() => {
       extension.manifest?.author?.name, extension.owner,
     ].some(value => value?.toLocaleLowerCase().includes(keyword)))
     : storeEntries.value
-  return [...entries].sort((left, right) => storeEntryPriority(left) - storeEntryPriority(right))
+  return [...entries].sort((left, right) => {
+    if (storeSort.value !== 'default') {
+      const leftValue = storeEntrySortValue(left)
+      const rightValue = storeEntrySortValue(right)
+      if (leftValue !== rightValue) return leftValue > rightValue ? -1 : 1
+    }
+    return storeEntryPriority(left) - storeEntryPriority(right)
+  })
 })
 
 const storeUpdateCount = computed(() => {

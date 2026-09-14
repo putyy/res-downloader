@@ -3,20 +3,31 @@
     <template #header>
       <div class="min-w-0">
         <div class="truncate font-medium" :title="name">{{ name }}</div>
-        <div class="mt-1 flex flex-wrap gap-1">
-          <NTag v-if="extension.source === 'official'" size="small" type="info">{{ t('plugin.store_official') }}</NTag>
-          <NTag v-else size="small">{{ t('plugin.store_community') }}</NTag>
-          <NTag v-if="updateAvailable" size="small" type="warning">
-            {{ t('plugin.store_update_available') }}
-          </NTag>
-          <NTag v-if="extension.status === 'available'" size="small" type="success">
-            <template v-if="updateAvailable && installedVersion">
-              v{{ installedVersion }} → v{{ extension.release?.version }}
-            </template>
-            <template v-else>v{{ extension.release?.version }}</template>
-          </NTag>
-          <NTag v-else size="small" type="warning">{{ t('plugin.store_unavailable') }}</NTag>
-          <NTag v-if="extension.stars" size="small">★ {{ extension.stars }}</NTag>
+        <div class="mt-1 flex items-start gap-2">
+          <div class="flex min-w-0 flex-1 flex-wrap gap-1">
+            <NTag v-if="extension.source === 'official'" size="small" type="info">{{ t('plugin.store_official') }}</NTag>
+            <NTag v-else size="small">{{ t('plugin.store_community') }}</NTag>
+            <NTag v-if="updateAvailable" size="small" type="warning">
+              {{ t('plugin.store_update_available') }}
+            </NTag>
+            <NTag v-if="extension.status === 'available'" size="small" type="success">
+              <template v-if="updateAvailable && installedVersion">
+                v{{ installedVersion }} → v{{ extension.release?.version }}
+              </template>
+              <template v-else>v{{ extension.release?.version }}</template>
+            </NTag>
+            <NTag v-else size="small" type="warning">{{ t('plugin.store_unavailable') }}</NTag>
+          </div>
+          <button
+              v-if="extension.stars"
+              type="button"
+              class="text-app-muted inline-flex h-[22px] shrink-0 cursor-pointer items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-xs transition-opacity hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              :title="t('plugin.store_repository')"
+              @click="openRepository"
+          >
+            <span aria-hidden="true">★</span>
+            <span>{{ extension.stars }}</span>
+          </button>
         </div>
       </div>
     </template>
@@ -30,8 +41,14 @@
       </template>
       <div class="max-w-[min(360px,calc(100vw-48px))] whitespace-pre-wrap break-words text-sm">{{ description }}</div>
     </NTooltip>
-    <div class="text-app-muted mt-3 text-xs">
-      {{ t('plugin.developer') }}：{{ extension.manifest?.author?.name || extension.owner }}
+    <div class="text-app-muted mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
+      <span class="min-w-0 break-words">{{ t('plugin.developer') }}：{{ extension.manifest?.author?.name || extension.owner }}</span>
+      <NTooltip v-if="updatedTime" trigger="hover">
+        <template #trigger>
+          <span class="cursor-default whitespace-nowrap">· {{ t('plugin.store_updated_at', {date: updatedTime.date}) }}</span>
+        </template>
+        {{ updatedTime.full }}
+      </NTooltip>
     </div>
     <NTooltip v-if="capabilities.length" trigger="hover">
       <template #trigger>
@@ -52,11 +69,6 @@
       </template>
       <div class="max-w-[360px] break-words text-xs">{{ capabilities.join(' · ') }}</div>
     </NTooltip>
-    <NAlert v-if="hasPageInjectionPermission" class="mt-3" type="error" :show-icon="false">
-      <div class="ellipsis-3" :title="t('plugin.page_injection_warning')">
-        {{ t('plugin.page_injection_warning') }}
-      </div>
-    </NAlert>
     <NAlert v-if="extension.statusMessage" class="mt-3" :type="extension.status === 'available' ? 'info' : 'warning'">
       <div class="ellipsis-3" :title="extension.statusMessage">{{ extension.statusMessage }}</div>
     </NAlert>
@@ -106,13 +118,24 @@ const localizedEntry = computed(() => {
 })
 const name = computed(() => localizedEntry.value.name || props.extension.manifest?.name || props.extension.name)
 const description = computed(() => localizedEntry.value.description || props.extension.description || '')
+const updatedTime = computed(() => {
+  const timestamp = Date.parse(props.extension.updatedAt ?? '')
+  if (!Number.isFinite(timestamp)) return null
+  const date = new Date(timestamp)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    full: new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false, timeZoneName: 'short',
+    }).format(date),
+  }
+})
 const capabilities = computed(() => props.extension.manifest?.permissions?.capabilities ?? [])
 const visibleCapabilities = computed(() =>
     capabilities.value.length > 4 ? capabilities.value.slice(0, 3) : capabilities.value)
 const hiddenCapabilityCount = computed(() => capabilities.value.length - visibleCapabilities.value.length)
-const hasPageInjectionPermission = computed(() =>
-    capabilities.value.some(capability =>
-      capability === 'inject-page-script' || capability === 'page-bridge' || capability === 'enqueue-download'))
 
 const openRepository = () => {
   try {

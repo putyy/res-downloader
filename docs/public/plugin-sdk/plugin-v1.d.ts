@@ -212,6 +212,13 @@ interface ResourceAction {
   data?: Record<string, unknown>
 }
 
+interface ResourceMetadata extends Record<string, unknown> {
+  /** Optional positive integer Unix milliseconds, <= 253402300799999. Never seconds or strings. */
+  createdAt?: number
+  /** Publication time, distinct from creation time. Same millisecond contract as createdAt. */
+  publishedAt?: number
+}
+
 interface ResourceCandidate {
   id?: string
   groupKey?: string
@@ -228,7 +235,7 @@ interface ResourceCandidate {
   requiredTracks?: string[]
   capabilities?: ResourceCapability[]
   preview?: PreviewSpec
-  metadata?: Record<string, unknown>
+  metadata?: ResourceMetadata
   actions?: ResourceAction[]
 }
 

@@ -9,7 +9,7 @@
         "host": "wxapp.tc.qq.com",
         "path": "/res-downloader/wechat",
         "headers": {"Content-Type": ["application/json"]},
-        "body": "{\"description\":\"重复详情示例\",\"media\":[{\"url\":\"https://finder.video.qq.com/251/20302/stodownload?encfilekey=stable-demo-key&token=first-token\",\"fileSize\":\"1234\",\"decodeKey\":\"111\"}]}"
+        "body": "{\"objectDesc\":{\"description\":\"重复详情示例\",\"media\":[{\"url\":\"https://finder.video.qq.com/251/20302/stodownload?encfilekey=stable-demo-key&token=first-token\",\"fileSize\":\"1234\",\"decodeKey\":\"111\"}]}}"
       }
     },
     {
@@ -21,7 +21,7 @@
         "host": "wxapp.tc.qq.com",
         "path": "/res-downloader/wechat",
         "headers": {"Content-Type": ["application/json"]},
-        "body": "{\"description\":\"重复详情示例\",\"media\":[{\"url\":\"https://finder.video.qq.com/251/20302/stodownload?encfilekey=stable-demo-key&token=second-token\",\"fileSize\":\"1234\",\"decodeKey\":\"222\"}]}"
+        "body": "{\"objectDesc\":{\"description\":\"重复详情示例\",\"media\":[{\"url\":\"https://finder.video.qq.com/251/20302/stodownload?encfilekey=stable-demo-key&token=second-token\",\"fileSize\":\"1234\",\"decodeKey\":\"222\"}]}}"
       }
     }
   ],

@@ -294,6 +294,7 @@
         "preview": {"$ref": "#/$defs/selector"},
         "metadata": {
           "type": "object",
+          "description": "Metadata selectors. Optional createdAt and publishedAt values must resolve to positive integer Unix milliseconds (at most 253402300799999), not strings or seconds. Site-specific fields should use namespaces.",
           "additionalProperties": {"$ref": "#/$defs/selector"}
         }
       }
