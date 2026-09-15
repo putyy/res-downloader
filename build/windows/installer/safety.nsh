@@ -30,7 +30,17 @@ Function ${PREFIX}resd.PlainPath
         StrCpy $0 ""
         Goto done
     ${EndIf}
-    GetFullPathName $0 "$0"
+    ; NSIS GetFullPathName also looks up the final component and can return an
+    ; empty string for files/directories that have not been installed yet.
+    ; Normalize lexically with Win32, then inspect existing components below.
+    ; Use separate input/output buffers and reject failed or truncated results.
+    System::Call 'kernel32::GetFullPathNameW(w r0, i ${NSIS_MAX_STRLEN}, w .r1, p 0) i .r2'
+    ${If} $2 == 0
+    ${OrIf} $2 >= ${NSIS_MAX_STRLEN}
+        StrCpy $0 ""
+        Goto done
+    ${EndIf}
+    StrCpy $0 $1
     StrLen $2 $0
     ${If} $2 > 3
         StrCpy $1 $0 1 -1
@@ -262,14 +272,12 @@ Function ${PREFIX}resd.RemoveOwnedRuntime
                 Goto characters
             ${EndIf}
         StrCpy $2 "$INSTDIR\WebView2Runtime\$1"
-        GetFullPathName $3 "$2"
-        ${If} $3 != "$2"
-            Goto failed ; rejects absolute paths, . and .. components
-        ${EndIf}
         Push "$2"
         Call ${PREFIX}resd.PlainPath
         Pop $3
-        ${If} $3 == ""
+        ${If} $3 != "$2"
+            ; Reject unsafe/noncanonical paths, but allow owned files that
+            ; were already removed before an interrupted cleanup is retried.
             Goto failed
         ${EndIf}
         ${If} $5 == "F"
