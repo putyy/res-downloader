@@ -20,6 +20,7 @@ const (
 	maxFFmpegArguments      = 256
 	maxFFmpegArgumentLength = 16 * 1024
 	maxFFmpegLogBytes       = 512 * 1024
+	maxMediaToolOutputBytes = 64 * 1024
 )
 
 type MediaToolStatus struct {
@@ -80,18 +81,38 @@ func detectMediaTool(configured, fallback string) MediaToolStatus {
 		return MediaToolStatus{Path: path, Error: err.Error()}
 	}
 	info, err := os.Stat(absolute)
-	if err != nil || !info.Mode().IsRegular() {
-		return MediaToolStatus{Path: absolute, Error: "executable file does not exist"}
+	if err != nil {
+		return MediaToolStatus{Path: absolute, Error: "access executable: " + err.Error()}
+	}
+	if !info.Mode().IsRegular() {
+		return MediaToolStatus{Path: absolute, Error: "executable path is not a regular file"}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, absolute, "-version")
 	configureMediaCommand(command)
-	output, err := command.Output()
+	stdout := &boundedBuffer{limit: maxMediaToolOutputBytes}
+	stderr := &boundedBuffer{limit: maxMediaToolOutputBytes}
+	command.Stdout, command.Stderr = stdout, stderr
+	err = command.Run()
 	if err != nil {
-		return MediaToolStatus{Path: absolute, Error: err.Error()}
+		message := fallback + " -version failed: " + err.Error()
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			message = fallback + " -version timed out after 3 seconds"
+		}
+		if detail := strings.TrimSpace(stderr.String()); detail != "" {
+			message += "\nstderr:\n" + detail
+		}
+		if detail := strings.TrimSpace(stdout.String()); detail != "" {
+			message += "\nstdout:\n" + detail
+		}
+		return MediaToolStatus{Path: absolute, Error: message}
 	}
-	firstLine := strings.SplitN(string(output), "\n", 2)[0]
+	output := strings.TrimSpace(stdout.String())
+	if output == "" {
+		output = strings.TrimSpace(stderr.String())
+	}
+	firstLine := strings.SplitN(output, "\n", 2)[0]
 	return MediaToolStatus{Available: true, Path: absolute, Version: strings.TrimSpace(firstLine)}
 }
 

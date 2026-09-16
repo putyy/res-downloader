@@ -11,7 +11,7 @@
           </NButton>
         </div>
       </NFormItem>
-      <NFormItem label="ffprobe">
+      <NFormItem label="FFprobe">
         <div class="flex w-full items-center gap-2">
           <NInput class="min-w-0 flex-1" :value="config.FFprobePath" :placeholder="t('setting.media_auto_detect')"
                   @update:value="(value: string) => emit('update:ffprobe', value)"/>
@@ -36,14 +36,14 @@
         <NTag :type="status.ffmpeg.available ? 'success' : 'error'">
           {{ status.ffmpeg.available ? t('setting.media_available') : t('setting.media_unavailable') }}
         </NTag>
-        <div class="mt-2 break-all text-xs text-gray-500 dark:text-app-muted">{{ status.ffmpeg.version || status.ffmpeg.error }}</div>
+        <div class="mt-2 whitespace-pre-wrap break-all text-xs text-gray-500 dark:text-app-muted">{{ status.ffmpeg.version || status.ffmpeg.error }}</div>
         <div v-if="status.ffmpeg.path" class="mt-1 break-all text-xs text-gray-400 dark:text-app-muted">{{ status.ffmpeg.path }}</div>
       </NCard>
-      <NCard size="small" title="ffprobe">
+      <NCard size="small" title="FFprobe">
         <NTag :type="status.ffprobe.available ? 'success' : 'error'">
           {{ status.ffprobe.available ? t('setting.media_available') : t('setting.media_unavailable') }}
         </NTag>
-        <div class="mt-2 break-all text-xs text-gray-500 dark:text-app-muted">{{ status.ffprobe.version || status.ffprobe.error }}</div>
+        <div class="mt-2 whitespace-pre-wrap break-all text-xs text-gray-500 dark:text-app-muted">{{ status.ffprobe.version || status.ffprobe.error }}</div>
         <div v-if="status.ffprobe.path" class="mt-1 break-all text-xs text-gray-400 dark:text-app-muted">{{ status.ffprobe.path }}</div>
       </NCard>
     </div>
@@ -51,23 +51,31 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
+import {nextTick, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import appApi from '@/api/app'
+import {useIndexStore} from '@/stores'
 import type {appType} from '@/types/app'
 import {BrowserOpenURL} from '../../../wailsjs/runtime'
 
-defineProps<{ config: appType.Config }>()
+const props = defineProps<{ config: appType.Config }>()
 const emit = defineEmits<{
   (event: 'update:ffmpeg', value: string): void
   (event: 'update:ffprobe', value: string): void
 }>()
 const {t} = useI18n()
+const store = useIndexStore()
 const checking = ref(false)
 const status = ref<appType.MediaEngineStatus>()
 const ffmpegWebsite = 'https://ffmpeg.org/download.html'
 type MediaTool = 'ffmpeg' | 'ffprobe'
 const selectingTool = ref<MediaTool | null>(null)
+let detectionRevision = 0
+
+watch(() => [props.config.FFmpegPath, props.config.FFprobePath], () => {
+  detectionRevision++
+  status.value = undefined
+}, {flush: 'sync'})
 
 const selectTool = async (tool: MediaTool) => {
   if (selectingTool.value) return
@@ -91,10 +99,20 @@ const selectTool = async (tool: MediaTool) => {
 }
 
 const detect = async () => {
+  if (checking.value) return
   checking.value = true
+  status.value = undefined
   try {
+    // Let the parent form watcher queue the latest configuration first.
+    await nextTick()
+    const revision = detectionRevision
+    if (!await store.flushConfig() || revision !== detectionRevision) return
     const response = await appApi.mediaStatus() as appType.Res<appType.MediaEngineStatus>
+    if (revision !== detectionRevision) return
     if (response.code === 1) status.value = response.data
+    else window?.$message?.error(response.message)
+  } catch (error) {
+    window?.$message?.error(String(error))
   } finally {
     checking.value = false
   }

@@ -11,7 +11,8 @@ export type StartupState = 'loading' | 'ready' | 'failed'
 
 export const useIndexStore = defineStore("index-store", () => {
 	let configSaveTimer: ReturnType<typeof setTimeout> | undefined
-	let configSaveChain: Promise<void> = Promise.resolve()
+	let configSaveChain: Promise<boolean> = Promise.resolve(true)
+	let pendingConfig: appType.Config | undefined
 	let configLoaded = false
     const appInfo = ref<appType.App>({
         AppName: "",
@@ -101,21 +102,39 @@ export const useIndexStore = defineStore("index-store", () => {
 		}
     }
 
+    const savePendingConfig = () => {
+        if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
+        configSaveTimer = undefined
+        if (!pendingConfig) return
+        const snapshot = pendingConfig
+        pendingConfig = undefined
+        configSaveChain = configSaveChain
+            .then(async () => {
+                const response = await appApi.setConfig(snapshot) as appType.Res
+                if (response.code !== 1) throw new Error(response.message || 'save config failed')
+                return true
+            })
+            .catch(error => {
+                window.$message?.error(String(error?.message ?? error))
+                return false
+            })
+    }
+
     const setConfig = (formValue: Object) => {
         globalConfig.value = Object.assign({}, globalConfig.value, formValue)
-		const snapshot = JSON.parse(JSON.stringify(globalConfig.value)) as appType.Config
-		if (configSaveTimer) clearTimeout(configSaveTimer)
-		configSaveTimer = setTimeout(() => {
-			configSaveTimer = undefined
-			configSaveChain = configSaveChain
-				.then(async () => {
-					const response = await appApi.setConfig(snapshot) as appType.Res
-					if (response.code !== 1) throw new Error(response.message || 'save config failed')
-				})
-				.catch(error => {
-					window.$message?.error(String(error?.message ?? error))
-				})
-		}, 500)
+        pendingConfig = JSON.parse(JSON.stringify(globalConfig.value)) as appType.Config
+        if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
+        configSaveTimer = setTimeout(savePendingConfig, 500)
+    }
+
+    const flushConfig = async (): Promise<boolean> => {
+        // Include edits queued while an earlier save is still in flight.
+        while (true) {
+            savePendingConfig()
+            const saving = configSaveChain
+            const saved = await saving
+            if (saving === configSaveChain && !pendingConfig) return saved
+        }
     }
 
     const openProxy = async (password = '') => {
@@ -145,6 +164,7 @@ export const useIndexStore = defineStore("index-store", () => {
         init,
         loadConfig,
         setConfig,
+        flushConfig,
         openProxy,
         unsetProxy
     }

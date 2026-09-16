@@ -296,7 +296,7 @@
     "resource_setting": "Resource Rules",
     "advanced_setting": "Advanced Setting",
     "media_engine": "Media Processing",
-    "media_engine_tip": "FFmpeg is not bundled. Leave paths empty to detect it from PATH, or enter full paths to your own FFmpeg and ffprobe installation. Plugins can then use controlled muxing, remuxing, HLS downloading, and live recording.",
+    "media_engine_tip": "FFmpeg is not bundled. Leave paths empty to detect it from PATH, or enter full paths to your own FFmpeg and FFprobe installation. Plugins can then use controlled muxing, remuxing, HLS downloading, and live recording.",
     "media_auto_detect": "Leave empty to auto-detect",
     "media_select_file": "Choose file",
     "media_detect": "Detect FFmpeg",

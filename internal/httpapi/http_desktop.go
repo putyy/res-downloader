@@ -73,7 +73,7 @@ func fileDialogOptions(purpose string) (wailsruntime.OpenDialogOptions, error) {
 	case "ffmpeg":
 		return mediaToolDialogOptions("FFmpeg", "ffmpeg"), nil
 	case "ffprobe":
-		return mediaToolDialogOptions("ffprobe", "ffprobe"), nil
+		return mediaToolDialogOptions("FFprobe", "ffprobe"), nil
 	default:
 		return wailsruntime.OpenDialogOptions{}, fmt.Errorf("unsupported file dialog purpose %q", purpose)
 	}
