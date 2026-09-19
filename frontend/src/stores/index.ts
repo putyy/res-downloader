@@ -8,12 +8,26 @@ import {httpapi} from "../../wailsjs/go/models"
 import {frontendErrorDetails, reportFrontendError} from '@/services/diagnostics'
 
 export type StartupState = 'loading' | 'ready' | 'failed'
+type ConfigField = 'SaveDirectory' | 'FilenameTemplate' | 'Host' | 'Port' | 'UpstreamProxy' | 'FFmpegPath' | 'FFprobePath'
+
+class ConfigSubmissionError extends Error {
+    constructor(message: string, readonly field?: ConfigField) {
+        super(message)
+    }
+}
+
+type ConfigSaveError = {field?: ConfigField; message: string; submittedValue?: string}
 
 export const useIndexStore = defineStore("index-store", () => {
 	let configSaveTimer: ReturnType<typeof setTimeout> | undefined
 	let configSaveChain: Promise<boolean> = Promise.resolve(true)
 	let pendingConfig: appType.Config | undefined
+	let pendingRevision = 0
+	let configRevision = 0
+	let savedConfig: appType.Config | undefined
 	let configLoaded = false
+    const configSaveError = ref<ConfigSaveError | null>(null)
+    const cloneConfig = (value: appType.Config): appType.Config => JSON.parse(JSON.stringify(value))
     const appInfo = ref<appType.App>({
         AppName: "",
         Version: "",
@@ -67,6 +81,7 @@ export const useIndexStore = defineStore("index-store", () => {
             ]) as httpapi.ResponseData
             if (configuration.code !== 1) throw new Error(configuration.message || 'Configuration initialization failed')
             globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
+            savedConfig = cloneConfig(globalConfig.value)
             configLoaded = true
         } finally {
             if (timeout !== undefined) clearTimeout(timeout)
@@ -107,22 +122,50 @@ export const useIndexStore = defineStore("index-store", () => {
         configSaveTimer = undefined
         if (!pendingConfig) return
         const snapshot = pendingConfig
+        const revision = pendingRevision
         pendingConfig = undefined
         configSaveChain = configSaveChain
             .then(async () => {
                 const response = await appApi.setConfig(snapshot) as appType.Res
-                if (response.code !== 1) throw new Error(response.message || 'save config failed')
+                if (response.code !== 1) {
+                    const field = (response.data as {field?: string} | null)?.field
+                    throw new ConfigSubmissionError(response.message || 'save config failed',
+                        field === 'SaveDirectory' || field === 'FilenameTemplate' || field === 'Host' ||
+                        field === 'Port' || field === 'UpstreamProxy' || field === 'FFmpegPath' ||
+                        field === 'FFprobePath' ? field : undefined)
+                }
+                savedConfig = cloneConfig(snapshot)
+                if (revision === configRevision && configSaveError.value) {
+                    const previousError = configSaveError.value
+                    if (!previousError.field || snapshot[previousError.field] === previousError.submittedValue) {
+                        configSaveError.value = null
+                    }
+                }
                 return true
             })
             .catch(error => {
-                window.$message?.error(String(error?.message ?? error))
+                const message = String(error?.message ?? error)
+                if (revision === configRevision) {
+                    if (savedConfig) globalConfig.value = cloneConfig(savedConfig)
+                    const field = error instanceof ConfigSubmissionError ? error.field : undefined
+                    configSaveError.value = {field, message, submittedValue: field ? snapshot[field] : undefined}
+                }
+                window.$message?.error(message)
                 return false
             })
     }
 
-    const setConfig = (formValue: Object) => {
+    const setConfig = (formValue: Partial<appType.Config>) => {
+        const previousError = configSaveError.value
+        // Partial updates (such as changing the theme) must not dismiss an
+        // error for a field that is still invalid in the settings form.
+        if (previousError?.field && Object.prototype.hasOwnProperty.call(formValue, previousError.field) &&
+            formValue[previousError.field] !== previousError.submittedValue) {
+            configSaveError.value = null
+        }
         globalConfig.value = Object.assign({}, globalConfig.value, formValue)
-        pendingConfig = JSON.parse(JSON.stringify(globalConfig.value)) as appType.Config
+		pendingConfig = cloneConfig(globalConfig.value)
+		pendingRevision = ++configRevision
         if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
         configSaveTimer = setTimeout(savePendingConfig, 500)
     }
@@ -156,6 +199,7 @@ export const useIndexStore = defineStore("index-store", () => {
     return {
         appInfo,
         globalConfig,
+        configSaveError,
         isProxy,
         envInfo,
         baseUrl,

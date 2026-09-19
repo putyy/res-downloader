@@ -4,7 +4,7 @@ description: Configure res-downloader resource and download settings, including 
 
 # Settings
 
-Settings are saved automatically. Restart the app after changing the listen address or port.
+Settings are saved automatically. Invalid listen addresses, ports, upstream proxy URLs, and manually entered media tool paths show an error beside the field and are not saved. Restart the app after changing the listen address or port.
 
 ## Basic settings
 
@@ -174,6 +174,8 @@ On Windows:
 
 On macOS and Linux, select the actual `ffmpeg` and `ffprobe` executables in your installation.
 
+If you enter a path manually, use the absolute path to an existing file. Invalid paths are not saved. Leave the field empty for automatic detection. After saving a path, click **Detect FFmpeg** to confirm the tool runs and reports the expected version.
+
 ## Certificate
 
 HTTPS capture requires the current certificate. Install, uninstall, or refresh its status under **Setting → Certificate**.
@@ -184,8 +186,8 @@ HTTPS capture requires the current certificate. Install, uninstall, or refresh i
 
 ## Advanced settings
 
-- **Listen address and port**: local access only by default. To connect a phone, use `0.0.0.0` and make sure the firewall allows the connection.
-- **Upstream Proxy**: configure this when using another proxy tool alongside the app.
+- **Listen address and port**: local access only by default. Enter a valid IP address or hostname and an integer port from 1025 to 65534. Enter IPv6 addresses such as `::1` without brackets. To connect a phone, use `0.0.0.0` and make sure the firewall allows the connection.
+- **Upstream Proxy**: configure this when using another proxy tool alongside the app. Use an `http://` or `https://` URL without a path, query, or fragment. If you specify a port, it must be from 1 to 65535. Enter an address before enabling upstream or download proxy use. Invalid URLs are not saved.
 - **Download Proxy**: routes downloads through the upstream proxy when enabled.
 - **Connections and Download Number**: try reducing these if downloads are unstable.
 - **User-Agent and request headers**: normally keep the defaults. Do not share account information such as cookies.

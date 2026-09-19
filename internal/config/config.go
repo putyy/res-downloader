@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 // Config struct
@@ -45,6 +44,14 @@ type Config struct {
 	InsertTail           bool           `json:"InsertTail"`
 	InterceptionPolicies []rules.Policy `json:"InterceptionPolicies"`
 }
+
+type ValidationError struct {
+	Field string
+	Err   error
+}
+
+func (e *ValidationError) Error() string { return e.Err.Error() }
+func (e *ValidationError) Unwrap() error { return e.Err }
 
 type configState struct {
 	mu      sync.RWMutex
@@ -156,6 +163,7 @@ func (c *Config) Apply(config Config) error {
 	}
 	c.state.applyMu.Lock()
 	defer c.state.applyMu.Unlock()
+	previous := c.Snapshot()
 	config = config.Snapshot()
 	config.FFmpegPath = strings.TrimSpace(config.FFmpegPath)
 	config.FFprobePath = strings.TrimSpace(config.FFprobePath)
@@ -165,8 +173,27 @@ func (c *Config) Apply(config Config) error {
 	if err := validateConfig(config); err != nil {
 		return err
 	}
-	if _, err := naming.ExpandFilenameTemplate(config.FilenameTemplate, map[string]string{}, nil, time.Now()); err != nil {
-		return err
+	if config.SaveDirectory != previous.SaveDirectory {
+		if strings.TrimSpace(config.SaveDirectory) == "" || !filepath.IsAbs(config.SaveDirectory) {
+			return &ValidationError{Field: "SaveDirectory", Err: errors.New("save directory must be an absolute folder")}
+		}
+		info, err := os.Stat(config.SaveDirectory)
+		if err != nil || !info.IsDir() {
+			return &ValidationError{Field: "SaveDirectory", Err: errors.New("save directory does not exist or is not a folder")}
+		}
+	}
+	if err := naming.ValidateFilenameTemplate(config.FilenameTemplate); err != nil {
+		return &ValidationError{Field: "FilenameTemplate", Err: err}
+	}
+	if config.FFmpegPath != previous.FFmpegPath {
+		if err := validateMediaToolPath(config.FFmpegPath); err != nil {
+			return &ValidationError{Field: "FFmpegPath", Err: err}
+		}
+	}
+	if config.FFprobePath != previous.FFprobePath {
+		if err := validateMediaToolPath(config.FFprobePath); err != nil {
+			return &ValidationError{Field: "FFprobePath", Err: err}
+		}
 	}
 	if _, err := naming.ResolveFilenameConflict(filepath.Join(os.TempDir(), "res-downloader-config-check"), config.FilenameConflict); err != nil {
 		return err
@@ -174,7 +201,6 @@ func (c *Config) Apply(config Config) error {
 	if err := rules.Validate(config.InterceptionPolicies); err != nil {
 		return err
 	}
-	previous := c.Snapshot()
 	// Window dimensions are maintained by the desktop lifecycle. Settings forms
 	// may contain an older snapshot, so they must not overwrite the latest size.
 	config.WindowWidth, config.WindowHeight = previous.WindowWidth, previous.WindowHeight
@@ -212,24 +238,12 @@ func (c *Config) Apply(config Config) error {
 }
 
 func validateConfig(value Config) error {
-	if value.Host == "" || strings.ContainsAny(value.Host, "/\\?#@ \t\r\n") {
-		return errors.New("invalid listen host")
-	}
-	if net.ParseIP(strings.Trim(value.Host, "[]")) == nil {
-		for _, label := range strings.Split(value.Host, ".") {
-			if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
-				return errors.New("invalid listen host")
-			}
-			for _, char := range label {
-				if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '-' {
-					return errors.New("invalid listen host")
-				}
-			}
-		}
+	if !validHost(value.Host) {
+		return &ValidationError{Field: "Host", Err: errors.New("invalid listen host")}
 	}
 	port, err := strconv.Atoi(value.Port)
-	if err != nil || port <= 1024 || port >= 65535 {
-		return errors.New("listen port must be between 1025 and 65534")
+	if err != nil || port <= 1024 || port >= 65535 || !decimalDigits(value.Port) {
+		return &ValidationError{Field: "Port", Err: errors.New("listen port must be between 1025 and 65534")}
 	}
 	if value.TaskNumber < 2 || value.TaskNumber > 64 {
 		return errors.New("download connections must be between 2 and 64")
@@ -237,11 +251,83 @@ func validateConfig(value Config) error {
 	if value.DownNumber < 1 || value.DownNumber > 10 {
 		return errors.New("concurrent downloads must be between 1 and 10")
 	}
-	if value.UpstreamProxy != "" {
-		parsed, err := url.Parse(value.UpstreamProxy)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-			return errors.New("upstream proxy must be a valid HTTP or HTTPS URL")
+	if value.UpstreamProxy == "" && (value.OpenProxy || value.DownloadProxy) {
+		return &ValidationError{Field: "UpstreamProxy", Err: errors.New("upstream proxy is required when proxy is enabled")}
+	}
+	if value.UpstreamProxy != "" && !validUpstreamProxy(value.UpstreamProxy) {
+		return &ValidationError{Field: "UpstreamProxy", Err: errors.New("upstream proxy must be a valid HTTP or HTTPS URL")}
+	}
+	return nil
+}
+
+func validHost(host string) bool {
+	if host == "" || len(host) > 253 || strings.ContainsAny(host, "/\\?#@ \t\r\n") {
+		return false
+	}
+	if net.ParseIP(host) != nil {
+		return true
+	}
+	labels := strings.Split(host, ".")
+	if len(labels) == 4 {
+		allNumeric := true
+		for _, label := range labels {
+			allNumeric = allNumeric && decimalDigits(label)
 		}
+		if allNumeric {
+			return false
+		}
+	}
+	for _, label := range labels {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, char := range label {
+			if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func decimalDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func validUpstreamProxy(value string) bool {
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+		parsed.Opaque != "" || !strings.HasPrefix(value, parsed.Scheme+"://") ||
+		!validHost(parsed.Hostname()) || (parsed.Path != "" && parsed.Path != "/") ||
+		parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" ||
+		strings.HasSuffix(parsed.Host, ":") {
+		return false
+	}
+	if port := parsed.Port(); port != "" {
+		number, err := strconv.Atoi(port)
+		return err == nil && decimalDigits(port) && number >= 1 && number <= 65535
+	}
+	return true
+}
+
+func validateMediaToolPath(path string) error {
+	if path == "" {
+		return nil
+	}
+	if !filepath.IsAbs(path) {
+		return errors.New("media tool path must be absolute")
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return errors.New("media tool path must point to an existing file")
 	}
 	return nil
 }

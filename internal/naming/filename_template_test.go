@@ -100,6 +100,61 @@ func TestFilenameTemplateRejectsTraversalAndUnknownFilters(t *testing.T) {
 	}
 }
 
+func TestValidateFilenameTemplateBeforeSaving(t *testing.T) {
+	for _, template := range []string{
+		"", "{{meta.site.author}}/{{title}}.{{ext}}",
+		"{{created_at}}/{{meta.createdAt}}.{{ext}}",
+		"{{date:2006/01}}/{{title|default:resource}}.{{ext}}",
+		"archive{{date:/2006/01}}/{{title|sanitize}}.{{ext}}",
+		"archive{{title|default:/resource}}.{{ext}}",
+		"{{title|default:..}}.{{ext}}",
+	} {
+		if err := ValidateFilenameTemplate(template); err != nil {
+			t.Fatalf("valid template %q: %v", template, err)
+		}
+	}
+	for _, template := range []string{
+		"/{{title}}.{{ext}}", "../{{title}}.{{ext}}",
+		"C:/{{title}}.{{ext}}",
+		"{{title|default:..}}/{{id}}.{{ext}}", "{{title|truncate:0}}.{{ext}}",
+		"{{title|default:C:/resource}}.{{ext}}",
+		"{{title|default:/resource}}.{{ext}}",
+		"{{title|default:.}}{{author|default:.}}/{{id}}.{{ext}}",
+		strings.Repeat("a", 4097),
+	} {
+		if err := ValidateFilenameTemplate(template); err == nil {
+			t.Fatalf("invalid template %q was accepted", template)
+		}
+	}
+}
+
+func TestRenderResourcePathWithPrefixedDateDirectory(t *testing.T) {
+	directory := t.TempDir()
+	path, err := RenderResourcePath(directory, "archive{{date:/2006/01}}/{{title|sanitize}}.{{ext}}",
+		shared.ResourceCandidate{Title: "resource"},
+		shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}},
+		time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(directory, "archive", "2026", "01", "resource.mp4"); path != want {
+		t.Fatalf("path = %q, want %q", path, want)
+	}
+}
+
+func TestRenderResourcePathInsideFilesystemRoot(t *testing.T) {
+	root := filepath.VolumeName(t.TempDir()) + string(filepath.Separator)
+	path, err := RenderResourcePath(root, "{{title}}.{{ext}}",
+		shared.ResourceCandidate{Title: "resource"},
+		shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(root, "resource.mp4"); path != want {
+		t.Fatalf("root path = %q, want %q", path, want)
+	}
+}
+
 func TestSanitizeFilenameSegmentHandlesPortableNames(t *testing.T) {
 	if got := SanitizeFilenameSegment("CON.txt"); got != "_CON.txt" {
 		t.Fatalf("reserved name = %q", got)

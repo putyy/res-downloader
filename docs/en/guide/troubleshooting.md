@@ -137,6 +137,12 @@ sudo xattr -d com.apple.quarantine /Applications/res-downloader.app
 
 Check free disk space, whether the link has expired, and whether the download proxy works. Expired WeChat Channels links must be captured again.
 
+## Download reports a filename template error
+
+Check **Settings → Basic Settings → Filename Template**. The template must produce a path relative to the save directory. It cannot start with `/` or a drive letter or contain a parent directory segment (`..`). The settings page rejects errors it can detect in advance and shows the reason below the field. Resource titles and plugin metadata are only known during a download and can still produce an unsafe path. Use `sanitize` for titles and authors and add `default` where needed; see [Filename template](settings.md#filename-template).
+
+If the template looks correct but the error persists, provide the full error, operating system, save directory, template, and resource title after removing private information.
+
 ## Downloaded filenames start with resource-
 
 The app first generates a name from the filename template, removing incompatible characters and shortening long names. If the operating system still rejects it, the final file placement step uses `resource-<short-id>.<extension>` to preserve the downloaded and processed data. The actual saved path is shown in the download center. If both placement attempts fail, temporary output remains in `.res-downloader-work` inside the current save directory. Remove it by deleting the failed task, clearing finished tasks, or using **Clear cache and restart**. To investigate why the original name was rejected, provide sanitized logs.

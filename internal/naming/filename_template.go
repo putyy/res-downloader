@@ -23,11 +23,11 @@ const (
 )
 
 func RenderResourcePath(directory, template string, resource shared.ResourceCandidate, plan shared.DownloadPlan, now time.Time) (string, error) {
+	if err := ValidateFilenameTemplate(template); err != nil {
+		return "", err
+	}
 	if template == "" {
 		template = defaultFilenameTemplate
-	}
-	if len(template) > maxFilenameTemplateSize {
-		return "", fmt.Errorf("filename template exceeds %d bytes", maxFilenameTemplateSize)
 	}
 	track := selectedFilenameTrack(resource, plan)
 	extension := strings.TrimPrefix(plan.Output.Extension, ".")
@@ -70,10 +70,98 @@ func RenderResourcePath(directory, template string, resource shared.ResourceCand
 	if err != nil {
 		return "", err
 	}
-	if target != root && !strings.HasPrefix(target, root+string(filepath.Separator)) {
+	relativeTarget, err := filepath.Rel(root, target)
+	if err != nil || relativeTarget == ".." || filepath.IsAbs(relativeTarget) || strings.HasPrefix(relativeTarget, ".."+string(filepath.Separator)) {
 		return "", errors.New("filename template escaped the download directory")
 	}
 	return target, nil
+}
+
+// ValidateFilenameTemplate catches errors that do not depend on a particular
+// resource. Values available only at download time are checked by RenderResourcePath.
+func ValidateFilenameTemplate(template string) error {
+	if template == "" {
+		template = defaultFilenameTemplate
+	}
+	if len(template) > maxFilenameTemplateSize {
+		return fmt.Errorf("filename template exceeds %d bytes", maxFilenameTemplateSize)
+	}
+
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	variables := map[string]string{"ext": "mp4", "date": "20260102", "time": "030405"}
+	metadata := map[string]interface{}{
+		"createdAt": now.UnixMilli(), "publishedAt": now.UnixMilli(),
+	}
+	var fallbackPath strings.Builder
+	for remaining := template; ; {
+		start := strings.Index(remaining, "{{")
+		if start < 0 {
+			fallbackPath.WriteString(remaining)
+			break
+		}
+		fallbackPath.WriteString(remaining[:start])
+		remaining = remaining[start+2:]
+		end := strings.Index(remaining, "}}")
+		if end < 0 {
+			return errors.New("filename template contains an unclosed variable")
+		}
+		expression := strings.TrimSpace(remaining[:end])
+		remaining = remaining[end+2:]
+		variable, _, _ := strings.Cut(strings.TrimSpace(strings.Split(expression, "|")[0]), ":")
+		if strings.HasPrefix(variable, "meta.") {
+			key := strings.TrimPrefix(variable, "meta.")
+			if key != "createdAt" && key != "publishedAt" {
+				metadata[key] = "resource"
+			}
+		} else if variable != "ext" && variable != "date" && variable != "time" {
+			variables[variable] = "resource"
+		}
+		optionalValue, err := evaluateFilenameExpression(expression, nil, nil, now)
+		if err != nil {
+			return err
+		}
+		// Keep the surrounding path when checking defaults. An expression may
+		// start with a separator even though the complete path is relative.
+		if optionalValue == "" {
+			optionalValue, err = evaluateFilenameExpression(expression, variables, metadata, now)
+			if err != nil {
+				return err
+			}
+		}
+		fallbackPath.WriteString(optionalValue)
+	}
+
+	rendered, err := ExpandFilenameTemplate(template, variables, metadata, now)
+	if err != nil {
+		return err
+	}
+	for _, value := range []string{rendered, fallbackPath.String()} {
+		if isDriveQualifiedFilenamePath(value) {
+			return errors.New("filename template must produce a relative path")
+		}
+		if _, err := safeRelativeResourcePath(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isDriveQualifiedFilenamePath(value string) bool {
+	return len(value) >= 2 && value[1] == ':' &&
+		(value[0] >= 'A' && value[0] <= 'Z' || value[0] >= 'a' && value[0] <= 'z')
+}
+
+func rejectUnsafeFilenamePath(value string) error {
+	value = strings.ReplaceAll(value, "\\", "/")
+	if strings.HasPrefix(value, "/") {
+		return errors.New("filename template must produce a relative path")
+	}
+	for _, part := range strings.Split(value, "/") {
+		if strings.TrimSpace(part) == ".." {
+			return errors.New("filename template must not contain parent path segments")
+		}
+	}
+	return nil
 }
 
 func ExpandFilenameTemplate(template string, variables map[string]string, metadata map[string]interface{}, now time.Time) (string, error) {
@@ -212,8 +300,8 @@ func selectedFilenameTrack(resource shared.ResourceCandidate, plan shared.Downlo
 
 func safeRelativeResourcePath(value string) (string, error) {
 	value = strings.ReplaceAll(value, "\\", "/")
-	if strings.HasPrefix(value, "/") {
-		return "", errors.New("filename template must produce a relative path")
+	if err := rejectUnsafeFilenamePath(value); err != nil {
+		return "", err
 	}
 	rawParts := strings.Split(value, "/")
 	parts := make([]string, 0, len(rawParts))
@@ -221,9 +309,6 @@ func safeRelativeResourcePath(value string) (string, error) {
 		part := strings.TrimSpace(rawPart)
 		if part == "" || part == "." {
 			continue
-		}
-		if part == ".." {
-			return "", errors.New("filename template must not contain parent path segments")
 		}
 		part = TruncateFilenameSegment(SanitizeFilenameSegment(part), MaxFilenameSegmentBytes)
 		if part == "" {

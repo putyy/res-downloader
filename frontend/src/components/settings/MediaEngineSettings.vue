@@ -2,7 +2,7 @@
   <div class="w-[760px] space-y-4">
     <NAlert type="info" :show-icon="false">{{ t('setting.media_engine_tip') }}</NAlert>
     <NForm label-placement="left" label-width="60">
-      <NFormItem label="FFmpeg">
+      <NFormItem label="FFmpeg" :validation-status="ffmpegFeedback ? 'error' : undefined" :feedback="ffmpegFeedback">
         <div class="flex w-full items-center gap-2">
           <NInput class="min-w-0 flex-1" :value="config.FFmpegPath" :placeholder="t('setting.media_auto_detect')"
                   @update:value="(value: string) => emit('update:ffmpeg', value)"/>
@@ -11,7 +11,7 @@
           </NButton>
         </div>
       </NFormItem>
-      <NFormItem label="FFprobe">
+      <NFormItem label="FFprobe" :validation-status="ffprobeFeedback ? 'error' : undefined" :feedback="ffprobeFeedback">
         <div class="flex w-full items-center gap-2">
           <NInput class="min-w-0 flex-1" :value="config.FFprobePath" :placeholder="t('setting.media_auto_detect')"
                   @update:value="(value: string) => emit('update:ffprobe', value)"/>
@@ -58,7 +58,7 @@ import {useIndexStore} from '@/stores'
 import type {appType} from '@/types/app'
 import {BrowserOpenURL} from '../../../wailsjs/runtime'
 
-const props = defineProps<{ config: appType.Config }>()
+const props = defineProps<{ config: appType.Config; ffmpegFeedback: string; ffprobeFeedback: string }>()
 const emit = defineEmits<{
   (event: 'update:ffmpeg', value: string): void
   (event: 'update:ffprobe', value: string): void

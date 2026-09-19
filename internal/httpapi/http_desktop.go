@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -232,6 +233,11 @@ func (h *Server) setConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.config.Apply(data); err != nil {
+		var validationError *config.ValidationError
+		if errors.As(err, &validationError) {
+			h.error(w, err.Error(), respData{"field": validationError.Field})
+			return
+		}
 		h.error(w, err.Error())
 		return
 	}

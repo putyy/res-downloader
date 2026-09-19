@@ -17,12 +17,16 @@
             require-mark-placement="right-hanging"
             class="w-[700px] [--wails-draggable:no-drag]"
         >
-          <NFormItem :label="t('setting.save_dir')" path="SaveDirectory">
+          <NFormItem :label="t('setting.save_dir')" path="SaveDirectory"
+                     :validation-status="saveDirectoryValidationFeedback ? 'error' : undefined"
+                     :feedback="saveDirectoryValidationFeedback">
             <NInput :value="formValue.SaveDirectory" :placeholder="t('setting.save_dir')"/>
             <NButton strong secondary type="primary" @click="selectDir" class="ml-1">{{ t('common.select') }}</NButton>
           </NFormItem>
 
-          <NFormItem :label="t('setting.filename_template')" path="FilenameTemplate">
+          <NFormItem :label="t('setting.filename_template')" path="FilenameTemplate"
+                     :validation-status="filenameTemplateValidationFeedback ? 'error' : undefined"
+                     :feedback="filenameTemplateValidationFeedback">
             <NInput v-model:value="formValue.FilenameTemplate" :placeholder="filenameTemplateExample"/>
             <NTooltip trigger="hover">
               <template #trigger>
@@ -165,6 +169,8 @@
       <NTabPane name="media" :tab="t('setting.media_engine')" class="[--wails-draggable:no-drag]">
         <MediaEngineSettings
             :config="formValue"
+            :ffmpeg-feedback="ffmpegPathValidationFeedback"
+            :ffprobe-feedback="ffprobePathValidationFeedback"
             @update:ffmpeg="(value: any) => formValue.FFmpegPath = value"
             @update:ffprobe="(value: any) => formValue.FFprobePath = value"
         />
@@ -207,7 +213,9 @@
             </NTooltip>
           </NFormItem>
 
-          <NFormItem :label="t('setting.upstream_proxy')" path="UpstreamProxy">
+          <NFormItem :label="t('setting.upstream_proxy')" path="UpstreamProxy"
+                     :validation-status="upstreamProxyValidationFeedback ? 'error' : undefined"
+                     :feedback="upstreamProxyValidationFeedback">
             <NInput v-model:value="formValue.UpstreamProxy" placeholder="http://127.0.0.1:7890"/>
             <NSwitch v-model:value="formValue.OpenProxy" class="ml-1"/>
             <NTooltip trigger="hover">
@@ -337,7 +345,7 @@ import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import {useI18n} from 'vue-i18n'
 import {useRoute} from 'vue-router'
-import {isValidHost, isValidPort} from '@/func'
+import {isValidHost, isValidPort, isValidUpstreamProxy} from '@/func'
 import {NButton, NIcon} from "naive-ui"
 import * as bind from "../../wailsjs/go/app/Bind"
 import {BrowserOpenURL} from "../../wailsjs/runtime"
@@ -439,8 +447,64 @@ const normalizeCaptureRules = (rules: any[]): appType.CaptureRule[] => (rules ??
   },
 }))
 
-const hostValidationFeedback = ref("")
-const portValidationFeedback = ref("")
+const formatDownloadSettingError = (message: string): string => {
+  const knownErrors: Record<string, string> = {
+    'save directory must be an absolute folder': 'save_dir_absolute_error',
+    'save directory does not exist or is not a folder': 'save_dir_missing_error',
+    'filename template contains an unclosed variable': 'filename_template_unclosed_error',
+    'filename template contains an empty variable': 'filename_template_empty_variable_error',
+    'filename template contains an empty filter': 'filename_template_empty_filter_error',
+    'filename template must produce a relative path': 'filename_template_relative_error',
+    'filename template must not contain parent path segments': 'filename_template_parent_error',
+    'filename template produced an empty path': 'filename_template_empty_path_error',
+    'invalid listen host': 'host_format_error',
+    'listen port must be between 1025 and 65534': 'port_format_error',
+    'upstream proxy is required when proxy is enabled': 'upstream_proxy_required_error',
+    'upstream proxy must be a valid HTTP or HTTPS URL': 'upstream_proxy_format_error',
+    'media tool path must be absolute': 'media_path_absolute_error',
+    'media tool path must point to an existing file': 'media_path_missing_error',
+  }
+  if (knownErrors[message]) return t(`setting.${knownErrors[message]}`)
+  if (message.startsWith('filename template exceeds ')) return t('setting.filename_template_length_error')
+  if (message.startsWith('filename truncate filter has invalid limit ')) return t('setting.filename_template_truncate_error')
+  if (message.startsWith('unsupported filename filter ')) {
+    return t('setting.filename_template_filter_error', {filter: message.slice('unsupported filename filter '.length)})
+  }
+  return message
+}
+const saveDirectoryValidationFeedback = computed(() => {
+  const error = store.configSaveError
+  return error?.field === 'SaveDirectory' && error.submittedValue === formValue.value.SaveDirectory
+    ? formatDownloadSettingError(error.message) : ''
+})
+const filenameTemplateValidationFeedback = computed(() => {
+  const error = store.configSaveError
+  return error?.field === 'FilenameTemplate' && error.submittedValue === formValue.value.FilenameTemplate
+    ? formatDownloadSettingError(error.message) : ''
+})
+type ValidatedConfigField = 'Host' | 'Port' | 'UpstreamProxy' | 'FFmpegPath' | 'FFprobePath'
+const savedFieldFeedback = (field: ValidatedConfigField): string => {
+  const error = store.configSaveError
+  return error?.field === field && error.submittedValue === formValue.value[field]
+    ? formatDownloadSettingError(error.message) : ''
+}
+const hostFormatFeedback = computed(() => !isValidHost(formValue.value.Host.trim())
+  ? t('setting.host_format_error') : '')
+const portFormatFeedback = computed(() => !isValidPort(formValue.value.Port.trim())
+  ? t('setting.port_format_error') : '')
+const upstreamProxyFormatFeedback = computed(() => {
+  const value = formValue.value.UpstreamProxy.trim()
+  if (!value && (formValue.value.OpenProxy || formValue.value.DownloadProxy)) {
+    return t('setting.upstream_proxy_required_error')
+  }
+  if (value && !isValidUpstreamProxy(value)) return t('setting.upstream_proxy_format_error')
+  return ''
+})
+const hostValidationFeedback = computed(() => hostFormatFeedback.value || savedFieldFeedback('Host'))
+const portValidationFeedback = computed(() => portFormatFeedback.value || savedFieldFeedback('Port'))
+const upstreamProxyValidationFeedback = computed(() => upstreamProxyFormatFeedback.value || savedFieldFeedback('UpstreamProxy'))
+const ffmpegPathValidationFeedback = computed(() => savedFieldFeedback('FFmpegPath'))
+const ffprobePathValidationFeedback = computed(() => savedFieldFeedback('FFprobePath'))
 const resetting = ref(false)
 const showResetAuthorization = ref(false)
 const resetPassword = ref('')
@@ -448,20 +512,10 @@ const resetPassword = ref('')
 watch(formValue.value, () => {
   formValue.value.Port = formValue.value.Port.trim()
   formValue.value.Host = formValue.value.Host.trim()
-
-  if (!isValidHost(formValue.value.Host)) {
-    hostValidationFeedback.value = t("setting.host_format_error")
-    return
-  } else {
-    hostValidationFeedback.value = ''
-  }
-
-  if (!isValidPort(parseInt(formValue.value.Port))) {
-    portValidationFeedback.value = t("setting.port_format_error")
-    return
-  } else {
-    portValidationFeedback.value = ''
-  }
+  formValue.value.UpstreamProxy = formValue.value.UpstreamProxy.trim()
+  formValue.value.FFmpegPath = formValue.value.FFmpegPath.trim()
+  formValue.value.FFprobePath = formValue.value.FFprobePath.trim()
+  if (hostFormatFeedback.value || portFormatFeedback.value || upstreamProxyFormatFeedback.value) return
   store.setConfig(formValue.value)
 }, {deep: true})
 
@@ -478,7 +532,7 @@ watch(() => store.globalConfig.Locale, () => {
 
 const selectDir = () => {
   appApi.openDirectoryDialog().then((res: any) => {
-    if (res.code === 1) {
+    if (res.code === 1 && res.data?.folder) {
       formValue.value.SaveDirectory = res.data.folder
     }
   }).catch((err: any) => {
