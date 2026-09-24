@@ -72,12 +72,18 @@ export const resourcePreviewURL = (row: appType.ResourceView): string => {
 }
 
 export const resourceDomain = (row: appType.ResourceView): string => {
-    if (row.source?.domain) return row.source.domain
-    try {
-        return new URL(primaryURL(row)).hostname
-    } catch {
-        return ''
+    const domain = row.source?.domain?.trim()
+    if (domain) return domain
+    for (const address of [primaryURL(row), row.source?.pageUrl]) {
+        if (!address) continue
+        try {
+            const hostname = new URL(address).hostname
+            if (hostname) return hostname
+        } catch {
+            // A missing or invalid resource URL may still have a page URL.
+        }
     }
+    return ''
 }
 
 export const resourceSize = (row: appType.ResourceView): number => {

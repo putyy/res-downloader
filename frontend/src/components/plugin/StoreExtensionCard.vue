@@ -1,5 +1,5 @@
 <template>
-  <NCard size="small" :bordered="false" class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto hover:-translate-y-0.5 h-full [--wails-draggable:no-drag]">
+  <NCard size="small" :bordered="false" class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto h-full [--wails-draggable:no-drag]">
     <template #header>
       <div class="min-w-0">
         <div class="truncate font-medium" :title="name">{{ name }}</div>

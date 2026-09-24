@@ -15,3 +15,5 @@ export function OpenLogDirectory():Promise<void>;
 export function PrepareReset(arg1:string):Promise<void>;
 
 export function ResetApp():Promise<void>;
+
+export function RestartWithNewPort():Promise<void>;

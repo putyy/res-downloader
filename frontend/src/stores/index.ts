@@ -6,6 +6,11 @@ import {Environment} from "../../wailsjs/runtime"
 import * as bind from "../../wailsjs/go/app/Bind"
 import {httpapi} from "../../wailsjs/go/models"
 import {frontendErrorDetails, reportFrontendError} from '@/services/diagnostics'
+import axios from 'axios'
+import i18n from '@/i18n'
+import {waitForInitialRoute} from '@/router'
+
+export const DEFAULT_FILENAME_TEMPLATE = "{{title|default:resource|sanitize|truncate:80}}_{{date:20060102_150405}}.{{ext}}"
 
 export type StartupState = 'loading' | 'ready' | 'failed'
 type ConfigField = 'SaveDirectory' | 'FilenameTemplate' | 'Host' | 'Port' | 'UpstreamProxy' | 'FFmpegPath' | 'FFprobePath'
@@ -42,7 +47,7 @@ export const useIndexStore = defineStore("index-store", () => {
         Port: "8899",
         SaveDirectory: "",
         UpstreamProxy: "",
-        FilenameTemplate: "{{title|default:resource|sanitize|truncate:80}}_{{date:20060102_150405}}.{{ext}}",
+        FilenameTemplate: DEFAULT_FILENAME_TEMPLATE,
         FilenameConflict: "rename",
         OpenProxy: false,
         DownloadProxy: false,
@@ -69,6 +74,8 @@ export const useIndexStore = defineStore("index-store", () => {
     const baseUrl = ref("")
     const startupState = ref<StartupState>('loading')
     const startupError = ref("")
+    const startupHint = ref("")
+    const startupPortUnavailable = ref(false)
 
     const loadConfig = async () => {
         let timeout: ReturnType<typeof setTimeout> | undefined
@@ -91,29 +98,50 @@ export const useIndexStore = defineStore("index-store", () => {
     const init = async () => {
 		startupState.value = 'loading'
 		startupError.value = ''
+		startupHint.value = ''
+		startupPortUnavailable.value = false
+		let stage = 'configuration'
 		try {
 			if (!configLoaded) await loadConfig()
+			stage = 'environment'
 			envInfo.value = await Environment()
 
-			const session = await bind.APISession() as httpapi.ResponseData
-			if (session.code !== 1) throw new Error(session.message || 'API session initialization failed')
-			window.$apiToken = String((session.data as { token?: string })?.token ?? '')
-			if (!window.$apiToken) throw new Error('API session token is empty')
-
+			stage = 'application-info'
 			const info = await bind.AppInfo() as httpapi.ResponseData
 			if (info.code !== 1) throw new Error(info.message || 'Application information initialization failed')
 			appInfo.value = Object.assign({}, appInfo.value, info.data)
 			isProxy.value = info.data.IsProxy
 
+			stage = 'backend-startup'
+			const session = await bind.APISession() as httpapi.ResponseData
+			if (session.code !== 1) {
+				startupPortUnavailable.value = session.data?.portUnavailable === true
+				if (startupPortUnavailable.value) {
+					startupHint.value = i18n.global.t('startup.port_unavailable_tip')
+				} else if (session.data?.restartRequired) {
+					startupHint.value = i18n.global.t('startup.backend_failed_tip')
+				}
+				throw new Error(session.message || 'API session initialization failed')
+			}
+			stage = 'api-session'
+			window.$apiToken = String((session.data as { token?: string })?.token ?? '')
+			if (!window.$apiToken) throw new Error('API session token is empty')
+
+			stage = 'local-service-health'
 			baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
 			window.$baseUrl = baseUrl.value
 			const health = await appApi.appInfo() as appType.Res
 			if (health.code !== 1) throw new Error(health.message || 'Local service health check failed')
+			stage = 'initial-page'
+			await waitForInitialRoute()
 			startupState.value = 'ready'
 		} catch (error) {
-			startupError.value = frontendErrorDetails(error)
+			if (axios.isAxiosError(error) && error.response?.status === 401) {
+				startupHint.value = i18n.global.t('startup.unauthorized_tip')
+			}
+			startupError.value = `stage: ${stage}\n${frontendErrorDetails(error)}`
 			startupState.value = 'failed'
-			void reportFrontendError('startup', error)
+			void reportFrontendError('startup', startupError.value)
 		}
     }
 
@@ -205,6 +233,8 @@ export const useIndexStore = defineStore("index-store", () => {
         baseUrl,
         startupState,
         startupError,
+        startupHint,
+        startupPortUnavailable,
         init,
         loadConfig,
         setConfig,

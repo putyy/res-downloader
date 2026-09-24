@@ -2,7 +2,7 @@
   <NCard
       size="small"
       :bordered="false"
-      class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto hover:-translate-y-0.5 h-full [--wails-draggable:no-drag]"
+      class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto h-full [--wails-draggable:no-drag]"
   >
     <template #header>
       <div class="min-w-0">
@@ -27,9 +27,7 @@
     </template>
 
     <div class="text-app-muted text-xs">
-      {{ plugin.manifest.id || '-' }} · v{{ plugin.manifest.version || '-' }} · API {{
-        plugin.manifest.apiVersion || '-'
-      }}
+      {{ plugin.manifest.id || '-' }} · v{{ plugin.manifest.version || '-' }} · API {{ plugin.manifest.apiVersion || '-' }}
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>

@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"res-downloader/internal/httpapi"
 	shared "res-downloader/internal/model"
+	"res-downloader/internal/server"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -30,6 +32,21 @@ func (b *Bind) AppInfo() *httpapi.ResponseData {
 }
 
 func (b *Bind) APISession() *httpapi.ResponseData {
+	// Bind calls can arrive while OnStartup is still running. Do not let the
+	// frontend probe a port that this instance failed to acquire.
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-b.runtime.startupDone:
+		if b.runtime.startupErr != nil {
+			return httpapi.NewResponse(0, b.runtime.startupErr.Error(), map[string]bool{
+				"restartRequired": true,
+				"portUnavailable": server.IsPortUnavailable(b.runtime.startupErr),
+			})
+		}
+	case <-timer.C:
+		return httpapi.NewResponse(0, "Application services are still starting; retry the startup check", nil)
+	}
 	return httpapi.NewResponse(1, "ok", map[string]string{"token": b.runtime.HTTP.SessionToken()})
 }
 
@@ -39,6 +56,14 @@ func (b *Bind) OpenLogDirectory() error {
 		return err
 	}
 	return shared.OpenDirectory(logDirectory)
+}
+
+func (b *Bind) RestartWithNewPort() error {
+	if err := b.runtime.preparePortRestart(); err != nil {
+		return err
+	}
+	runtime.Quit(b.runtime.App.ctx)
+	return nil
 }
 
 func (b *Bind) LogFrontendError(message string) {

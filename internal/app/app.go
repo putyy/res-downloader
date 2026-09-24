@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"res-downloader/internal/events"
+	"res-downloader/internal/server"
 
 	"github.com/vrischmann/userdir"
 )
@@ -27,6 +28,8 @@ type App struct {
 	events           *events.Emitter
 	windowMu         sync.Mutex
 	windowClosed     bool
+	windowShown      bool
+	windowShowTimer  *time.Timer
 	AppName          string `json:"AppName"`
 	Version          string `json:"Version"`
 	Description      string `json:"Description"`
@@ -81,7 +84,9 @@ func (a *App) emitEvent(eventType string, data interface{}) {
 func (a *App) Startup(ctx context.Context) {
 	if err := a.runtime.Start(ctx); err != nil {
 		a.runtime.Logger.Esg(err, "start application runtime")
-		a.dialogErr(err.Error())
+		if !server.IsPortUnavailable(err) {
+			a.dialogErr(err.Error())
+		}
 	}
 }
 
@@ -89,6 +94,9 @@ func (a *App) OnExit() {
 	// Drain any pending size save before configuration reset or logger shutdown.
 	a.windowMu.Lock()
 	a.windowClosed = true
+	if a.windowShowTimer != nil {
+		a.windowShowTimer.Stop()
+	}
 	a.windowMu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

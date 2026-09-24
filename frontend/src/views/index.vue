@@ -129,11 +129,11 @@
       />
     </div>
     <div class="text-app-muted [&_span]:transition-colors [&_span]:duration-[160ms] [&_span]:ease-[ease] [&_span:hover]:text-app-accent flex items-center justify-center" id="bottom">
-      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL(certUrl)">{{ t('footer.cert_download') }}</span>
-      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://res.putyy.com')">{{ t('footer.documentation') }}</span>
-      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</span>
-      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/issues')">{{ t('footer.help') }}</span>
-      <span class="cursor-pointer px-2 py-1" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/releases')">{{ t('footer.update_log') }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL(certUrl)">{{ t('footer.cert_download') }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://res.putyy.com')">{{ t('footer.documentation') }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/issues')">{{ t('footer.help') }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/releases')">{{ t('footer.update_log') }}</span>
     </div>
     <Preview v-model:showModal="showPreviewRow" :previewRow="previewRow"/>
     <ShowLoading :loadingText="loadingText" :isLoading="loading"/>

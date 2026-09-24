@@ -29,3 +29,7 @@ export function PrepareReset(arg1) {
 export function ResetApp() {
   return window['go']['app']['Bind']['ResetApp']();
 }
+
+export function RestartWithNewPort() {
+  return window['go']['app']['Bind']['RestartWithNewPort']();
+}

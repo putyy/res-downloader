@@ -13,12 +13,20 @@ import (
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/plugin"
 	desktopsystem "res-downloader/internal/system"
+	"sync"
 )
 
 // Runtime is the application composition root. Construction, startup and
 // shutdown are deliberately separate so constructors do not open listeners or
 // start background work as a side effect.
 type Runtime struct {
+	startupOnce sync.Once
+	startupDone chan struct{}
+	startupErr  error
+	restartMu   sync.Mutex
+	portRestart *portRestart
+	closing     bool
+
 	App       *App
 	Config    *Config
 	Logger    *Logger
@@ -88,7 +96,8 @@ func NewRuntime(assets embed.FS, wailsConfig string) (*Runtime, error) {
 	httpServer := NewHTTPServer(app, sessionToken, config, proxy, resources, plugins, downloads, media, system, logger)
 
 	runtime := &Runtime{
-		App: app, Config: config, Logger: logger, System: system, Rules: rules,
+		startupDone: make(chan struct{}),
+		App:         app, Config: config, Logger: logger, System: system, Rules: rules,
 		Resources: resources, Plugins: plugins, Downloads: downloads, Media: media, Events: eventEmitter,
 		Proxy: proxy, HTTP: httpServer,
 		Captures: captures,
@@ -116,6 +125,14 @@ func (r *Runtime) Start(ctx context.Context) error {
 	if r == nil {
 		return fmt.Errorf("runtime is nil")
 	}
+	r.startupOnce.Do(func() {
+		r.startupErr = r.start(ctx)
+		close(r.startupDone)
+	})
+	return r.startupErr
+}
+
+func (r *Runtime) start(ctx context.Context) error {
 	r.App.ctx = ctx
 	r.Events.SetContext(ctx)
 	if err := r.Proxy.Start(); err != nil {
@@ -144,6 +161,11 @@ func (r *Runtime) Close(ctx context.Context) error {
 	if r == nil {
 		return nil
 	}
+	r.restartMu.Lock()
+	r.closing = true
+	restart := r.portRestart
+	r.portRestart = nil
+	r.restartMu.Unlock()
 	var first error
 	var resetWorkspaceErr error
 	if err := r.Control.Close(ctx); err != nil {
@@ -171,6 +193,21 @@ func (r *Runtime) Close(ctx context.Context) error {
 	}
 	if r.Captures != nil {
 		_ = r.Captures.Close()
+	}
+	if restart != nil {
+		// Release the reserved port only after databases and other runtime
+		// resources are closed. The new process reads the saved port normally.
+		if err := restart.listener.Close(); err != nil && first == nil {
+			first = err
+		}
+		if first == nil && !r.App.IsReset {
+			if err := restart.command.Start(); err != nil {
+				first = fmt.Errorf("restart with new listen port: %w", err)
+			}
+		}
+		if first != nil && r.Logger != nil {
+			r.Logger.Esg(first, "restart with new listen port failed; reopen the application manually")
+		}
 	}
 	if r.Logger != nil {
 		r.Logger.Close()

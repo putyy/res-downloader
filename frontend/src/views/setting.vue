@@ -30,6 +30,16 @@
             <NInput v-model:value="formValue.FilenameTemplate" :placeholder="filenameTemplateExample"/>
             <NTooltip trigger="hover">
               <template #trigger>
+                <NButton quaternary circle size="small" class="ml-1 shrink-0"
+                         :aria-label="t('setting.filename_template_reset')"
+                         @click="formValue.FilenameTemplate = DEFAULT_FILENAME_TEMPLATE">
+                  <template #icon><NIcon><RefreshOutline/></NIcon></template>
+                </NButton>
+              </template>
+              {{ t('setting.filename_template_reset') }}
+            </NTooltip>
+            <NTooltip trigger="hover">
+              <template #trigger>
                 <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
                   <HelpCircleOutline/>
                 </NIcon>
@@ -77,7 +87,7 @@
                     {{ t("index.start_err_positiveText") }}
                   </NButton>
                 </template>
-                {{ t("index.reset_app_tip") }}
+                <div class="min-w-0 whitespace-pre-line leading-relaxed [--wails-draggable:no-drag]">{{ t("index.reset_app_tip") }}</div>
               </n-popconfirm>
               <NButton secondary @click="openLogDirectory" class="[--wails-draggable:no-drag]">
                 <template #icon><NIcon><FolderOpenOutline/></NIcon></template>
@@ -154,9 +164,8 @@
                       <NSelect v-model:value="value.resource.capabilities" multiple :options="resourceCapabilityOptions"
                                :placeholder="t('setting.capture_capabilities')"/>
                     </div>
-                    <div class="mt-2 text-xs text-gray-400 dark:text-app-muted">#{{ index + 1 }} · {{
-                        t('setting.capture_rule_order_tip')
-                      }}
+                    <div class="mt-2 text-xs text-gray-400 dark:text-app-muted">
+                      #{{ index + 1 }} · {{ t('setting.capture_rule_order_tip') }}
                     </div>
                   </NCollapseItem>
                 </NCollapse>
@@ -338,9 +347,9 @@
 </template>
 
 <script lang="ts" setup>
-import {FolderOpenOutline, HelpCircleOutline} from "@vicons/ionicons5"
+import {FolderOpenOutline, HelpCircleOutline, RefreshOutline} from "@vicons/ionicons5"
 import {computed, onMounted, ref, watch} from "vue"
-import {useIndexStore} from "@/stores"
+import {DEFAULT_FILENAME_TEMPLATE, useIndexStore} from "@/stores"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import {useI18n} from 'vue-i18n'

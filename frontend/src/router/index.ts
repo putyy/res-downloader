@@ -40,4 +40,23 @@ const router = createRouter({
     routes
 })
 
+// Observe navigation before app.use(router), including lazy component failures.
+const initialNavigation = router.isReady().then(() => true, () => false)
+
+export const waitForInitialRoute = async () => {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+        await Promise.race([
+            initialNavigation.then(async ready => {
+                if (!ready) await router.replace(router.options.history.location || '/')
+            }),
+            new Promise<never>((_, reject) => {
+                timeout = setTimeout(() => reject(new Error('Initial page loading timed out')), 10000)
+            }),
+        ])
+    } finally {
+        clearTimeout(timeout)
+    }
+}
+
 export default router

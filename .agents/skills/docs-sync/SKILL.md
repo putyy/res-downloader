@@ -46,11 +46,26 @@ Do not update the SDK files speculatively. If code and SDK disagree, identify wh
 
 - Preserve meaning across Chinese and English README variants; use natural language rather than sentence-by-sentence literal translation.
 - Keep user guides task-oriented and move developer-only detail to developer documentation.
-- For plugin READMEs, follow the user's chosen reference or a mature plugin README in the repository. Prioritize functionality, installation and usage, settings, and necessary limitations; development commands may be collapsed. Keep implementation internals, debugging history, fixture inventories, and acceptance evidence in the handoff unless separate developer documentation is needed for maintenance.
 - Reuse one canonical explanation and link to it when duplication would drift.
 - Update commands, paths, option names, UI labels, defaults, limitations, and screenshots only when supported by current repository state.
 - Remove or repair stale links and navigation entries. Check relative paths and filename case because the documentation site and GitHub may resolve them differently.
 - Preserve unrelated user edits and avoid broad prose rewrites unless the user requested them.
+
+## Plugin README conventions
+
+- Maintain Chinese `README.md` and English `README-EN.md` together, with `[中文](README.md) | [English](README-EN.md)` near the top of both files. Keep support, settings, limitations, and commands consistent across languages.
+- Follow the concise style of the WeChat plugin or the user's chosen reference. Focus on supported content, relevant settings, and necessary cautions. Keep implementation internals, API details, debugging history, fixture inventories, and acceptance evidence out of user-facing sections.
+- Use a separate `安装` / `Installation` section with the same wording across site plugins. Do not append generic proxy or HTTPS setup, opening a website, browsing, or playback instructions. Use the shared wording below; adjust it only when the actual distribution method changes or the user requests it.
+- Put essential plugin-specific operations, such as YouTube's capture action, in a short `使用` / `Usage` section only when needed. Put requirements such as FFmpeg, unsupported content, expired-link recovery, and restrictions during capture in `注意事项` / `Notes`.
+- Retain `## 开发与校验` / `## Development and Validation`, including applicable lint, replay, test, and pack commands. Simplifying the user-facing explanation must not remove this section. Keep commands accurate for the target plugin; do not invent checks or remove relevant ones for brevity.
+
+Shared Chinese installation text:
+
+> 发布后可在 `res-downloader` 的“插件管理”页面安装。也可以下载对应版本的源码 ZIP，通过“从压缩包安装”导入。
+
+Shared English installation text:
+
+> Once published, the plugin can be installed from Plugin Management in `res-downloader`. You can also download the source ZIP for the desired version and import it using the option to install from an archive.
 
 ## Validation and handoff
 

@@ -82,14 +82,16 @@ func main() {
 		Height:                   windowHeight,
 		MinHeight:                config.MinWindowHeight,
 		Frameless:                !isMac,
+		StartHidden:              true,
 		Menu:                     appMenu,
 		EnableDefaultContextMenu: true,
 		AssetServer: &assetserver.Options{
 			Assets:     assets,
 			Middleware: appRuntime.HTTP.Middleware,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 243, G: 245, B: 244, A: 255},
 		OnStartup: func(ctx context.Context) {
+			app.PrepareStartupWindow(ctx)
 			wailsruntime.EventsOn(ctx, "window:resized", func(...interface{}) {
 				app.SaveWindowSize(ctx)
 			})

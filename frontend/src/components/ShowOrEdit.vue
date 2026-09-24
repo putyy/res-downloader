@@ -20,7 +20,7 @@
       <template #trigger>
         <div class="ellipsis-2">{{ inputValue }}</div>
       </template>
-      <div class="ellipsis-2">{{ inputValue }}</div>
+      <div class="whitespace-pre-wrap">{{ inputValue }}</div>
     </n-tooltip>
   </div>
 </template>

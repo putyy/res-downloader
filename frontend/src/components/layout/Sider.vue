@@ -2,7 +2,7 @@
   <div class="app-sidebar relative isolate text-app-sidebar-text bg-app-sidebar border-black/[0.12] flex pb-2 flex-col h-full min-w-[84px] shrink-0 border-r">
     <Screen v-if="envInfo.platform!=='darwin'"></Screen>
     <div class="w-full flex flex-row items-center justify-center" :class="logoPaddingClass">
-      <div class="relative flex items-center justify-center cursor-pointer" @click="handleFooterUpdate('github')">
+      <div class="relative flex items-center justify-center cursor-pointer [--wails-draggable:no-drag]" @click="handleFooterUpdate('github')">
         <img class="w-12 h-12 rounded-full transition-transform duration-300 hover:scale-105 dark"
              src="@/assets/image/logo.png" alt="res-downloader logo"/>
         <span

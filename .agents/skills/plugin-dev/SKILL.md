@@ -1,6 +1,6 @@
 ---
 name: plugin-dev
-description: Develop, debug, validate with sanitized offline fixtures, and package res-downloader site plugins from a target media URL. Use when adding website support, analyzing browser requests or client-side algorithms, creating or updating plugins under plugins/, generating sanitized fixtures, or running plugin lint, replay, and pack. Do not use for unrelated application features, host-application changes, unauthorized access, or attacking protected DRM/CDM and license enforcement.
+description: Develop, debug, validate with sanitized offline fixtures, and package res-downloader site plugins from a target media URL. Use when adding website support, analyzing browser requests or client-side algorithms, creating or updating plugins under plugins/, generating sanitized fixtures, adjusting a local package version, or running plugin lint, replay, and pack. Do not use for unrelated application features, host-application changes, unauthorized access, or attacking protected DRM/CDM and license enforcement.
 ---
 
 # Plugin Development
@@ -9,8 +9,9 @@ Turn a target media page into a minimal-permission res-downloader plugin with re
 
 ## Inputs and scope
 
-- For implementation work, require at least one representative target URL. Ask for one only when none is provided. For README-only edits, follow `docs-sync` without repeating browser observation, plugin validation, or packaging unless the change affects those artifacts.
-- Preserve user-specified plugin IDs, directories, capabilities, and acceptance criteria.
+- For site-behavior changes, require at least one representative target URL. Ask for one only when none is provided. For README-only edits, follow `docs-sync` without repeating browser observation, plugin validation, or packaging unless the change affects those artifacts.
+- Preserve user-specified plugin IDs, directories, capabilities, versions, and acceptance criteria. Do not increment the version for each debugging iteration of an unpublished change.
+- Local version changes and repackaging stay in this workflow; they do not imply release, Git, or bundled-snapshot work. For version-only changes, reuse applicable validation evidence, lint the Manifest, repack, and verify the ZIP against the final source.
 - For a new plugin without a requested directory, derive a stable site slug and use `plugins/resd-plugin-<site>`.
 - Inspect the worktree before editing. Preserve unrelated changes and update an existing target plugin in place instead of overwriting it.
 - Limit implementation changes to the target plugin directory. Do not modify the host application, shared plugin runtime, plugin protocol, CLI, UI, or bundled host capabilities as part of a plugin-development task.
@@ -26,7 +27,7 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
 ## Workflow
 
 1. Establish what value the plugin must add beyond generic resource capture, such as reliable metadata, multiple qualities, cross-request association, expiring URL refresh, media merging, or site-specific processing.
-2. Use an available browser or browser-debugging tool to load the representative page, trigger playback when needed, and inspect actual requests and responses. Treat this as development observation, not acceptance verification. Prefer observed behavior over guessed private endpoints. If browser access is unavailable and implementation depends on live traffic, report the missing observation evidence instead of fabricating fixtures or claiming support.
+2. When site behavior requires live evidence, observe normal playback and actual requests within the current user authorization. Distinguish website observation, bounded request diagnostics, and host acceptance; an observation label does not override a static-only restriction. Reuse explicit authorization for the same scope. For failed preview/download, noisy capture, or feed navigation, read [Browser media debugging](references/browser-media-debugging.md). For request failures, compare failing and working requests where possible; if evidence is unavailable, state the unresolved hypothesis instead of treating a guessed change as a confirmed fix.
 3. Choose the simplest sufficient runtime:
    - Use `declarative` when one JSON response directly provides a single-track resource.
    - Use `javascript` for complex objects, multiple qualities, correlation, refresh, or custom download plans.
@@ -44,26 +45,27 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
    - Check interaction with `builtin.generic-detector`, not only successful resource extraction. Use a resource's `source.pluginId` to distinguish generic duplicates from legitimate plugin resources, including recommended works with metadata.
    - Define which observed player requests the plugin claims with `handled: true` and which retain generic fallback. Cover relevant default-port spellings, Range headers or query parameters, separate player tracks, preloads, and media arriving before metadata; do not rely solely on exact URL correlation when those requests differ.
    - Scope suppression to the site's supported traffic and explain any loss of fallback when metadata is unavailable. Do not suppress an entire CDN by default or modify playback responses merely to hide duplicate records.
-6. Complete the generated README for users, following a mature plugin README in the repository or the user's chosen reference. Keep functionality, installation and usage, settings, and necessary limitations; development commands may be collapsed. Put response structures, debugging history, fixture inventories, and acceptance evidence in the handoff, not the user README. Add separate developer documentation only when the user requests it or ongoing maintenance warrants it.
+6. Complete the plugin READMEs according to the [Plugin README conventions in docs-sync](../docs-sync/SKILL.md#plugin-readme-conventions). Use that section as the canonical writing guidance for new plugins and documentation updates.
    Add the smallest representative fixtures needed for each supported observation path and meaningful edge case.
 7. Sanitize every fixture and log artifact. Remove cookies, authorization values, access tokens, account data, administrator credentials, private URLs, and unrelated user content. Preserve only fields required for matching and extraction.
 8. Perform repository-local validation from the repository root:
    - Run `go run main.go plugin lint ./plugins/<plugin-directory>`.
-   - Run `go run main.go plugin replay ./plugins/<plugin-directory> <fixture>` for every documented replay fixture. Replay is deterministic offline fixture validation; it is not live-site or application acceptance.
+   - For behavior changes, run `go run main.go plugin replay ./plugins/<plugin-directory> <fixture>` for every documented replay fixture. Replay is deterministic offline fixture validation; it is not live-site or application acceptance.
+   - Check relevant host return values and merge semantics; offline mocks must reflect the actual contract.
    - Check the current replay schema and runner before choosing assertions. Zero emitted resources does not prove that generic fallback was suppressed: when replay cannot assert a critical behavior such as `handled`, add a minimal documented offline contract check. Do not infer full plugin-chain behavior from a single-plugin replay.
    - Observations outside the Manifest's match scope belong in offline contract checks, not fixtures expected to pass replay. Never broaden production permissions merely to make a negative fixture match. If a file under `fixtures/` is intentionally not a replay input, identify its role instead of silently skipping it.
    - Inspect the manifest, declared capabilities, source layout, fixture sanitization, and package inputs for consistency with `docs/zh/development/plugins.md`.
    - Run only other checks that are explicitly repository-local and documented by the plugin or repository.
    - Fix failures and repeat the affected checks.
    - Do not start the host application, install or reload the plugin, or perform live capture, preview, download, playback, or network integration as acceptance validation.
-9. Include an exact manual-verification checklist in the handoff to the user. Cover installation or reload, the representative page and required login state, capture and metadata, preview, download, output playback, and any relevant refresh, merge, or site-specific processing behavior. Browser observation used during development does not count as acceptance verification.
+9. Record browser observations, request diagnostics, offline checks, and user acceptance separately. Preserve the scope of user-confirmed results; a version-only repackage does not invalidate unchanged behavior. Hand off remaining acceptance checks as described below.
 10. After implementation and static validation are final, package the plugin as the last artifact-producing step:
 
    ```bash
    go run main.go plugin pack ./plugins/<plugin-directory>
    ```
 
-11. Verify that `plugins/<plugin-directory>/dist/plugin.zip` exists and is non-empty. If any packaged source changes afterward, rerun lint, all affected fixture replays, the relevant repository-local checks, and pack so the ZIP matches the final source.
+11. Verify that `plugins/<plugin-directory>/dist/plugin.zip` exists, is non-empty, and contains the final Manifest version and matching packaged source files. If any packaged source changes afterward, rerun lint, all affected fixture replays, the relevant repository-local checks, and pack so the ZIP matches the final source.
 
 ## Safety and stopping conditions
 
@@ -79,20 +81,11 @@ Follow the current documentation when it conflicts with this skill. Do not dupli
 - Do not use wildcard domain access when the required hosts can be enumerated.
 - Treat page-script messages and observed response bodies as untrusted input and validate required types and bounds.
 - If the content remains unavailable after the user completes ordinary authentication, or a stopping condition applies, stop that route and explain what the user must provide or choose next.
-- Lint and offline replay do not prove live support. Report browser findings only as development observations, never as acceptance verification, and leave application integration, capture, download, and playback verification to the user's manual checklist.
 
 ## Completion report
 
-Report:
+Report the plugin ID/path/version, behavior and limitations, domains and capabilities, sanitized fixtures, validation results, and verified ZIP path. Identify any missing host capability as a separate follow-up. State what was observed, checked offline, confirmed by the user, or remains unverified; none substitutes for another.
 
-- plugin ID and source directory;
-- supported resource behavior and known limitations;
-- domains and capabilities requested;
-- fixtures created and sanitization performed;
-- lint, every fixture replay, and every other repository-local check result;
-- the final ZIP path and whether it was verified non-empty;
-- any missing host capability, its impact, and the proposed separate host enhancement;
-- an explicit statement that dynamic behavior has not been automatically verified;
-- the exact manual-verification checklist the user must complete, including capture, metadata, preview, download, and output playback where applicable.
+For unverified or newly affected behavior, give a concrete manual checklist: installation/reload and page refresh, representative routes and login state, capture/title correspondence, preview, download, and output playback including audio or processing. Reuse prior user acceptance when applicable instead of requiring the entire checklist after a version-only change.
 
-The implementation handoff is complete only when lint, all applicable fixture replays, and other repository-local checks pass, packaging succeeds, the final ZIP exists, and the manual-verification checklist is provided. Never claim live capture, application integration, download, or playback success from offline checks; always tell the user that manual verification is still required.
+Finish the applicable validation and final package verification before handing off implementation. Do not claim application capture, preview, or download success from offline checks.

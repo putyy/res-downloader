@@ -6,9 +6,18 @@
 
 :root {
     color-scheme: light;
+    --app-background: #f3f5f4;
+    --app-text: #252b27;
     --app-danger: #bd4055;
     --app-danger-soft: #f9e5e9;
     --app-card-shadow: 0 2px 8px rgba(28, 36, 32, 0.035);
+}
+
+/* Apply the initial theme without animating from the webview's default colors. */
+.app-starting *,
+.app-starting *::before,
+.app-starting *::after {
+    transition: none !important;
 }
 
 :root[data-app-theme='darkTheme'] {
@@ -16,6 +25,48 @@
     --app-danger: #f08a98;
     --app-danger-soft: #482a31;
     --app-card-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+}
+
+/* Wails checks the event target's inherited value, including icon/text children.
+   Keep controls interactive while the surrounding page remains draggable. */
+button,
+a[href],
+input,
+textarea,
+select,
+label,
+summary,
+[contenteditable='true'],
+.n-button,
+.n-input,
+.n-input-number,
+.n-base-selection,
+.n-checkbox,
+.n-radio,
+.n-switch,
+.n-tabs-tab,
+.n-menu-item-content,
+.n-layout-toggle-button,
+.n-collapse-item__header {
+    --wails-draggable: no-drag;
+}
+
+/* Teleported overlays do not inherit no-drag from their trigger containers. */
+.n-popover,
+.n-popover-shared,
+.n-base-select-menu,
+.n-dropdown-menu,
+.n-modal-container,
+.n-dialog,
+.n-message,
+.n-notification,
+.n-image-preview-container {
+    --wails-draggable: no-drag;
+}
+
+.n-popover:not(.n-popover--raw) {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 .app-sidebar .n-layout,
@@ -86,20 +137,23 @@
 
 .app-card.n-card {
     --n-color: var(--app-surface) !important;
-    @apply relative overflow-hidden shadow-app-card transition-[box-shadow,transform,background-color] duration-[180ms] ease-[ease];
+    @apply relative overflow-hidden shadow-app-card transition-[box-shadow,background-color] duration-[180ms] ease-[ease];
     background-color: var(--app-surface) !important;
 }
 
-.app-card--interactive.n-card:hover {
-    background-color: var(--app-surface-hover) !important;
+.app-card--interactive.n-card {
+    box-shadow: inset 0 0 0 1px transparent, var(--app-card-shadow);
+}
+
+@media (hover: hover) {
+    .app-card--interactive.n-card:hover {
+        background-color: color-mix(in srgb, var(--app-surface) 65%, var(--app-surface-hover)) !important;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-border) 65%, transparent), var(--app-card-shadow);
+    }
 }
 
 .app-card--selected.n-card {
     --n-color: var(--app-accent-soft) !important;
-    background-color: var(--app-accent-soft) !important;
-}
-
-.app-card--selected.app-card--interactive.n-card:hover {
     background-color: var(--app-accent-soft) !important;
 }
 
@@ -113,6 +167,34 @@
 
 .resource-child-table.n-data-table {
     @apply overflow-hidden bg-app-surface-muted;
+}
+
+/* Popovers are teleported outside page containers, so keep text sizing global.
+   Raw popovers (such as component-owned menus) retain their own layout. */
+.n-popover:not(.n-popover--raw) {
+    max-width: min(400px, calc(100vw - 32px));
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.n-popover:not(.n-popover--raw) > .n-popover__content,
+.n-popover .n-popconfirm__body > :not(.n-popconfirm__icon) {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.n-popover .n-popconfirm__body {
+    align-items: flex-start;
+}
+
+.n-popover .n-popconfirm__icon {
+    flex-shrink: 0;
+}
+
+.n-popover.n-tooltip > .n-popover__content {
+    max-height: min(360px, calc(100vh - 80px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .ellipsis-2 {

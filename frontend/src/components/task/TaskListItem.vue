@@ -3,7 +3,6 @@
       size="small"
       :bordered="false"
       class="app-card app-card--interactive"
-      :class="{'app-card--selected': selected}"
   >
     <div class="flex items-start gap-3">
       <div v-if="selectable" class="flex h-14 shrink-0 items-center">

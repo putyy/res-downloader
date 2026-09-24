@@ -2,9 +2,64 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// Keep the native window hidden until the frontend has prepared its first view.
+// The native timer also covers failures that prevent frontend JavaScript loading.
+func (a *App) PrepareStartupWindow(ctx context.Context) {
+	a.windowMu.Lock()
+	defer a.windowMu.Unlock()
+	if a.windowClosed || a.windowShown || a.windowShowTimer != nil {
+		return
+	}
+	runtime.EventsOn(ctx, "window:ready", func(...interface{}) {
+		a.showStartupWindow(ctx)
+	})
+	a.windowShowTimer = time.AfterFunc(10*time.Second, func() {
+		a.reportStartupWindowTimeout(ctx)
+	})
+}
+
+func (a *App) reportStartupWindowTimeout(ctx context.Context) {
+	a.windowMu.Lock()
+	if a.windowClosed || a.windowShown {
+		a.windowMu.Unlock()
+		return
+	}
+	a.runtime.Logger.Error().Msg("frontend did not prepare a startup view within 10 seconds")
+	a.windowMu.Unlock()
+
+	_, _ = runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+		Type: runtime.ErrorDialog, Title: "Startup failed",
+		Message: "The app could not start. Please reopen the app.",
+		Buttons: []string{"OK"}, DefaultButton: "OK", CancelButton: "OK",
+	})
+
+	a.windowMu.Lock()
+	if a.windowClosed || a.windowShown {
+		a.windowMu.Unlock()
+		return
+	}
+	a.windowClosed = true
+	a.windowMu.Unlock()
+	runtime.Quit(ctx)
+}
+
+func (a *App) showStartupWindow(ctx context.Context) {
+	a.windowMu.Lock()
+	defer a.windowMu.Unlock()
+	if a.windowClosed || a.windowShown {
+		return
+	}
+	a.windowShown = true
+	if a.windowShowTimer != nil {
+		a.windowShowTimer.Stop()
+	}
+	runtime.WindowShow(ctx)
+}
 
 // SaveWindowSize reads native window dimensions, which use the same units as
 // the startup options regardless of webview zoom or display scaling.

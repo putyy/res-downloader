@@ -65,10 +65,14 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
             },
             key: 'domain',
             width: 90,
-            render: (row: appType.ResourceView) => h(NTooltip, {trigger: 'hover', placement: 'top'}, {
-                trigger: () => h('span', {class: 'cursor-default'}, resourceDomain(row)),
-                default: () => primaryURL(row),
-            }),
+            render: (row: appType.ResourceView) => {
+                const domain = resourceDomain(row)
+                const details = primaryURL(row)?.trim() || row.source?.pageUrl?.trim() || domain
+                const trigger = () => h('span', {class: 'block max-w-full truncate cursor-default'}, domain || '—')
+                return details
+                    ? h(NTooltip, {trigger: 'hover', placement: 'top'}, {trigger, default: () => details})
+                    : trigger()
+            },
         },
         {
             title: options.t('index.type'),

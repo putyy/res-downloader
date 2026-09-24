@@ -1,11 +1,13 @@
 ---
 name: plugin-release
-description: Prepare, validate, and publish a res-downloader site plugin from its independent GitHub repository. Use for plugin version bumps, release readiness, repository setup, tags, GitHub Releases, or extension-store publication. Do not use for developing plugin behavior or releasing the host application.
+description: Prepare, validate, and publish a res-downloader site plugin from its independent GitHub repository. Use for release readiness, release versioning, repository setup, tags, GitHub Releases, or extension-store publication. Use plugin-dev for local version-only changes or repackaging; do not use for developing plugin behavior or releasing the host application.
 ---
 
 # Plugin Release
 
 Prepare a plugin release whose committed source, packaged ZIP, version, tag, GitHub repository, and extension-store metadata all describe the same immutable artifact.
+
+Local version edits or ZIP repackaging alone do not enter this release workflow. Follow `plugin-dev` without requiring a remote, clean release commit, tag, or GitHub action. During release preparation, preserve the intended unpublished version until the user or release requirements call for a change.
 
 ## Source of truth
 
@@ -27,7 +29,7 @@ Prepare a plugin release whose committed source, packaged ZIP, version, tag, Git
 - Check the GitHub repository and remote identity before any push. For extension-store discovery, verify it is public, not archived, not a fork, and has the `res-downloader-ext` topic; report any unmet condition.
 - Confirm the plugin ID is stable and allowed for its publisher, permissions and domains are minimal, the README covers support and limitations, and fixtures and logs contain no credentials or private user data.
 - Perform repository-local validation. Run `go run main.go plugin lint <plugin-directory>` and replay every documented sanitized fixture with `go run main.go plugin replay <plugin-directory> <fixture>` from the res-downloader source tree. Identify any fixture file that is intentionally not a replay input. Offline replay is required release evidence but does not replace live acceptance. Do not use live capture, application startup, installation, download, or playback as automated acceptance evidence.
-- Package only after the final source changes with `go run main.go plugin pack <plugin-directory>`. Verify `dist/plugin.zip` exists, is non-empty, and contains the same root Manifest version. If packaged source changes, rerun lint, all affected fixture replays, and pack.
+- Package only after the final source changes with `go run main.go plugin pack <plugin-directory>`. Verify `dist/plugin.zip` exists, is non-empty, and contains the same root Manifest version and matching packaged source files. If packaged source changes, rerun lint, all affected fixture replays, and pack.
 - Inspect staged, unstaged, and untracked files. The final worktree must be clean, and the latest `dist/plugin.zip` plus every release input must be committed before tagging. Never auto-commit unrelated changes.
 - Show the user the final branch, commit hash and message, version, tag, remote, changed files since the previous release, and validation results. A clean worktree proves files are committed; the user must still confirm that the intended release is complete.
 
@@ -52,4 +54,4 @@ An earlier request to “prepare a release” is not authorization to push or pu
 
 ## Completion report
 
-Report the repository URL, plugin ID and version, release commit and tag, lint and per-fixture replay results, packaging results, `dist/plugin.zip` status, remote mutations actually performed, and any store-discovery requirements still pending. State clearly that live installation and behavior were not automatically verified, and ask the user to manually install both `dist/plugin.zip` and the GitHub tag source archive, then verify permissions, capture, metadata, preview, download, and output playback.
+Report the repository URL, plugin ID and version, release commit and tag, lint and per-fixture replay results, packaging results, `dist/plugin.zip` status, remote mutations actually performed, and any store-discovery requirements still pending. Distinguish offline checks, browser observations, and any user-confirmed acceptance. Hand off remaining installation checks for `dist/plugin.zip` and the GitHub tag source archive, plus affected permissions, capture, metadata, preview, download, and playback behavior; do not repeat unchanged behavior checks already confirmed by the user.
