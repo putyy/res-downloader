@@ -521,7 +521,8 @@ func (m *PluginManager) HandlePageBridge(request *http.Request) (*http.Response,
 }
 
 func (m *PluginManager) handlePageBridgeCapture(request *http.Request, session *pageBridgeSession, action string) *http.Response {
-	if m.captures == nil || !m.pageCaptureAllowed(session.pluginID) {
+	store := m.captureStore()
+	if store == nil || !m.pageCaptureAllowed(session.pluginID) {
 		return pageBridgeJSONResponse(request, http.StatusForbidden, map[string]interface{}{"ok": false, "error": "page capture is unavailable"})
 	}
 	key := strings.TrimSpace(request.Header.Get("X-Res-Downloader-Capture-Key"))
@@ -534,7 +535,7 @@ func (m *PluginManager) handlePageBridgeCapture(request *http.Request, session *
 		if !m.pages.startCapture(session, key) {
 			return pageBridgeJSONResponse(request, http.StatusTooManyRequests, map[string]interface{}{"ok": false, "error": "capture limit reached"})
 		}
-		if err := m.captures.StartStream(scopedKey); err != nil {
+		if err := store.StartStream(scopedKey); err != nil {
 			m.pages.finishCapture(session, key)
 			return pageBridgeJSONResponse(request, http.StatusConflict, map[string]interface{}{"ok": false, "error": "capture could not be started"})
 		}
@@ -551,7 +552,7 @@ func (m *PluginManager) handlePageBridgeCapture(request *http.Request, session *
 		if !m.pages.reserveCaptureBytes(session, key, reserved) {
 			return pageBridgeJSONResponse(request, http.StatusTooManyRequests, map[string]interface{}{"ok": false, "error": "capture limit reached"})
 		}
-		total, appendErr := m.captures.AppendStream(scopedKey, body)
+		total, appendErr := store.AppendStream(scopedKey, body)
 		if appendErr != nil {
 			m.pages.releaseCaptureBytes(session, key, reserved)
 			return pageBridgeJSONResponse(request, http.StatusConflict, map[string]interface{}{"ok": false, "error": "capture segment was rejected"})
@@ -561,7 +562,7 @@ func (m *PluginManager) handlePageBridgeCapture(request *http.Request, session *
 		if !m.pages.hasCapture(session, key) {
 			return pageBridgeJSONResponse(request, http.StatusBadRequest, map[string]interface{}{"ok": false, "error": "capture was not started"})
 		}
-		if err := m.captures.CompleteStream(scopedKey); err != nil {
+		if err := store.CompleteStream(scopedKey); err != nil {
 			return pageBridgeJSONResponse(request, http.StatusConflict, map[string]interface{}{"ok": false, "error": "capture is incomplete"})
 		}
 		m.pages.finishCapture(session, key)
@@ -570,7 +571,7 @@ func (m *PluginManager) handlePageBridgeCapture(request *http.Request, session *
 		if !m.pages.hasCapture(session, key) {
 			return pageBridgeJSONResponse(request, http.StatusOK, map[string]interface{}{"ok": true})
 		}
-		if err := m.captures.AbortStream(scopedKey); err != nil {
+		if err := store.AbortStream(scopedKey); err != nil {
 			return pageBridgeJSONResponse(request, http.StatusConflict, map[string]interface{}{"ok": false, "error": "capture could not be aborted"})
 		}
 		m.pages.finishCapture(session, key)

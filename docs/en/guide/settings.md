@@ -15,6 +15,7 @@ Settings are saved automatically. Invalid listen addresses, ports, upstream prox
 - **Insert tail**: controls whether newly captured resources appear at the top or bottom of the list.
 - **Clear cache and restart**: use this to recover from app problems. It clears certificates, settings, captured resources, task history, capture cache, and download temporary files in the current save directory. It keeps downloaded files, installed plugins, and temporary files in other save directories.
 - **Open log folder**: opens the directory containing `app.log` on your system for diagnosing startup, capture, and download issues. Remove private information before sharing logs.
+- **Check for updates**: beside **Open log folder**, checks for updates or retries a failed check at any time. See [In-app updates](installation.md#in-app-updates).
 
 ## Filename template
 
@@ -188,7 +189,7 @@ HTTPS capture requires the current certificate. Install, uninstall, or refresh i
 
 - **Listen address and port**: local access only by default. Enter a valid IP address or hostname and an integer port from 1025 to 65534. Enter IPv6 addresses such as `::1` without brackets. To connect a phone, use `0.0.0.0` and make sure the firewall allows the connection.
 - **Upstream Proxy**: configure this when using another proxy tool alongside the app. Use an `http://` or `https://` URL without a path, query, or fragment. If you specify a port, it must be from 1 to 65535. Enter an address before enabling upstream or download proxy use. Invalid URLs are not saved.
-- **Download Proxy**: routes downloads through the upstream proxy when enabled.
+- **Download Proxy**: routes downloads, application update checks, and installer downloads through the upstream proxy when enabled. When disabled, application update checks and installer downloads connect directly to the update source.
 - **Connections and Download Number**: try reducing these if downloads are unstable.
 - **User-Agent and request headers**: normally keep the defaults. Do not share account information such as cookies.
 

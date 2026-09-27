@@ -81,8 +81,12 @@ func (h *Server) HandleAPI(w http.ResponseWriter, r *http.Request) bool {
 		h.openFolder(w, r)
 	case "/api/is-proxy":
 		h.isProxy(w, r)
+	case "/api/app/update":
+		h.updateApp(w, r)
 	case "/api/app-info":
 		h.appInfo(w, r)
+	case "/api/documentation-url":
+		h.documentationURL(w, r)
 	case "/api/set-config":
 		h.setConfig(w, r)
 	case "/api/get-config":
@@ -167,7 +171,7 @@ func knownAPIPath(path string) bool {
 	switch path {
 	case "/api/preview", "/api/preview/hls", "/api/proxy-open", "/api/proxy-unset",
 		"/api/open-directory", "/api/open-file", "/api/open-folder", "/api/is-proxy",
-		"/api/app-info", "/api/set-config", "/api/get-config", "/api/media/status",
+		"/api/app/update", "/api/app-info", "/api/documentation-url", "/api/set-config", "/api/get-config", "/api/media/status",
 		"/api/certificate/status", "/api/certificate/install", "/api/certificate/uninstall",
 		"/api/certificate/cleanup", "/api/certificate/download", "/api/resources",
 		"/api/resources/filter", "/api/resources/clear", "/api/resources/delete",

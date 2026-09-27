@@ -25,6 +25,9 @@ export default {
     appInfo() {
         return request({url: 'api/app-info', method: 'post', timeout: 5000})
     },
+    documentationURL(page: 'home' | 'filename-template' | 'installation', locale: string) {
+        return request({url: 'api/documentation-url', method: 'post', data: {page, locale}, timeout: 5000})
+    },
     getConfig() {
         return request({url: 'api/get-config', method: 'post',})
     },

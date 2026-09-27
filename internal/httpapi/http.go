@@ -41,6 +41,7 @@ type pendingPluginArchive struct {
 // these callbacks here prevents the transport package from depending on the
 // Wails application composition root.
 type Host struct {
+	Update                     func(context.Context, string, bool) (interface{}, error)
 	Context                    func() context.Context
 	AppInfo                    interface{}
 	PublicCertificate          func() []byte

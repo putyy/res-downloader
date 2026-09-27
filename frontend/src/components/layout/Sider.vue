@@ -1,12 +1,13 @@
 <template>
-  <div class="app-sidebar relative isolate text-app-sidebar-text bg-app-sidebar border-black/[0.12] flex pb-2 flex-col h-full min-w-[84px] shrink-0 border-r">
+  <div class="app-sidebar relative isolate text-app-sidebar-text bg-app-sidebar border-black/[0.12] flex pb-2 flex-col h-full shrink-0 border-r"
+       :style="{minWidth: `${collapsedWidth}px`}">
     <Screen v-if="envInfo.platform!=='darwin'"></Screen>
     <div class="w-full flex flex-row items-center justify-center" :class="logoPaddingClass">
-      <div class="relative flex items-center justify-center cursor-pointer [--wails-draggable:no-drag]" @click="handleFooterUpdate('github')">
+      <div class="relative flex items-center justify-center cursor-pointer [--wails-draggable:no-drag]" @click="showUpdate ? updateUI.openDialog() : handleFooterUpdate('github')">
         <img class="w-12 h-12 rounded-full transition-transform duration-300 hover:scale-105 dark"
              src="@/assets/image/logo.png" alt="res-downloader logo"/>
         <span
-            class="absolute right-[-25px] top-0 font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-update-pulse"
+            class="absolute -right-1.5 -top-1 z-10 whitespace-nowrap font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-update-pulse"
             v-if="showUpdate">
             New
         </span>
@@ -57,6 +58,7 @@
     </main>
   </div>
   <Footer v-model:showModal="showAppInfo"/>
+  <UpdateDialog @available="showUpdate = $event" />
 </template>
 
 <script lang="ts" setup>
@@ -69,8 +71,8 @@ import Footer from "@/components/Footer.vue"
 import Screen from "@/components/Screen.vue"
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
 import {useI18n} from "vue-i18n"
-import request from "@/api/request"
-import {compareVersions} from "@/func"
+import UpdateDialog from "@/components/UpdateDialog.vue"
+import {useUpdateStore} from '@/stores/update'
 
 const {t} = useI18n()
 const route = useRoute()
@@ -82,10 +84,11 @@ const menuValue = ref(route.path.substring(1))
 const store = useIndexStore()
 const is = ref(false)
 const showUpdate = ref(false)
-const collapsedWidth = 84
+const updateUI = useUpdateStore()
 const triggerStyle = {right: "12px"}
 
 const envInfo = store.envInfo
+const collapsedWidth = envInfo.platform === "darwin" ? 92 : 84
 
 const logoPaddingClass = computed(() => {
   if (envInfo.platform !== "darwin") return "pt-2"
@@ -106,13 +109,6 @@ onMounted(() => {
     collapsed.value = JSON.parse(collapsedCache).collapsed
   }
   is.value = true
-
-  request({
-    url: 'https://res.putyy.com/version.json?v=' + Date.now(),
-    method: 'get',
-  }).then((res) => {
-    showUpdate.value = compareVersions(res.version, store.appInfo.Version) === 1
-  })
 })
 
 const renderIcon = (icon: any) => {

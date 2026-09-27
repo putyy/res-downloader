@@ -366,6 +366,9 @@ interface PluginBaseAPI {
 interface PluginAPI extends PluginBaseAPI {
   emit(resource: ResourceCandidate): void
   upsert(resource: ResourceCandidate): void
+  capture?: {
+    save(data: string | ArrayBuffer | Uint8Array | Uint8ClampedArray): {captureKey: string; size: number}
+  }
   correlate: {
     register(value: CorrelationRegistration): void
     find(url: string): CorrelationReference[]

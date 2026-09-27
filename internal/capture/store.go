@@ -41,6 +41,7 @@ type entry struct {
 	metaPath string
 	meta     metadata
 	active   int
+	readers  int
 	changed  chan struct{}
 }
 
@@ -81,6 +82,9 @@ func (s *Store) Begin(key string, response *http.Response) (io.WriteCloser, erro
 
 	item.mu.Lock()
 	defer item.mu.Unlock()
+	if item.readers > 0 {
+		return nil, errors.New("capture is being previewed; retry after preview closes")
+	}
 	if item.meta.Mode == "stream-file" {
 		if item.active > 0 {
 			return nil, errors.New("capture mode changed while another response is active")
@@ -113,7 +117,7 @@ func (s *Store) Begin(key string, response *http.Response) (io.WriteCloser, erro
 	return &rangeWriter{entry: item, file: file, start: start, offset: start, total: total}, nil
 }
 
-// StartStream resets a capture entry for page-originated media segments. The
+// StartStream resets a capture entry for page- or plugin-originated bytes. The
 // stream has no known final byte length until CompleteStream is called.
 func (s *Store) StartStream(key string) error {
 	if s == nil {
@@ -125,7 +129,7 @@ func (s *Store) StartStream(key string) error {
 	}
 	item.mu.Lock()
 	defer item.mu.Unlock()
-	if item.active > 0 {
+	if item.active > 0 || item.readers > 0 {
 		return errors.New("capture is active")
 	}
 	if err := os.Truncate(item.dataPath, 0); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -139,9 +143,8 @@ func (s *Store) StartStream(key string) error {
 	return nil
 }
 
-// AppendStream appends one already ordered media segment to a page-originated
-// capture. Ordering and de-duplication are intentionally performed by the page
-// hook, which has access to the SourceBuffer timeline.
+// AppendStream appends bytes to a page- or plugin-originated capture. Media
+// segment ordering and de-duplication remain the caller's responsibility.
 func (s *Store) AppendStream(key string, value []byte) (int64, error) {
 	if s == nil {
 		return 0, errors.New("capture store is unavailable")
@@ -184,7 +187,7 @@ func (s *Store) AppendStream(key string, value []byte) (int64, error) {
 	return item.meta.Total, nil
 }
 
-// CompleteStream makes a page-originated capture available to capture-file.
+// CompleteStream makes a page- or plugin-originated capture available to capture-file.
 func (s *Store) CompleteStream(key string) error {
 	if s == nil {
 		return errors.New("capture store is unavailable")
@@ -222,7 +225,7 @@ func (s *Store) CompleteStream(key string) error {
 	return nil
 }
 
-// AbortStream discards an incomplete page-originated capture immediately.
+// AbortStream discards an incomplete page- or plugin-originated capture immediately.
 func (s *Store) AbortStream(key string) error {
 	if s == nil {
 		return errors.New("capture store is unavailable")

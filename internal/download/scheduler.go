@@ -41,6 +41,8 @@ type Scheduler struct {
 	workerStops  []chan struct{}
 	started      bool
 	lastProgress map[string]time.Time
+
+	updateReserved bool
 }
 
 const taskWorkspaceDirectory = ".res-downloader-work"
@@ -294,7 +296,7 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 		task.Recording = planIsRecording(plan)
 	}
 	s.mu.Lock()
-	if s.ctx.Err() != nil {
+	if s.ctx.Err() != nil || s.updateReserved {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
 	}
@@ -335,7 +337,7 @@ func (s *Scheduler) worker(stop <-chan struct{}) {
 func (s *Scheduler) execute(id string) {
 	s.mu.Lock()
 	task, exists := s.tasks[id]
-	if !exists || task.State != shared.DownloadTaskPending || s.cancelFuncs[id] != nil || s.ctx.Err() != nil {
+	if !exists || task.State != shared.DownloadTaskPending || s.cancelFuncs[id] != nil || s.ctx.Err() != nil || s.updateReserved {
 		s.mu.Unlock()
 		return
 	}
@@ -740,7 +742,7 @@ func (s *Scheduler) Resume(id string) (shared.DownloadTaskRecord, error) {
 	s.mu.Lock()
 	task, exists := s.tasks[id]
 	resumableState := task.State == shared.DownloadTaskPaused || task.State == shared.DownloadTaskInterrupted
-	if !exists || !resumableState || !task.Resumable || s.cancelFuncs[id] != nil || s.ctx.Err() != nil {
+	if !exists || !resumableState || !task.Resumable || s.cancelFuncs[id] != nil || s.ctx.Err() != nil || s.updateReserved {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("task cannot be resumed")
 	}
@@ -776,7 +778,7 @@ func (s *Scheduler) Resume(id string) (shared.DownloadTaskRecord, error) {
 func (s *Scheduler) Retry(id string) (shared.DownloadTaskRecord, error) {
 	s.mu.Lock()
 	task, exists := s.tasks[id]
-	if !exists || activeDownloadTaskState(task.State) || s.cancelFuncs[id] != nil || s.ctx.Err() != nil {
+	if !exists || activeDownloadTaskState(task.State) || s.cancelFuncs[id] != nil || s.ctx.Err() != nil || s.updateReserved {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("task cannot be retried")
 	}
@@ -924,4 +926,29 @@ func (s *Scheduler) cleanupWorkspace(taskID, saveDirectory, path string) error {
 	}
 	_ = os.Remove(workspaceRoot)
 	return nil
+}
+
+// ReserveUpdate atomically checks for active work and prevents new work until restart.
+func (s *Scheduler) ReserveUpdate() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.updateReserved || s.ctx.Err() != nil {
+		return false
+	}
+	for _, task := range s.tasks {
+		if activeDownloadTaskState(task.State) {
+			return false
+		}
+	}
+	if len(s.cancelFuncs) != 0 {
+		return false
+	}
+	s.updateReserved = true
+	return true
+}
+
+func (s *Scheduler) ReleaseUpdate() {
+	s.mu.Lock()
+	s.updateReserved = false
+	s.mu.Unlock()
 }

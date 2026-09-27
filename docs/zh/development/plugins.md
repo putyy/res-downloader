@@ -260,7 +260,7 @@ quality:
 | `media.ffmpeg.network` | 允许 FFmpeg 读取插件提供的 HLS/直播地址 | 下载地址必须是合法的 HTTP/HTTPS URL；这是敏感权限 |
 | `inject-page-script` | 在匹配 HTML 页面中注入脚本 | 目标域名必须被 TLS 拦截且允许安全注入 |
 | `page-bridge` | 页面脚本与插件运行时交换 JSON 消息，或接收用户触发的 `page-command` | 需要 `inject-page-script` |
-| `capture-response-body` | 缓存浏览器实际读取的 Range 响应，或接收页面脚本捕获的媒体分片 | 需要 `observe-response`；页面分片还需要 `inject-page-script` 和 `page-bridge` |
+| `capture-response-body` | 缓存 Range 响应、页面分片，或通过 `api.capture.save` 保存插件生成的文件 | 需要 `observe-response`；页面分片还需要 `inject-page-script` 和 `page-bridge` |
 | `enqueue-download` | 页面消息上报资源后自动创建下载任务 | 需要 `page-bridge` 和 `emit-resource`；属于会写入下载目录的敏感权限 |
 
 Body 只有在域名、规则和读取权限同时满足时才会进入插件。超过 `bodyLimit` 后快照会标记 `truncated`，截断响应不能被插件修改。
@@ -315,7 +315,7 @@ pageApi.onMessage(function (message) {
 var result = await pageApi.send({type: "player-ready", data: collectPlayerData()})
 ```
 
-声明了 `capture-response-body` 后，页面脚本可以使用当前页面的会话令牌，将二进制媒体分片写入应用的捕获缓存（Capture Store）：
+声明了 `capture-response-body` 后，页面脚本可以使用当前页面的会话令牌，将文件字节或媒体分片写入应用的捕获缓存（Capture Store）：
 
 ```javascript
 await pageApi.capture.start("video:123:video")
@@ -395,6 +395,48 @@ interface PageCommandMessage {
 页面脚本与网站代码在同一个网页 JavaScript 环境中运行，网站代码可能读取或模拟桥接请求，因此插件必须校验收到的页面消息。
 
 默认情况下，消息桥不允许网页访问文件、Shell、数据库、下载器或其他插件。声明 `enqueue-download` 后，插件可以为本次刚上报且通过校验的资源创建下载任务，但网页仍不能指定文件路径或任意控制下载任务。
+
+### 页面写入文件并上报资源
+
+以下示例使用本节 Manifest 中的 `runtime-hook` 页面脚本和 `www.example.com` 域名。除 `inject-page-script`、`page-bridge` 外，还需声明 `observe-response`、`capture-response-body` 和 `emit-resource` 权限。
+
+页面入口先写入完整文件，再通过消息通知插件。文本使用 UTF-8 编码；图片、音视频和 PDF 使用各自的完整文件字节：
+
+```javascript
+const key = "example:caption:1"
+const bytes = new TextEncoder().encode("示例标题\n\n示例正文。")
+await pageApi.capture.start(key)
+await pageApi.capture.write(key, bytes)
+await pageApi.capture.complete(key)
+await pageApi.send({type: "example-file-ready", key, size: bytes.length})
+```
+
+插件入口校验消息来源、缓存键及字节数后，上报可预览和下载的资源。示例将文案大小限定为 64 KiB：
+
+```javascript
+function onPageMessage(message, context, api) {
+  if (context.scriptId !== "runtime-hook" ||
+      context.origin !== "https://www.example.com" ||
+      !message || message.type !== "example-file-ready" ||
+      message.key !== "example:caption:1" ||
+      typeof message.size !== "number" || message.size <= 0 ||
+      message.size > 65536 || Math.floor(message.size) !== message.size) {
+    return {ok: false, error: "invalid file"}
+  }
+  api.emit({
+    groupKey: "example:caption", kind: "document.text", primaryType: "document",
+    title: "示例文案", capabilities: ["download", "preview"],
+    tracks: [{id: "text", role: "primary", executor: "capture-file",
+      captureKey: message.key, size: message.size,
+      extension: ".txt", mime: "text/plain; charset=utf-8"}],
+    requiredTracks: ["primary"],
+    preview: {renderer: "text", trackId: "text", mime: "text/plain; charset=utf-8"}
+  })
+  return {ok: true}
+}
+```
+
+实际插件应按资源区分缓存键和 `groupKey`，避免不同文件相互覆盖或合并。下载计划、渲染器选择和缓存读取规则见[捕获文件预览](#捕获文件预览)。若文件内容已在插件钩子中取得，可使用[插件直接保存文件](#插件直接保存文件)。
 
 ## 资源模型
 
@@ -616,6 +658,7 @@ interface PluginResult {
 | --- | --- | --- |
 | `api.emit(resource)` | `void` | 上报资源；与 `upsert` 使用相同的合并语义 |
 | `api.upsert(resource)` | `void` | 推荐用于具有稳定 `groupKey` 的增量资源 |
+| `api.capture.save(data)` | `{captureKey, size}` | 同步保存 UTF-8 字符串或二进制字节；需要 `capture-response-body`，不需要页面会话 |
 | `api.log(message)` | `void` | 仅当当前插件设置 `enableLog` 为布尔值 `true` 时写入日志；调用方负责脱敏 |
 | `api.pluginVersion` | `string` | 当前 Manifest 版本 |
 | `api.correlate.register(value)` | `void` | 登记 URL 别名与逻辑资源、轨道的关联 |
@@ -633,6 +676,39 @@ interface PluginResult {
 - 插件加载失败、钩子执行异常等应用错误日志不受该开关影响。
 
 要在插件管理页显示日志开关，需在 `settingsSchema.properties` 中声明 `enableLog`。保存设置时仍会按 Manifest 校验。日志位置见[如何查看软件日志](../guide/troubleshooting.md#如何查看软件日志)。
+
+### 插件直接保存文件
+
+`onObservation` 和 `onPageMessage` 可调用 `api.capture.save(data)`，同步保存文本或二进制文件。需要 `capture-response-body` 权限；未声明时不提供 `api.capture`。
+
+下面的 `onObservation` 示例在收到成功响应时保存一份示例文案，再将返回的缓存键用于文件资源。Manifest 需声明 `observe-response`、`capture-response-body` 和 `emit-resource`，并配置目标域名和匹配规则。实际插件应从匹配响应中提取内容，并按资源生成稳定的 `groupKey`。
+
+```javascript
+function onObservation(observation, api) {
+  if (observation.stage !== "response" || observation.response.statusCode !== 200) return
+  var file = api.capture.save("示例标题\n\n示例正文。")
+  // 二进制文件也可以直接传 ArrayBuffer、Uint8Array 或 Uint8ClampedArray。
+  api.emit({
+    groupKey: "example:caption", kind: "document.text", primaryType: "document",
+    title: "示例文案", capabilities: ["download", "preview"],
+    tracks: [{id: "text", role: "primary", executor: "capture-file",
+      captureKey: file.captureKey, size: file.size,
+      extension: ".txt", mime: "text/plain; charset=utf-8"}],
+    requiredTracks: ["primary"],
+    preview: {renderer: "text", trackId: "text", mime: "text/plain; charset=utf-8"}
+  })
+}
+```
+
+这个单轨文件资源可直接使用宿主默认下载计划，无需实现 `createDownloadPlan`。其他文件类型的 MIME、渲染器和自定义下载计划要求见[捕获文件预览](#捕获文件预览)。
+
+字符串自动编码为 UTF-8；二进制视图只保存其有效区间，字节不作转换。数据必须非空，不接受普通数组、对象或其他数字类型的 TypedArray。每次钩子最多写入 8 个文件，合计最多 32 MiB（写入失败也计入额度）。保存操作计入钩子执行时限。参数错误、超限、缓存不可用或 I/O 失败都会抛出异常；未完成写入会尝试中止清理，不生成成功结果。
+
+返回的 `captureKey` 由宿主随机生成并按插件隔离，`size` 是实际字节数，返回时文件已经完整可读。把键原样用于 `capture-file` 轨道及下载计划，不要自行拼接插件前缀。重复保存得到新键，不会覆盖正在预览或下载的文件。保存成功后若钩子又失败或未上报资源，未引用的完整文件按[缓存过期规则](#捕获文件预览)清理，整个钩子不是文件事务。
+
+`createDownloadPlan` 和 `refreshResource` 只获得基础 API，不能调用 `api.capture.save`。CLI fixture replay 使用临时捕获缓存，结束后删除，不访问正在运行的应用缓存。
+
+### 缓存响应正文
 
 需要复用浏览器已经成功取得、但无法用同一 URL 再次请求的数据时，插件可以在响应钩子中返回通用捕获指令。宿主只负责缓存当前响应字节，不理解站点协议；捕获键会自动限定在当前插件内：
 
@@ -656,7 +732,7 @@ return {
 }
 ```
 
-`range-file` 根据响应的 `Content-Range`、请求的 `Range` 或 URL 中的 `range` 与 `clen` 信息合并区间。浏览器未实际加载全部区间时，`capture-file` 会拒绝生成残缺文件并提示继续加载后重试。应用启动时会清理超过 24 小时的捕获缓存，单个对象最大 16 GiB；该能力不会绕过登录、CSP、代理或站点访问控制。
+`range-file` 根据响应的 `Content-Range`、请求的 `Range` 或 URL 中的 `range` 与 `clen` 信息合并区间。浏览器未实际加载全部区间时，`capture-file` 会拒绝生成残缺文件并提示继续加载后重试。缓存大小与清理规则见[捕获文件预览](#捕获文件预览)；该能力不会绕过登录、CSP、代理或站点访问控制。
 
 支持的函数为 `onObservation`、`onPageMessage`、`createDownloadPlan` 和 `refreshResource`。它们都是可选的同步顶层函数；Goja 钩子中不能等待 Promise。页面脚本运行在浏览器页面中，可以使用页面环境提供的异步 API，但仍受页面 CSP、同源策略和桥接限制。
 
@@ -689,6 +765,28 @@ return {
 
 请求拦截使用 `syntheticResponse`，并需要 `intercept-request`。
 
+### 捕获文件预览
+
+`capture-file` 是通用文件来源，可用于文本、图片、音视频和 PDF。文件可以来自[插件直接保存](#插件直接保存文件)、[页面写入](#页面写入文件并上报资源)或[响应正文捕获](#缓存响应正文)。插件需要 `capture-response-body` 权限，缓存键按插件隔离。
+
+上报资源时声明 `download` 和 `preview` 能力，将轨道的 `executor` 设为 `capture-file`，并填写 `captureKey`、实际扩展名及 MIME。`preview.trackId` 引用该轨道，`preview.renderer` 和 `preview.mime` 按实际文件选择：
+
+| 文件 | renderer | MIME 示例 |
+| --- | --- | --- |
+| TXT | `text` | `text/plain; charset=utf-8` |
+| PNG | `image` | `image/png` |
+| M4A | `audio` | `audio/mp4` |
+| MP4 | `video` | `video/mp4` |
+| PDF | `pdf` | `application/pdf` |
+
+单轨文件资源可使用宿主默认下载计划。自行实现 `createDownloadPlan` 时，必须在 `inputs` 中保留预览轨道的 ID、`executor: "capture-file"` 和 `captureKey`，并通过 `output.input` 指定要保存的输入或处理结果。独立预览轨道也必须进入计划输入，不能只存在于资源的 `tracks` 中。捕获文件输入不填写 URL。
+
+预览支持 GET、HEAD、单段/多段及后缀 Range，按资源声明的 MIME 返回数据；实际格式和编码仍须浏览器支持。缓存必须完整，缺失或未完成返回 409，用户需要重新捕获。读取期间同名缓存不可覆盖，写入方应稍后重试或使用新的捕获键。播放列表的外部片段不会自动变成缓存的一部分。
+
+带输入或输出处理器的缓存预览先处理完整文件，再对处理后的结果提供 Range；为限制预览开销，此路径仅接受不超过 4 MiB 的输入，超限返回 422，仍可走正常下载处理。无处理器的文件不受此预览输入限制。
+
+单个缓存对象最大 16 GiB，具体写入接口还各有文件数量、分片大小或累计字节限制。应用启动时清理超过 24 小时的捕获缓存。预览请求使用资源 ID，由宿主从校验后的下载计划中取得缓存键；不能指定任意文件路径或其他插件的缓存。
+
 ## 下载计划
 
 `createDownloadPlan(input, api)` 用于生成下载计划，指定需要下载的文件或轨道、合并或解密等处理步骤，以及最终输出：
@@ -720,7 +818,7 @@ return {
 可用输入执行器：
 
 - `http-file`：普通 HTTP/HTTPS 文件，支持请求头、Range 并发和下载代理。
-- `capture-file`：读取应用在抓取过程中保存的完整响应数据，不再请求远端 URL；需要 `capture-response-body`。
+- `capture-file`：读取响应捕获、页面写入或插件保存的完整缓存文件，不请求远端 URL；需要 `capture-response-body`。
 - `hls`：解析 HLS 主清单和媒体清单，支持相对 URL、按最高/最低带宽或带宽上限选择清晰度，以及 `EXT-X-MAP`、`BYTERANGE` 和 AES-128。可下载点播内容，或仅下载当前清单中已有的分片，不会持续跟进直播；不支持暂停。
 - `ffmpeg-hls`：由用户安装的 FFmpeg 直接下载或录制网络流，支持请求头、重连和最大录制时长；需要 `media.ffmpeg.network`。直播停止后，应用会保存有效的录制文件。
 

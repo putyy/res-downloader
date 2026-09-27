@@ -16,6 +16,7 @@ import (
 	"res-downloader/internal/config"
 	"res-downloader/internal/plugin"
 	"res-downloader/internal/system"
+	"res-downloader/internal/updates"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
@@ -37,6 +38,13 @@ var icon []byte
 var wailsJson string
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "--apply-update" {
+		if err := updates.RunHelper(os.Args[2]); err != nil {
+			log.Print(err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && (os.Args[1] == "cli" || os.Args[1] == "mcp") {
 		system.PrepareCommandConsole()
 		var metadata struct {

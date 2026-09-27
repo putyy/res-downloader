@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"res-downloader/internal/config"
+	"res-downloader/internal/metadata"
 	shared "res-downloader/internal/model"
 	"runtime"
 	"strings"
@@ -148,6 +149,27 @@ func (h *Server) isProxy(w http.ResponseWriter, _ *http.Request) {
 
 func (h *Server) appInfo(w http.ResponseWriter, _ *http.Request) {
 	h.success(w, h.host.AppInfo)
+}
+
+func (h *Server) documentationURL(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Page   string `json:"page"`
+		Locale string `json:"locale"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.error(w, "invalid documentation request")
+		return
+	}
+	locale := h.config.Snapshot().Locale
+	if input.Locale == "zh" || input.Locale == "en" {
+		locale = input.Locale
+	}
+	address := metadata.DocumentationURL("", locale, input.Page)
+	if address == "" {
+		h.error(w, "unknown documentation page")
+		return
+	}
+	h.success(w, respData{"url": address})
 }
 
 func (h *Server) getConfig(w http.ResponseWriter, _ *http.Request) {

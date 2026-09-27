@@ -1,0 +1,85 @@
+name: Deploy documentation and metadata
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Source revision containing the documentation and metadata tools
+        required: true
+        type: string
+  schedule:
+    # 01:30 Asia/Shanghai = 17:30 UTC on the preceding day.
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+  push:
+    branches: [master, release/v4.0]
+    paths:
+      - 'docs/**'
+      - 'cmd/githubctl/**'
+      - 'internal/updates/**'
+      - 'internal/metadata/**'
+      - 'internal/plugin/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/configure-pages@v5
+        id: pages
+      - name: Build documentation
+        working-directory: docs
+        env:
+          DOCS_BASE: ${{ steps.pages.outputs.base_path }}/
+          DOCS_HOSTNAME: ${{ steps.pages.outputs.origin }}
+        run: |
+          npm ci
+          npm run build
+      - name: Generate metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Metadata generation does not need desktop native libraries.
+          CGO_ENABLED: '0'
+        run: |
+          go run ./cmd/githubctl version --output docs/.vitepress/dist/version.json
+          go run ./cmd/githubctl extensions --output docs/.vitepress/dist/extensions/index.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+          retention-days: 1
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

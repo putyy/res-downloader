@@ -21,6 +21,7 @@ type pluginRuntimeServices struct {
 	logger       *Logger
 	correlations *pluginCorrelationStore
 	pages        *pageBridgeHub
+	captureStore func() PageCaptureStore
 }
 
 func LoadExternalPlugin(directory string, configured ...pluginRuntimeServices) (shared.RuntimePlugin, string, error) {

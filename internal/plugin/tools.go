@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"res-downloader/internal/capture"
 	shared "res-downloader/internal/model"
 	"strings"
 	"time"
@@ -50,9 +51,24 @@ func ValidateBundledPluginDirectory(directory string) (shared.PluginManifest, er
 }
 
 func ReplayPluginFixture(directory, fixturePath string) error {
-	runtime, _, err := LoadOfficialPlugin(directory)
+	// Use a temporary real store for plugin-originated captures. Replay never
+	// touches the running application's cache or requires a page session.
+	var store *capture.Store
+	runtime, _, err := LoadOfficialPlugin(directory, pluginRuntimeServices{captureStore: func() PageCaptureStore { return store }})
 	if err != nil {
 		return err
+	}
+	if runtime.Manifest().Permissions.Has("capture-response-body") {
+		directory, err := os.MkdirTemp("", "resd-plugin-replay-*")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(directory)
+		store, err = capture.New(directory)
+		if err != nil {
+			return err
+		}
+		defer store.Close()
 	}
 	return replayPluginFixture(runtime, fixturePath)
 }

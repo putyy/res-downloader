@@ -52,7 +52,7 @@ jobs:
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           set -euo pipefail
-          wails build -platform darwin/universal
+          wails build -platform darwin/universal -ldflags "-X res-downloader/internal/app.ReleaseVersion=$RELEASE_VERSION"
           create-dmg \
             --overwrite \
             --no-code-sign \

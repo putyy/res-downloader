@@ -21,6 +21,7 @@ func NewHTTPServer(
 	logger *Logger,
 ) *HttpServer {
 	host := httpapi.Host{
+		Update: app.update,
 		Context: func() context.Context {
 			return app.ctx
 		},

@@ -59,7 +59,7 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 | `resource.Resource` | Maintain the catalog, persist resource candidates, and execute resource actions and download plans | `resources.db`, capture cache, media engine |
 | `download.Scheduler` | Persist tasks, manage workers and task state, and handle pause, resume, and retry | `tasks.db`, plugin download plans |
 | `download.PlanRunner` | Acquire inputs, process them, and place final output for a download plan | HTTP, HLS, captured files, FFmpeg, WASM |
-| `capture.Store` | Cache response bytes captured by the proxy or page scripts for download plans | `capture-cache/` |
+| `capture.Store` | Cache file bytes from the proxy, page scripts or plugin hooks for download plans | `capture-cache/` |
 | `media.Engine` | Invoke user-configured FFmpeg / ffprobe for media processing | Remuxing, merging, recording, and related capabilities |
 | `system.Setup` | Manage device certificates, system proxies, and platform operations | Windows, macOS, and Linux implementations |
 | `events.Emitter` | Encode resource and task changes and send them to the Wails frontend | A single `event` channel |
@@ -98,7 +98,7 @@ Next, `control.Server` starts on a dynamic `127.0.0.1` port and writes `control/
 3. For HTTPS CONNECT, `rules.Set` decides between MITM and pass-through based on domain policy. Only host information is available at this point; resource-type and MIME matching happen later during observation.
 4. The proxy converts requests or responses into versioned `Observation` objects. It reads bodies, bounded by `bodyLimit`, only when matching rules and permissions require them.
 5. `plugin.PluginManager` invokes enabled plugins by priority, including the built-in generic detector, bundled official plugins, and user plugins. When a user triggers a `page-command` resource action, it also delivers a host-generated standard message to the bridge-enabled page script declared by that plugin.
-6. Plugins can emit resource candidates, correlate requests, request controlled response modifications or page scripts, and declare capture tasks that write response bytes to `capture.Store`.
+6. Plugins can emit resource candidates, correlate requests, request controlled response modifications or page scripts, and write file bytes to `capture.Store` through response capture or `api.capture.save`.
 7. The resource service normalizes, correlates, and saves emitted `ResourceCandidate` objects in the in-memory catalog and `resources.db`.
 8. Wails events push changes to the frontend, which updates the resource list using the current filters.
 
@@ -189,7 +189,7 @@ If the resource or task database cannot open, that module logs an error and fall
 | `internal/logging/` | Application logging wrapper |
 | `examples/plugins/` | Committable protocol examples and sanitized fixtures |
 | `plugins/` | Local workspace for standalone site plugins; excluded from host commits and packages by default |
-| `cmd/extension-index/` | Script generating the store index from GitHub repositories |
+| `cmd/githubctl/` | CLI generating stable-release metadata and the extension index |
 | `cmd/resdctl/` | Separately buildable CLI / MCP console client; still requires the running desktop app |
 | `build/` | Wails platform configuration, icons, and installer resources |
 | `docs/` | User guides, Plugin SDK, and developer documentation |
@@ -201,6 +201,6 @@ If the resource or task database cannot open, that module logs an error and fall
 - When changing the local API, check origins, authentication, methods, body limits, and frontend types together.
 - When changing download states or resource models, check BoltDB recovery, event payloads, and frontend state mappings.
 - Keep constructors free of listener and background-task side effects when changing startup/shutdown, and release created resources on failure paths.
-- Keep platform-specific certificate and proxy behavior in `internal/system/`. Shared business code should call it through interfaces or adapters.
+- Keep platform-specific certificates and capture-proxy settings in `internal/system/`, and update proxy resolution in `internal/netproxy/`. Shared business code should call them through interfaces or adapters.
 
 Read [Contributing](contributing.md) before developing code. For plugin work, also read [Plugin Development](plugins.md) and the relevant SDK documentation.

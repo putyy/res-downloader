@@ -299,6 +299,13 @@ type ResponseCapture struct {
 	Mode string `json:"mode,omitempty"`
 }
 
+// PluginCaptureFile describes a completed, plugin-scoped stream-file. The key
+// is opaque to plugins and is used unchanged by capture-file tracks and inputs.
+type PluginCaptureFile struct {
+	CaptureKey string `json:"captureKey"`
+	Size       int64  `json:"size"`
+}
+
 type ResourceSource struct {
 	PluginID      string `json:"pluginId"`
 	PluginVersion string `json:"pluginVersion,omitempty"`

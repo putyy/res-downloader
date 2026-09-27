@@ -71,4 +71,12 @@ chmod +x ./res-downloader_<version>_linux_amd64
 ./res-downloader_<version>_linux_amd64
 ```
 
+## In-app updates
+
+Select **Check for updates** beside **Open log folder** under **Setting → Basic Setting** at any time. If you started offline or a check failed, restore the connection and check again without restarting the app.
+
+Update checks and installer downloads follow **Download Proxy** in Advanced Setting: they use the configured upstream proxy when enabled and connect directly when disabled.
+
+Follow the update prompt to download, install, and restart. Finish, pause, or stop active tasks first. If downloading is slow or updating fails, select **Visit website** for other installation methods. Windows updates use the standard installer.
+
 Once installed, continue to [Quick Start](getting-started.md).

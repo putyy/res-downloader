@@ -74,6 +74,10 @@ func (h *Server) preview(w http.ResponseWriter, r *http.Request) {
 		previewHeaders = input.Headers
 		previewProcessors = append(previewProcessors, input.Processors...)
 		previewProcessors = append(previewProcessors, plan.Output.Processors...)
+		if input.Executor == "capture-file" {
+			h.serveCapturePreview(w, r, candidate, input, previewProcessors)
+			return
+		}
 	}
 	if realURL == "" {
 		http.Error(w, "Resource has no directly previewable input", http.StatusUnprocessableEntity)

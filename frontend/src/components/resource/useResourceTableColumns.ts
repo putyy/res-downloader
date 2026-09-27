@@ -43,6 +43,9 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
                 class: 'resource-child-table',
                 columns: childColumns.value,
                 data: row.children ?? [],
+                // Collection children are rendered by the expansion panel,
+                // not by NDataTable's automatic tree flattening.
+                childrenKey: '__tableTreeChildren',
                 rowKey: options.rowKey,
                 bordered: false,
                 singleLine: false,

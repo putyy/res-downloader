@@ -54,6 +54,8 @@ Do not update the SDK files speculatively. If code and SDK disagree, identify wh
 ## Plugin README conventions
 
 - Maintain Chinese `README.md` and English `README-EN.md` together, with `[中文](README.md) | [English](README-EN.md)` near the top of both files. Keep support, settings, limitations, and commands consistent across languages.
+- In both introductions, link the application name as `[res-downloader](https://github.com/putyy/res-downloader)`.
+- Keep the introduction focused on the plugin's purpose; omit the plugin ID and current version unless the user requests them.
 - Follow the concise style of the WeChat plugin or the user's chosen reference. Focus on supported content, relevant settings, and necessary cautions. Keep implementation internals, API details, debugging history, fixture inventories, and acceptance evidence out of user-facing sections.
 - Use a separate `安装` / `Installation` section with the same wording across site plugins. Do not append generic proxy or HTTPS setup, opening a website, browsing, or playback instructions. Use the shared wording below; adjust it only when the actual distribution method changes or the user requests it.
 - Put essential plugin-specific operations, such as YouTube's capture action, in a short `使用` / `Usage` section only when needed. Put requirements such as FFmpeg, unsupported content, expired-link recovery, and restrictions during capture in `注意事项` / `Notes`.

@@ -13,6 +13,7 @@ import (
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/plugin"
 	desktopsystem "res-downloader/internal/system"
+	"res-downloader/internal/updates"
 	"sync"
 )
 
@@ -27,6 +28,7 @@ type Runtime struct {
 	portRestart *portRestart
 	closing     bool
 
+	Updates   *updates.Manager
 	App       *App
 	Config    *Config
 	Logger    *Logger
@@ -102,6 +104,10 @@ func NewRuntime(assets embed.FS, wailsConfig string) (*Runtime, error) {
 		Proxy: proxy, HTTP: httpServer,
 		Captures: captures,
 	}
+	runtime.Updates = updates.New(app.Version, app.UserDir, func() updates.Network {
+		snapshot := config.Snapshot()
+		return updates.Network{Port: snapshot.Port, Upstream: snapshot.UpstreamProxy, DownloadProxy: snapshot.DownloadProxy}
+	})
 	app.runtime = runtime
 	config.SetApplyHook(func(previous, current Config) error {
 		if previous.UpstreamProxy != current.UpstreamProxy || previous.OpenProxy != current.OpenProxy {
@@ -166,6 +172,9 @@ func (r *Runtime) Close(ctx context.Context) error {
 	restart := r.portRestart
 	r.portRestart = nil
 	r.restartMu.Unlock()
+	if r.Updates != nil {
+		r.Updates.Close()
+	}
 	var first error
 	var resetWorkspaceErr error
 	if err := r.Control.Close(ctx); err != nil {
@@ -207,6 +216,11 @@ func (r *Runtime) Close(ctx context.Context) error {
 		}
 		if first != nil && r.Logger != nil {
 			r.Logger.Esg(first, "restart with new listen port failed; reopen the application manually")
+		}
+	}
+	if r.Updates != nil {
+		if err := r.Updates.Release(first); err != nil && first == nil {
+			first = err
 		}
 	}
 	if r.Logger != nil {

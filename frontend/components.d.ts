@@ -80,5 +80,6 @@ declare module 'vue' {
     StartupScreen: typeof import('./src/components/StartupScreen.vue')['default']
     StoreExtensionCard: typeof import('./src/components/plugin/StoreExtensionCard.vue')['default']
     TaskListItem: typeof import('./src/components/task/TaskListItem.vue')['default']
+    UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   }
 }

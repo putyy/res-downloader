@@ -79,7 +79,7 @@ jobs:
               }
               trap restore_workspace_ownership EXIT
 
-              wails build -platform "linux/$ARCH" -s -skipbindings
+              wails build -platform "linux/$ARCH" -s -skipbindings -ldflags "-X res-downloader/internal/app.ReleaseVersion=$RELEASE_VERSION"
 
               install -Dm755 \
                 build/bin/res-downloader \

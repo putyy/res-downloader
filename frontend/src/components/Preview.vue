@@ -81,7 +81,11 @@ const onAfterEnter = () => {
   if (renderer.value === 'text') {
     axios.get(previewURL(), {responseType: 'text'})
         .then(response => textContent.value = String(response.data ?? ''))
-        .catch(() => textContent.value = '')
+        .catch(error => {
+          textContent.value = ''
+          const message = error?.response?.status ? `HTTP ${error.response.status}` : error?.message || 'text'
+          previewError.value = t('index.preview_load_failed', {message})
+        })
     return
   }
   if (renderer.value !== 'video') return

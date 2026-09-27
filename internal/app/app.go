@@ -21,6 +21,9 @@ import (
 	"github.com/vrischmann/userdir"
 )
 
+// ReleaseVersion is set by release builds to retain prerelease identity.
+var ReleaseVersion string
+
 type App struct {
 	ctx              context.Context
 	assets           embed.FS
@@ -47,6 +50,9 @@ func newApp(assets embed.FS, wjs string) (*App, error) {
 	version := "1.0.1"
 	if len(matches) > 0 {
 		version = matches[1]
+	}
+	if ReleaseVersion != "" {
+		version = ReleaseVersion
 	}
 
 	app := &App{
@@ -179,6 +185,11 @@ func (a *App) UnsetSystemProxy(password string) error {
 func (a *App) PrepareReset(password string) error {
 	if a == nil || a.runtime == nil || a.runtime.System == nil {
 		return errors.New("certificate cleanup is unavailable")
+	}
+	a.runtime.restartMu.Lock()
+	defer a.runtime.restartMu.Unlock()
+	if a.runtime.closing || a.runtime.portRestart != nil {
+		return errors.New("application is already shutting down or updating")
 	}
 	setup := a.runtime.System.WithPassword(password)
 	if a.IsProxy {

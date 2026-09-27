@@ -57,7 +57,7 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 | `resource.Resource` | 维护资源目录、持久化候选资源、执行资源操作和下载计划 | `resources.db`、捕获缓存、媒体引擎 |
 | `download.Scheduler` | 持久化任务、管理工作协程和任务状态，处理暂停、恢复与重试 | `tasks.db`、插件下载计划 |
 | `download.PlanRunner` | 执行一个下载计划中的输入获取、处理和输出安装 | HTTP、HLS、捕获文件、FFmpeg、WASM |
-| `capture.Store` | 暂存代理或页面脚本捕获的响应字节，供下载计划读取 | `capture-cache/` |
+| `capture.Store` | 暂存代理、页面脚本或插件钩子写入的文件字节，供下载计划读取 | `capture-cache/` |
 | `media.Engine` | 调用用户配置的 FFmpeg / ffprobe 完成媒体处理 | 转封装、合并、录制等能力 |
 | `system.Setup` | 管理设备证书、系统代理和平台相关操作 | Windows、macOS、Linux 实现 |
 | `events.Emitter` | 把资源和任务变化编码后发送给 Wails 前端 | 单一 `event` 事件通道 |
@@ -96,7 +96,7 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 3. HTTPS CONNECT 请求先由 `rules.Set` 根据域名策略决定进行 MITM 还是直接透传。该阶段只有主机信息，资源类型和 MIME 匹配在后续观察阶段处理。
 4. 代理把请求或响应转换成版本化的 `Observation`。只有匹配规则和权限需要时，才读取受 `bodyLimit` 限制的 Body。
 5. `plugin.PluginManager` 按优先级调用已启用插件，包括内置通用识别器、应用内嵌官方插件和用户安装插件；用户触发 `page-command` 资源操作时，它还会把宿主生成的标准消息投递给同一插件声明的桥接页面脚本。
-6. 插件可以输出资源候选、关联多次请求、请求受控的响应修改或页面脚本，并在声明捕获任务时把响应字节写入 `capture.Store`。
+6. 插件可以输出资源候选、关联多次请求、请求受控的响应修改或页面脚本，并通过响应捕获或 `api.capture.save` 把文件字节写入 `capture.Store`。
 7. 插件输出的 `ResourceCandidate` 由资源服务规范化、关联并保存到内存目录和 `resources.db`。
 8. 资源变化通过 Wails 事件推送到前端，前端再按筛选条件更新资源列表。
 
@@ -187,7 +187,7 @@ CLI 与 MCP 另经本机控制监听器访问资源查询及下载任务操作�
 | `internal/logging/` | 应用日志封装                               |
 | `examples/plugins/` | 可提交的插件协议示例和脱敏 fixture                |
 | `plugins/` | 独立站点插件的本地开发工作区，默认不随宿主提交或打包           |
-| `cmd/extension-index/` | 根据 GitHub 仓库生成扩展商店索引的脚本              |
+| `cmd/githubctl/` | 生成正式版更新信息和扩展商店索引的脚本              |
 | `cmd/resdctl/` | 可独立构建的 CLI / MCP 控制台客户端，仍依赖运行中的桌面应用 |
 | `build/` | Wails 平台配置、图标和安装包构建资源                |
 | `docs/` | 用户指南、插件 SDK 和开发文档                    |
@@ -199,6 +199,6 @@ CLI 与 MCP 另经本机控制监听器访问资源查询及下载任务操作�
 - 修改本地 API 时，同时检查来源、鉴权、方法、Body 上限和前端类型。
 - 修改下载状态或资源模型时，同时检查 BoltDB 恢复逻辑、事件负载和前端状态映射。
 - 修改启动或关闭流程时，保持构造函数无监听器和后台任务副作用，并确保失败路径释放已经创建的资源。
-- 平台相关的证书和代理行为应留在 `internal/system/`，公共业务层通过接口或适配器调用。
+- 平台相关的证书与抓取代理设置应留在 `internal/system/`，更新请求的代理解析应留在 `internal/netproxy/`，公共业务层通过接口或适配器调用。
 
 参与代码开发前请阅读[参与贡献](contributing.md)。涉及插件时，还应阅读[插件开发指南](plugins.md)及对应 SDK 文档。

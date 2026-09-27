@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"res-downloader/internal/metadata"
 	shared "res-downloader/internal/model"
 	"strings"
 	"time"
@@ -20,19 +20,22 @@ import (
 const (
 	maxPluginStoreIndexSize  int64 = 4 * 1024 * 1024
 	maxPluginStoreEntries          = 1000
-	pluginStoreFetchTimeout        = 20 * time.Second
 	officialPluginStoreOwner       = "putyy"
+	pluginStoreIndexPath           = "/extensions/index.json"
 )
-
-// PluginStoreIndexURL can be replaced with -ldflags when an application build
-// uses another official index host. Keeping it in Go prevents a remote page
-// from turning the local API into a general-purpose fetch proxy.
-var PluginStoreIndexURL = "https://res.putyy.com/extensions/index.json"
 
 var downloadStorePluginArchive = downloadPluginArchive
 
 func (m *PluginManager) PluginStore(ctx context.Context) (shared.PluginStoreIndex, bool, string, error) {
-	index, err := fetchPluginStoreIndex(ctx, PluginStoreIndexURL)
+	var index shared.PluginStoreIndex
+	raw, _, err := metadata.Fetch(ctx, pluginStoreIndexPath, func(raw []byte) error {
+		_, err := decodePluginStoreIndex(raw)
+		return err
+	})
+	if err == nil {
+		index, err = decodePluginStoreIndex(raw)
+	}
+
 	if err == nil {
 		if cacheErr := writePluginStoreCache(m.pluginStoreCacheFile(), index); cacheErr != nil {
 			m.logger.Esg(cacheErr, "cache plugin store index")
@@ -49,41 +52,6 @@ func (m *PluginManager) PluginStore(ctx context.Context) (shared.PluginStoreInde
 
 func (m *PluginManager) pluginStoreCacheFile() string {
 	return filepath.Join(filepath.Dir(m.pluginDir), "plugin-store-cache.json")
-}
-
-func fetchPluginStoreIndex(ctx context.Context, rawURL string) (shared.PluginStoreIndex, error) {
-	if err := validatePluginDownloadURL(rawURL); err != nil {
-		return shared.PluginStoreIndex{}, fmt.Errorf("invalid plugin store URL: %w", err)
-	}
-	ctx, cancel := context.WithTimeout(ctx, pluginStoreFetchTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return shared.PluginStoreIndex{}, err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "res-downloader-plugin-store")
-	// The official store index is application metadata, not a download task.
-	// Keep it independent from the user-configured download proxy.
-	response, err := newPluginHTTPClient(NetworkSettings{}).Do(req)
-	if err != nil {
-		return shared.PluginStoreIndex{}, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return shared.PluginStoreIndex{}, fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
-	}
-	if response.ContentLength > maxPluginStoreIndexSize {
-		return shared.PluginStoreIndex{}, errors.New("plugin store index is too large")
-	}
-	raw, err := io.ReadAll(io.LimitReader(response.Body, maxPluginStoreIndexSize+1))
-	if err != nil {
-		return shared.PluginStoreIndex{}, err
-	}
-	if int64(len(raw)) > maxPluginStoreIndexSize {
-		return shared.PluginStoreIndex{}, errors.New("plugin store index is too large")
-	}
-	return decodePluginStoreIndex(raw)
 }
 
 func decodePluginStoreIndex(raw []byte) (shared.PluginStoreIndex, error) {

@@ -147,3 +147,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release edit "$RELEASE_TAG" --draft=false
+
+  refresh-metadata:
+    name: Refresh documentation and update metadata
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.prerelease == 'false'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}

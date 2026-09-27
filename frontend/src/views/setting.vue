@@ -46,7 +46,7 @@
               </template>
               {{ t("setting.filename_template_tip") }}
             </NTooltip>
-            <NButton text type="primary" class="ml-2 shrink-0" @click="BrowserOpenURL(filenameTemplateDocsUrl)">
+            <NButton text type="primary" class="ml-2 shrink-0" @click="openDocumentation('filename-template')">
               {{ t('setting.filename_template_docs') }}
             </NButton>
           </NFormItem>
@@ -92,6 +92,10 @@
               <NButton secondary @click="openLogDirectory" class="[--wails-draggable:no-drag]">
                 <template #icon><NIcon><FolderOpenOutline/></NIcon></template>
                 {{ t('setting.open_log_directory') }}
+              </NButton>
+              <NButton secondary @click="updateUI.openDialog()" class="[--wails-draggable:no-drag]">
+                <template #icon><NIcon><RefreshOutline/></NIcon></template>
+                {{ t('update.check') }}
               </NButton>
             </NSpace>
           </NFormItem>
@@ -350,6 +354,7 @@
 import {FolderOpenOutline, HelpCircleOutline, RefreshOutline} from "@vicons/ionicons5"
 import {computed, onMounted, ref, watch} from "vue"
 import {DEFAULT_FILENAME_TEMPLATE, useIndexStore} from "@/stores"
+import {useUpdateStore} from '@/stores/update'
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import {useI18n} from 'vue-i18n'
@@ -357,20 +362,18 @@ import {useRoute} from 'vue-router'
 import {isValidHost, isValidPort, isValidUpstreamProxy} from '@/func'
 import {NButton, NIcon} from "naive-ui"
 import * as bind from "../../wailsjs/go/app/Bind"
-import {BrowserOpenURL} from "../../wailsjs/runtime"
+import {openDocumentation} from '@/services/documentation'
 import MediaEngineSettings from '@/components/settings/MediaEngineSettings.vue'
 import CertificateSettings from '@/components/settings/CertificateSettings.vue'
 import AppearanceSettings from '@/components/settings/AppearanceSettings.vue'
 
-const {t, locale} = useI18n()
+const {t} = useI18n()
 const route = useRoute()
 const store = useIndexStore()
+const updateUI = useUpdateStore()
 const activeTab = ref(route.query.tab === 'resource-rules' ? 'resource-rules' : 'basic')
 
 const filenameTemplateExample = "{{author}}/{{title|default:resource|sanitize|truncate:80}}_{{date:20060102}}.{{ext}}"
-const filenameTemplateDocsUrl = computed(() => locale.value.startsWith('zh')
-  ? 'https://res.putyy.com/guide/settings.html#文件命名模板'
-  : 'https://res.putyy.com/en/guide/settings.html#filename-template')
 const filenameConflictOptions = computed(() => [
   {value: 'rename', label: t('setting.filename_conflict_rename')},
   {value: 'overwrite', label: t('setting.filename_conflict_overwrite')},

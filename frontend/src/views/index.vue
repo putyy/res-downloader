@@ -110,10 +110,12 @@
       </NSpace>
     </div>
     <div class="min-h-0 flex-1">
+      <!-- Collections use a custom child table; do not also flatten children as tree rows. -->
       <NDataTable
           class="resource-table [--wails-draggable:no-drag]"
           :columns="columns"
           :data="filteredData"
+          children-key="__tableTreeChildren"
           :bordered="false"
           :max-height="tableHeight"
           :row-key="rowKey"
@@ -130,7 +132,7 @@
     </div>
     <div class="text-app-muted [&_span]:transition-colors [&_span]:duration-[160ms] [&_span]:ease-[ease] [&_span:hover]:text-app-accent flex items-center justify-center" id="bottom">
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL(certUrl)">{{ t('footer.cert_download') }}</span>
-      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://res.putyy.com')">{{ t('footer.documentation') }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="openDocumentation('home')">{{ t('footer.documentation') }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t('footer.source_code') }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/issues')">{{ t('footer.help') }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/releases')">{{ t('footer.update_log') }}</span>
@@ -151,6 +153,7 @@ import Preview from "@/components/Preview.vue"
 import ShowLoading from "@/components/ShowLoading.vue"
 import {useIndexStore} from "@/stores"
 import appApi from "@/api/app"
+import {openDocumentation} from '@/services/documentation'
 import {pageCommandErrorMessage} from '@/services/pageCommands'
 import {useResourceTableColumns} from '@/components/resource/useResourceTableColumns'
 import {exportableResource, findResourceInTree, mergeResourceRuntime, primaryURL, removeResourceFromTree, resourceSome, visitResource} from '@/services/resources'

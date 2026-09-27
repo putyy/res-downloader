@@ -58,6 +58,12 @@ Check the [Installation guide](installation.md) to confirm that the package matc
 
 Use **Clear cache and restart** under **Setting → Basic Setting**, approving authorization when prompted. This resets settings and certificates and clears captured resources, task history, and other data. Review the full scope under [Basic settings](settings.md#basic-settings) before proceeding. Downloaded files and installed plugins are preserved.
 
+## Retry a failed update check
+
+Once the connection is restored, select **Check for updates** under **Setting → Basic Setting** without restarting the app. Update checks also follow **Download Proxy**, so confirm that the configured upstream proxy works when enabled. See [In-app updates](installation.md#in-app-updates) for the update options.
+
+If the update service is not providing valid version information, try again later or visit the website. Include the update source error from the application log when reporting the problem. The server may be missing valid metadata; resetting local settings will not fix that.
+
 ## Retry a failed Windows installation
 
 If the first installation fails because of disk space, locked files, or WebView2 permission setup, resolve the reported problem and run the installer again with the same destination. If the directory has a valid installation record or interrupted-installation record, installation can continue after validation. You do not need to delete the files left behind.

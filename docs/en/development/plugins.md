@@ -260,7 +260,7 @@ quality:
 | `media.ffmpeg.network` | Allow FFmpeg to read plugin-provided HLS/live URLs | Download URLs must be valid HTTP/HTTPS addresses; this is a sensitive permission |
 | `inject-page-script` | Inject scripts into matching HTML pages | Target domains must undergo TLS interception and allow safe injection |
 | `page-bridge` | Exchange JSON between page scripts and the plugin runtime, or receive user-triggered `page-command` actions | Requires `inject-page-script` |
-| `capture-response-body` | Cache Range responses actually read by the browser, or accept media segments captured by page scripts | Requires `observe-response`; page segments also require `inject-page-script` and `page-bridge` |
+| `capture-response-body` | Cache Range responses, page segments, or plugin-generated files through `api.capture.save` | Requires `observe-response`; page segments also require `inject-page-script` and `page-bridge` |
 | `enqueue-download` | Automatically create downloads after a page message reports resources | Requires `page-bridge` and `emit-resource`; sensitive because it writes to the download directory |
 
 Bodies reach plugins only when the domain, matching rule, and read permission all allow it. Data exceeding `bodyLimit` is marked `truncated`; plugins cannot modify truncated responses.
@@ -315,7 +315,7 @@ pageApi.onMessage(function (message) {
 var result = await pageApi.send({type: "player-ready", data: collectPlayerData()})
 ```
 
-With `capture-response-body` declared, a page script can use its current page session token to write binary media segments into the app's capture cache (Capture Store):
+With `capture-response-body` declared, a page script can use its current page session token to write file bytes or media segments into the app's capture cache (Capture Store):
 
 ```javascript
 await pageApi.capture.start("video:123:video")
@@ -395,6 +395,48 @@ Entering a queue does not mean the page has received or executed the command; it
 Page scripts and website code run in the same webpage JavaScript environment. Website code may read or imitate bridge requests, so plugins must validate incoming page messages.
 
 By default, the bridge does not allow webpages to access files, shell, databases, the downloader, or other plugins. With `enqueue-download`, a plugin can create download tasks for resources just reported and validated in the current call. The webpage still cannot specify file paths or arbitrarily control download tasks.
+
+### Writing and reporting a file from a page
+
+This example uses the `runtime-hook` page script and `www.example.com` domain from this section's Manifest. In addition to `inject-page-script` and `page-bridge`, declare `observe-response`, `capture-response-body` and `emit-resource`.
+
+The page entry writes a complete file before notifying the plugin. Encode text as UTF-8; for images, audio, video and PDF, write the complete bytes of the actual file:
+
+```javascript
+const key = "example:caption:1"
+const bytes = new TextEncoder().encode("Example title\n\nExample caption.")
+await pageApi.capture.start(key)
+await pageApi.capture.write(key, bytes)
+await pageApi.capture.complete(key)
+await pageApi.send({type: "example-file-ready", key, size: bytes.length})
+```
+
+The plugin entry validates the message source, cache key and byte count before reporting a resource for preview and download. This example limits caption size to 64 KiB:
+
+```javascript
+function onPageMessage(message, context, api) {
+  if (context.scriptId !== "runtime-hook" ||
+      context.origin !== "https://www.example.com" ||
+      !message || message.type !== "example-file-ready" ||
+      message.key !== "example:caption:1" ||
+      typeof message.size !== "number" || message.size <= 0 ||
+      message.size > 65536 || Math.floor(message.size) !== message.size) {
+    return {ok: false, error: "invalid file"}
+  }
+  api.emit({
+    groupKey: "example:caption", kind: "document.text", primaryType: "document",
+    title: "Example caption", capabilities: ["download", "preview"],
+    tracks: [{id: "text", role: "primary", executor: "capture-file",
+      captureKey: message.key, size: message.size,
+      extension: ".txt", mime: "text/plain; charset=utf-8"}],
+    requiredTracks: ["primary"],
+    preview: {renderer: "text", trackId: "text", mime: "text/plain; charset=utf-8"}
+  })
+  return {ok: true}
+}
+```
+
+In a real plugin, assign cache keys and `groupKey` values per resource so that different files do not overwrite or merge with each other. See [Previewing captured files](#previewing-captured-files) for download plans, renderer selection and cache access rules. If the file content is already available in a plugin hook, use [Saving files directly from plugins](#saving-files-directly-from-plugins).
 
 ## Resource model
 
@@ -604,6 +646,7 @@ interface PluginResult {
 | --- | --- | --- |
 | `api.emit(resource)` | `void` | Report a resource, using the same merge behavior as `upsert` |
 | `api.upsert(resource)` | `void` | Recommended for incremental resource updates with a stable `groupKey` |
+| `api.capture.save(data)` | `{captureKey, size}` | Save UTF-8 strings or binary bytes synchronously; requires `capture-response-body`, without a page session |
 | `api.log(message)` | `void` | Write a log only when the current plugin's `enableLog` setting is boolean `true`; the caller must sanitize it |
 | `api.pluginVersion` | `string` | Current Manifest version |
 | `api.correlate.register(value)` | `void` | Associate URL aliases with resources and tracks |
@@ -621,6 +664,39 @@ The app controls `api.log()` in all four hooks using the current call's settings
 - App errors such as plugin load failures or hook exceptions are unaffected by this setting.
 
 To show the log switch in plugin management, declare `enableLog` in `settingsSchema.properties`. Saved settings are still validated against the Manifest. See [application logs](../guide/troubleshooting.md#find-application-logs) for log locations.
+
+### Saving files directly from plugins
+
+`onObservation` and `onPageMessage` can call `api.capture.save(data)` to synchronously save text or binary files. The `capture-response-body` permission is required; otherwise `api.capture` is absent.
+
+The following `onObservation` example saves a sample caption after a successful response, then uses the returned cache key in a file resource. Declare `observe-response`, `capture-response-body` and `emit-resource` in the Manifest, with the target domains and matching rules. A real plugin should extract content from the matched response and generate a stable `groupKey` for each resource.
+
+```javascript
+function onObservation(observation, api) {
+  if (observation.stage !== "response" || observation.response.statusCode !== 200) return
+  var file = api.capture.save("Example title\n\nExample caption.")
+  // Binary files can use ArrayBuffer, Uint8Array or Uint8ClampedArray.
+  api.emit({
+    groupKey: "example:caption", kind: "document.text", primaryType: "document",
+    title: "Example caption", capabilities: ["download", "preview"],
+    tracks: [{id: "text", role: "primary", executor: "capture-file",
+      captureKey: file.captureKey, size: file.size,
+      extension: ".txt", mime: "text/plain; charset=utf-8"}],
+    requiredTracks: ["primary"],
+    preview: {renderer: "text", trackId: "text", mime: "text/plain; charset=utf-8"}
+  })
+}
+```
+
+This single-track file resource can use the host's default download plan without implementing `createDownloadPlan`. See [Previewing captured files](#previewing-captured-files) for MIME types, renderers and custom download plan requirements.
+
+Strings are encoded as UTF-8; byte views preserve their exact view bounds and bytes. Empty data, ordinary arrays, objects and other numeric TypedArrays are rejected. Each hook may save up to eight files and 32 MiB in total, counting failed writes. Time spent saving counts toward the hook execution time limit. Invalid inputs, exceeded limits, unavailable storage and I/O failures throw. Incomplete writes are aborted on a best-effort basis and produce no successful result.
+
+The returned `captureKey` is generated by the host and scoped to the plugin; `size` is the actual byte count. The file is complete when the call returns. Use the key unchanged in capture-file tracks and download inputs, without adding a plugin prefix. Every save creates a fresh key, preserving files already in use. Completed files left unreferenced when a later hook operation fails or reports no resource follow the [cache expiry rules](#previewing-captured-files); the entire hook is not a file transaction.
+
+`createDownloadPlan` and `refreshResource` receive only the base API and cannot call `api.capture.save`. CLI fixture replay uses a temporary capture store and removes it afterward without touching the running application's cache.
+
+### Capturing response bodies
 
 To reuse data the browser successfully received but cannot request again using the same URL, return a capture instruction from the response hook. The app caches the current response bytes without interpreting the site's protocol. Capture keys are automatically limited to the current plugin:
 
@@ -644,7 +720,7 @@ return {
 }
 ```
 
-`range-file` combines byte ranges using the response `Content-Range`, request `Range`, or `range` and `clen` in the URL. If the browser has not loaded every range, `capture-file` refuses to produce an incomplete file and asks the user to load more and retry. On startup, the app clears capture caches older than 24 hours. Each object may be at most 16 GiB. This capability does not bypass login, CSP, proxies, or site access controls.
+`range-file` combines byte ranges using the response `Content-Range`, request `Range`, or `range` and `clen` in the URL. If the browser has not loaded every range, `capture-file` refuses to produce an incomplete file and asks the user to load more and retry. See [Previewing captured files](#previewing-captured-files) for cache size and expiry rules. This capability does not bypass login, CSP, proxies, or site access controls.
 
 The supported functions are `onObservation`, `onPageMessage`, `createDownloadPlan`, and `refreshResource`. All are optional synchronous top-level functions; Goja hooks cannot wait for Promises. Page scripts run in the browser and can use its asynchronous APIs, subject to the page's CSP, same-origin policy, and bridge restrictions.
 
@@ -677,6 +753,28 @@ return {
 
 Request interception uses `syntheticResponse` and requires `intercept-request`.
 
+### Previewing captured files
+
+`capture-file` is a generic file source for text, images, audio, video and PDF. Files can come from [direct plugin saves](#saving-files-directly-from-plugins), [page writes](#writing-and-reporting-a-file-from-a-page) or [response body capture](#capturing-response-bodies). The plugin needs `capture-response-body`, and cache keys are scoped to the plugin.
+
+When reporting a resource, declare the `download` and `preview` capabilities, set the track's `executor` to `capture-file`, and provide its `captureKey`, actual extension and MIME type. Reference that track in `preview.trackId`, and choose `preview.renderer` and `preview.mime` for the actual file:
+
+| File | renderer | Example MIME type |
+| --- | --- | --- |
+| TXT | `text` | `text/plain; charset=utf-8` |
+| PNG | `image` | `image/png` |
+| M4A | `audio` | `audio/mp4` |
+| MP4 | `video` | `video/mp4` |
+| PDF | `pdf` | `application/pdf` |
+
+A single-track file resource can use the host's default download plan. When implementing `createDownloadPlan`, retain the preview track's ID, `executor: "capture-file"` and `captureKey` in `inputs`, and use `output.input` to select the input or processed result to save. A separate preview track must also be a plan input, not just a resource track. Do not provide a URL for a captured-file input.
+
+Preview supports GET, HEAD, single/multiple and suffix byte ranges, using the declared MIME type. The browser must support the actual format and codecs. Missing or incomplete captures return 409 and require recapture. A cache being read cannot be overwritten; writers should retry later or use a new capture key. External playlist segments are not automatically included in the cache.
+
+Captured previews with input or output processors transform the complete file before serving ranges of the resulting representation. This path accepts at most 4 MiB of input and returns 422 above that limit; normal processed downloads remain available. Unprocessed files have no such preview input limit.
+
+Each cached object may be at most 16 GiB; individual write APIs also have file count, segment size or total byte limits. On startup, the app clears capture caches older than 24 hours. Preview requests use a resource ID, and the host resolves the cache key from a validated download plan. Requests cannot specify arbitrary file paths or another plugin's cache.
+
 ## Download plans
 
 `createDownloadPlan(input, api)` generates a download plan. It specifies the files or tracks to download, processing steps such as merging or decryption, and the final output:
@@ -708,7 +806,7 @@ Pause and stop behavior depends on the current stage:
 Available input executors:
 
 - `http-file`: ordinary HTTP/HTTPS files, with request headers, concurrent Range downloads, and the download proxy.
-- `capture-file`: reads complete response data saved during capture without requesting the remote URL again. Requires `capture-response-body`.
+- `capture-file`: reads complete cached files from response capture, page writes or plugin saves without requesting a remote URL. Requires `capture-response-body`.
 - `hls`: parses HLS master and media playlists, supports relative URLs, highest/lowest bandwidth or a bandwidth limit for variant selection, `EXT-X-MAP`, `BYTERANGE`, and AES-128. It can download VOD content or only the segments already listed in the current playlist; it does not continuously follow a live stream. Pausing is unsupported.
 - `ffmpeg-hls`: user-installed FFmpeg downloads or records network streams directly, with request headers, reconnection, and a maximum recording duration. Requires `media.ffmpeg.network`. After recording stops, the app saves the valid recording.
 

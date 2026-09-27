@@ -1,12 +1,16 @@
 import { fileURLToPath } from 'node:url'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { defineConfig } from 'vitepress'
 import { zh, zhSearch } from './locales/zh.mts'
 import { en, enSearch } from './locales/en.mts'
 import { createPageHead } from './seo.mts'
 
-const hostname = 'https://res.putyy.com'
+const hostname = process.env.DOCS_HOSTNAME || 'https://res.putyy.com'
+const base = process.env.DOCS_BASE || '/'
 
 export default defineConfig({
+  base,
   srcExclude: ['README.md', 'readme.md'],
   lang: zh.lang,
   title: 'res-downloader',
@@ -20,16 +24,20 @@ export default defineConfig({
     publicDir: fileURLToPath(new URL('../public', import.meta.url)),
   },
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'icon', href: `${base}favicon.ico` }],
     ['meta', { name: 'theme-color', content: '#177858' }],
     ['meta', { property: 'og:site_name', content: 'res-downloader' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:image', content: `${hostname}/images/show.png` }],
+    ['meta', { property: 'og:image', content: `${hostname}${base}images/show.png` }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:image', content: `${hostname}/images/show.png` }],
+    ['meta', { name: 'twitter:image', content: `${hostname}${base}images/show.png` }],
   ],
   sitemap: {
-    hostname,
+    hostname: `${hostname}${base}`,
+  },
+  async buildEnd(site) {
+    await writeFile(join(site.outDir, 'robots.txt'),
+      `User-agent: *\nAllow: /\n\nSitemap: ${hostname}${base}sitemap.xml\n`)
   },
   transformHead: (context) => createPageHead(context, hostname),
   themeConfig: {

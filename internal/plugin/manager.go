@@ -64,8 +64,16 @@ type PluginManager struct {
 
 func (m *PluginManager) SetCaptureStore(captures PageCaptureStore) {
 	if m != nil {
+		m.mu.Lock()
+		defer m.mu.Unlock()
 		m.captures = captures
 	}
+}
+
+func (m *PluginManager) captureStore() PageCaptureStore {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.captures
 }
 
 func (m *PluginManager) SetPageDownloadHandler(handler func(shared.ResourceCandidate) error) {
@@ -131,15 +139,15 @@ func (m *PluginManager) networkSettings() NetworkSettings {
 }
 
 func (m *PluginManager) loadExternalPlugin(directory string) (shared.RuntimePlugin, string, error) {
-	return LoadExternalPlugin(directory, pluginRuntimeServices{logger: m.logger, correlations: m.correlations, pages: m.pages})
+	return LoadExternalPlugin(directory, pluginRuntimeServices{logger: m.logger, correlations: m.correlations, pages: m.pages, captureStore: m.captureStore})
 }
 
 func (m *PluginManager) loadOfficialPlugin(directory string) (shared.RuntimePlugin, string, error) {
-	return LoadOfficialPlugin(directory, pluginRuntimeServices{logger: m.logger, correlations: m.correlations, pages: m.pages})
+	return LoadOfficialPlugin(directory, pluginRuntimeServices{logger: m.logger, correlations: m.correlations, pages: m.pages, captureStore: m.captureStore})
 }
 
 func (m *PluginManager) loadInstalledPlugin(directory, source string) (shared.RuntimePlugin, string, error) {
-	services := pluginRuntimeServices{logger: m.logger, correlations: m.correlations, pages: m.pages}
+	services := pluginRuntimeServices{logger: m.logger, correlations: m.correlations, pages: m.pages, captureStore: m.captureStore}
 	if source == shared.PluginSourceOfficial {
 		return LoadOfficialPlugin(directory, services)
 	}

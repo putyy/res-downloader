@@ -75,8 +75,8 @@ function refreshResource(input, api) {
 			manifest := shared.PluginManifest{
 				ID: "test.hook-api", Name: "Hook API", Version: "1.2.3",
 				APIVersion: shared.PluginAPIVersion, Runtime: "javascript", Entry: "main.js",
-				// Even with page-bridge permission, resource hooks receive only the base API.
-				Permissions: shared.PluginPermissions{Capabilities: []string{"inject-page-script", "page-bridge"}},
+				// Even with bridge/capture permissions, resource hooks receive only the base API.
+				Permissions: shared.PluginPermissions{Capabilities: []string{"inject-page-script", "page-bridge", "capture-response-body"}},
 			}
 			runtime, err := newJavaScriptPlugin(directory, manifest, services)
 			if err != nil {

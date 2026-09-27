@@ -118,15 +118,8 @@ func (w *lockedWriter) Write(data []byte) (int, error) {
 	return w.writer.Write(data)
 }
 
-func main() {
-	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "extension index failed:", err)
-		os.Exit(1)
-	}
-}
-
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("extension-index", flag.ContinueOnError)
+	flags := flag.NewFlagSet("githubctl extensions", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	output := flags.String("output", "dist/extensions/index.json", "output index JSON path")
 	topic := flags.String("topic", shared.PluginStoreTopic, "GitHub repository topic")
@@ -449,7 +442,23 @@ func writeIndex(fileName string, index shared.PluginStoreIndex) error {
 		return err
 	}
 	raw = append(raw, '\n')
-	return os.WriteFile(fileName, raw, 0644)
+	temporary, err := os.CreateTemp(filepath.Dir(fileName), ".index-*.json")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporary.Name())
+	if err := temporary.Chmod(0644); err != nil {
+		temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(raw); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporary.Name(), fileName)
 }
 
 func secureHTTPSURL(rawURL string) bool {

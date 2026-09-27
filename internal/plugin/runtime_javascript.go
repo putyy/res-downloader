@@ -125,6 +125,9 @@ func (p *javaScriptPlugin) apiFactory(emitted *[]shared.ResourceCandidate, setti
 			return vm.ToValue(jsonValue(p.services.correlations.find(p.manifest.ID, call.Argument(0).String())))
 		})
 		_ = api.Set("correlate", correlate)
+		if p.manifest.Permissions.Has("capture-response-body") {
+			_ = api.Set("capture", p.captureAPI(vm))
+		}
 		if p.manifest.Permissions.Has("page-bridge") {
 			page := vm.NewObject()
 			_ = page.Set("send", func(call goja.FunctionCall) goja.Value {
