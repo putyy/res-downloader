@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"res-downloader/core/shared"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +51,8 @@ type FileDownloader struct {
 	Headers          map[string]string
 	DownloadTaskList []*DownloadTask
 	progressCallback ProgressCallback
+	fileMu           sync.Mutex
+	finished         bool
 	ctx              context.Context
 	cancelFunc       context.CancelFunc
 }
@@ -116,11 +120,109 @@ func (fd *FileDownloader) setHeaders(request *http.Request) {
 			request.Header.Set(key, value)
 			continue
 		}
-		
+
 		if strings.Contains(globalConfig.UseHeaders, key) {
 			request.Header.Set(key, value)
 		}
 	}
+}
+
+func contentRangeTotal(value string) (int64, error) {
+	parts := strings.Split(strings.TrimSpace(value), "/")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid Content-Range %q", value)
+	}
+
+	rangeParts := strings.Fields(parts[0])
+	if len(rangeParts) != 2 || !strings.EqualFold(rangeParts[0], "bytes") {
+		return 0, fmt.Errorf("invalid Content-Range %q", value)
+	}
+	positions := strings.Split(rangeParts[1], "-")
+	if len(positions) != 2 {
+		return 0, fmt.Errorf("invalid Content-Range %q", value)
+	}
+	first, firstErr := strconv.ParseInt(positions[0], 10, 64)
+	last, lastErr := strconv.ParseInt(positions[1], 10, 64)
+	if firstErr != nil || lastErr != nil || first != 0 || last != 0 {
+		return 0, fmt.Errorf("invalid Content-Range %q", value)
+	}
+
+	totalValue := strings.TrimSpace(parts[1])
+	if totalValue == "*" {
+		return -1, nil
+	}
+	total, err := strconv.ParseInt(totalValue, 10, 64)
+	if err != nil || total <= last {
+		return 0, fmt.Errorf("invalid Content-Range total in %q", value)
+	}
+	return total, nil
+}
+
+func (fd *FileDownloader) rangeProbe() (*http.Response, int64, error) {
+	request, err := http.NewRequestWithContext(fd.ctx, http.MethodGet, fd.Url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("create range probe request failed: %w", err)
+	}
+	fd.setHeaders(request)
+	request.Header.Set("Range", "bytes=0-0")
+
+	resp, err := fd.buildClient().Do(request)
+	if err != nil {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return nil, 0, fmt.Errorf("send range probe request failed: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return resp, resp.ContentLength, nil
+	case http.StatusPartialContent:
+		total, err := contentRangeTotal(resp.Header.Get("Content-Range"))
+		if err != nil {
+			_ = resp.Body.Close()
+			return nil, 0, err
+		}
+		return resp, total, nil
+	case http.StatusRequestedRangeNotSatisfiable:
+		total, err := unsatisfiedContentRangeTotal(resp.Header.Get("Content-Range"))
+		if err != nil {
+			_ = resp.Body.Close()
+			return nil, 0, err
+		}
+		return resp, total, nil
+	default:
+		_ = resp.Body.Close()
+		return nil, 0, fmt.Errorf("range probe returned HTTP status %d", resp.StatusCode)
+	}
+}
+
+func unsatisfiedContentRangeTotal(value string) (int64, error) {
+	parts := strings.Split(strings.TrimSpace(value), "/")
+	if len(parts) != 2 || !strings.EqualFold(strings.TrimSpace(parts[0]), "bytes *") {
+		return 0, fmt.Errorf("invalid unsatisfied Content-Range %q", value)
+	}
+	total, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+	if err != nil || total != 0 {
+		return 0, fmt.Errorf("invalid empty-resource Content-Range %q", value)
+	}
+	return total, nil
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	retryTimer := time.NewTimer(delay)
+	defer retryTimer.Stop()
+
+	select {
+	case <-retryTimer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func isDownloadCancellation(err error) bool {
+	return errors.Is(err, context.Canceled)
 }
 
 func (fd *FileDownloader) init() error {
@@ -139,7 +241,7 @@ func (fd *FileDownloader) init() error {
 		}
 	}
 
-	request, err := http.NewRequest("HEAD", fd.Url, nil)
+	request, err := http.NewRequestWithContext(fd.ctx, http.MethodHead, fd.Url, nil)
 	if err != nil {
 		return fmt.Errorf("create HEAD request failed: %w", err)
 	}
@@ -154,33 +256,77 @@ func (fd *FileDownloader) init() error {
 	fd.setHeaders(request)
 
 	var resp *http.Response
+	var probeSize int64
+	var usedRangeProbe bool
 	for retries := 0; retries < MaxRetries; retries++ {
+		usedRangeProbe = false
 		resp, err = fd.buildClient().Do(request)
+		headErr := err
+		if headErr == nil && (resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices) {
+			headErr = fmt.Errorf("HEAD request returned HTTP status %d", resp.StatusCode)
+		}
+		if headErr != nil {
+			if resp != nil && resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+			resp = nil
+			err = headErr
+			if fd.ctx.Err() == nil {
+				// A failed HEAD does not prove that the server cannot serve a GET.
+				probeResp, size, probeErr := fd.rangeProbe()
+				if probeErr == nil {
+					resp, probeSize, err = probeResp, size, nil
+					usedRangeProbe = true
+				} else {
+					err = fmt.Errorf("%v; range probe failed: %w", headErr, probeErr)
+				}
+			}
+		}
+		if ctxErr := fd.ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("download initialization canceled: %w", ctxErr)
+		}
 		if err == nil {
 			break
 		}
 		if retries < MaxRetries-1 {
-			time.Sleep(RetryDelay)
+			if err := waitForRetry(fd.ctx, RetryDelay); err != nil {
+				return fmt.Errorf("download initialization canceled: %w", err)
+			}
 			globalLogger.Warn().Msgf("HEAD request failed, retrying (%d/%d): %v", retries+1, MaxRetries, err)
 		}
 	}
 
 	if err != nil {
-		return fmt.Errorf("HEAD request failed after %d retries: %w", MaxRetries, err)
+		return fmt.Errorf("resource preflight failed after %d attempts: %w", MaxRetries, err)
 	}
 	defer resp.Body.Close()
 
-	fd.TotalSize = resp.ContentLength
+	if usedRangeProbe {
+		fd.TotalSize = probeSize
+	} else {
+		fd.TotalSize = resp.ContentLength
+	}
 	if fd.TotalSize <= 0 {
 		fd.IsMultiPart = false
 		fd.TotalSize = -1
-	} else if resp.Header.Get("Accept-Ranges") == "bytes" && fd.TotalSize > MinPartSize {
-		fd.IsMultiPart = true
+	} else if fd.TotalSize > MinPartSize {
+		acceptsRanges := resp.Header.Get("Accept-Ranges") == "bytes"
+		if usedRangeProbe {
+			// A 206 proves the probe honored Range; a 200 proves it did not.
+			acceptsRanges = resp.StatusCode == http.StatusPartialContent
+		}
+		fd.IsMultiPart = acceptsRanges
 	}
 
 	dir := filepath.Dir(fd.FileName)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return fmt.Errorf("create directory failed: %w", err)
+	}
+
+	fd.fileMu.Lock()
+	defer fd.fileMu.Unlock()
+	if err := fd.ctx.Err(); err != nil {
+		return fmt.Errorf("download initialization canceled: %w", err)
 	}
 
 	fd.FileName = shared.GetUniqueFileName(fd.FileName)
@@ -290,7 +436,7 @@ func (fd *FileDownloader) startDownload() error {
 			fd.createDownloadTasks()
 			return fd.startDownload()
 		}
-		return fmt.Errorf("download failed with %d errors: %v", len(errArr), errArr[0])
+		return fmt.Errorf("download failed with %d errors: %w", len(errArr), errArr[0])
 	}
 
 	if err := fd.verifyDownload(); err != nil {
@@ -310,7 +456,7 @@ func (fd *FileDownloader) startDownloadTask(wg *sync.WaitGroup, progressChan cha
 			return
 		}
 
-		if strings.Contains(err.Error(), "cancelled") {
+		if isDownloadCancellation(err) {
 			errorChan <- err
 			return
 		}
@@ -321,7 +467,7 @@ func (fd *FileDownloader) startDownloadTask(wg *sync.WaitGroup, progressChan cha
 		if retries < MaxRetries-1 {
 			select {
 			case <-fd.ctx.Done():
-				errorChan <- fmt.Errorf("task %d cancelled during retry", task.taskID)
+				errorChan <- fmt.Errorf("task %d canceled during retry: %w", task.taskID, fd.ctx.Err())
 				return
 			case <-time.After(RetryDelay):
 			}
@@ -334,7 +480,7 @@ func (fd *FileDownloader) startDownloadTask(wg *sync.WaitGroup, progressChan cha
 func (fd *FileDownloader) doDownloadTask(progressChan chan ProgressChan, task *DownloadTask) error {
 	select {
 	case <-fd.ctx.Done():
-		return fmt.Errorf("download cancelled")
+		return fmt.Errorf("download canceled: %w", fd.ctx.Err())
 	default:
 	}
 
@@ -367,7 +513,7 @@ func (fd *FileDownloader) doDownloadTask(progressChan chan ProgressChan, task *D
 	for {
 		select {
 		case <-fd.ctx.Done():
-			return fmt.Errorf("download cancelled")
+			return fmt.Errorf("download canceled: %w", fd.ctx.Err())
 		default:
 		}
 
@@ -416,29 +562,43 @@ func (fd *FileDownloader) verifyDownload() error {
 
 func (fd *FileDownloader) Start() error {
 	if err := fd.init(); err != nil {
-		return err
+		return fd.finish(err)
 	}
 	fd.createDownloadTasks()
 
-	err := fd.startDownload()
+	return fd.finish(fd.startDownload())
+}
 
-	if fd.File != nil {
-		fd.File.Close()
+func (fd *FileDownloader) finish(err error) error {
+	fd.fileMu.Lock()
+	defer fd.fileMu.Unlock()
+	if ctxErr := fd.ctx.Err(); ctxErr != nil {
+		err = fmt.Errorf("download canceled: %w", ctxErr)
 	}
-
+	if fd.File != nil {
+		_ = fd.File.Close()
+		if fd.ctx.Err() != nil {
+			_ = os.Remove(fd.FileName)
+		}
+		fd.File = nil
+	}
+	fd.finished = true
 	return err
 }
 
 func (fd *FileDownloader) Cancel() {
+	fd.fileMu.Lock()
+	defer fd.fileMu.Unlock()
+	if fd.finished {
+		return
+	}
+
 	if fd.cancelFunc != nil {
 		fd.cancelFunc()
 	}
 
 	if fd.File != nil {
-		fd.File.Close()
-	}
-
-	if fd.FileName != "" {
+		_ = fd.File.Close()
 		_ = os.Remove(fd.FileName)
 	}
 }

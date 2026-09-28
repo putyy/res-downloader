@@ -164,7 +164,7 @@ func (r *Resource) download(mediaInfo shared.MediaInfo, decodeStr string) {
 		err := downloader.Start()
 		mediaInfo.SavePath = downloader.FileName
 		if err != nil {
-			if !strings.Contains(err.Error(), "cancelled") {
+			if !isDownloadCancellation(err) {
 				r.progressEventsEmit(mediaInfo, err.Error())
 			}
 			return
