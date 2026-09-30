@@ -73,7 +73,14 @@ func install(job Job) error {
 	}
 	return nil
 }
-func restart(job Job) error { cmd := exec.Command(job.Target); detachHelper(cmd); return cmd.Start() }
+func restart(job Job) error {
+	cmd := exec.Command(job.Target)
+	cmd.Dir = filepath.Dir(job.Target)
+	// The desktop app must not inherit the helper's HideWindow setting:
+	// SW_HIDE overrides its first ShowWindow call, leaving it running unseen.
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP}
+	return cmd.Start()
+}
 
 func sameFileContent(first, second string) bool {
 	digest := func(path string) (string, error) {

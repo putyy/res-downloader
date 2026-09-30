@@ -41,7 +41,7 @@ Browser / phone / desktop app
 └──────────────────────────────────────────────────────────────┘
 ```
 
-`internal/app.Runtime` is the application's composition root. It creates modules and injects dependencies, but construction does not start listeners or background tasks.
+`internal/app.Runtime` is the application's composition root. Construction prepares app metadata, settings, logging, and events; business resources are initialized after Wails checks the single-instance lock.
 
 CLI / MCP invoke existing HTTP business handlers through a separate local control entry point: `Agent / Shell → internal/automation → internal/control → httpapi.ControlHandler → resource and download services`. Clients do not construct the desktop Runtime, open business databases, or start the download scheduler.
 
@@ -68,20 +68,13 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 
 ### Construction
 
-`NewRuntime` performs the following in dependency order:
-
-1. Create application directories, logging, and the event emitter.
-2. Initialize this device's certificate authority. Certificate failures are recorded in application state for the UI to explain.
-3. Load settings and create the response capture cache, media engine, and system integration service.
-4. Open the resource database and restore the catalog.
-5. Load interception rules, plugin state, bundled plugins, and user plugins.
-6. Open the task database and restore the download queue.
-7. Connect plugins, resource services, and the download scheduler.
-8. Create the proxy engine, local API, and shared HTTP gateway.
-
-When settings are applied, the runtime updates upstream proxy transport, download worker count, and HTTPS interception rules as needed without reconstructing the entire app.
+`NewRuntime` prepares application directories, logging, settings, and events for window sizing, Bind methods, and middleware. It does not open business databases or load plugins.
 
 ### Startup
+
+The desktop entry point uses Wails `SingleInstanceLock`; another launch activates the existing window. `OnDomReady` calls `Runtime.Start` asynchronously after the instance check, initializing device certificates, capture storage, the resource database, plugins, the task database, proxy, and HTTP services. Frontend assets load immediately, while app information and API requests wait for backend readiness. Failed initialization releases business resources already created. Shutdown cancels subsequent startup stages; the current synchronous initialization operation finishes before cleanup proceeds safely.
+
+When settings are applied, the runtime updates upstream proxy transport, download worker count, and HTTPS interception rules as needed without reconstructing the entire app.
 
 `Runtime.Start` initializes proxy handlers, starts the shared HTTP gateway, then starts the download scheduler. The scheduler restores persisted tasks: waiting tasks are queued again; tasks previously resolving, downloading, or processing are marked interrupted until the user chooses to resume or retry.
 
@@ -89,7 +82,9 @@ Next, `control.Server` starts on a dynamic `127.0.0.1` port and writes `control/
 
 ### Shutdown
 
-`Runtime.Close` first closes the automation service and removes this instance's connection file. It then attempts to disable the app-managed system proxy, stops the HTTP gateway and download scheduler, and closes the resource database, capture cache, and logging. A cleanup/reset operation removes application state and restarts only after these resources have been released.
+`App` coordinates exit, restart, reset, and update handoff. `Runtime.Close` only releases business resources: the automation listener and this instance's discovery file, the app-managed system proxy, the HTTP gateway, the download scheduler, the resource database, and the capture cache. After successful cleanup, `App` performs the requested follow-up action and closes logging. Failed cleanup cancels installation and prevents reset or relaunch. Resource cleanup and follow-up actions are each protected against duplicate execution.
+
+Restarts after a port change or reset wait for the previous process to exit before entering the single-instance check. Update helpers and CLI / MCP bypass the desktop instance flow.
 
 ## Resource capture flow
 

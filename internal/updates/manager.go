@@ -131,7 +131,7 @@ func (m *Manager) Check(ctx context.Context) error {
 	for _, a := range manifest.Assets {
 		if a.Platform == runtime.GOOS && (a.Arch == runtime.GOARCH || a.Arch == "universal") && a.Variant == kind {
 			m.asset = a
-			m.status.CanInstall = target != ""
+			m.status.CanInstall = target != "" && checkInstallationTarget(target, kind) == nil
 			break
 		}
 	}
@@ -145,6 +145,9 @@ func (m *Manager) Download(direct bool) error {
 	}
 	if !m.status.Available || !m.status.CanInstall {
 		return errors.New("this installation must be updated from the website")
+	}
+	if err := m.checkInstallation(); err != nil {
+		return err
 	}
 	if err := os.MkdirAll(m.root, 0700); err != nil {
 		return err
@@ -329,12 +332,28 @@ func (m *Manager) Prepare() error {
 	if m.closed || m.status.State != "ready" {
 		return errors.New("update is not ready")
 	}
+	if err := m.checkInstallation(); err != nil {
+		return err
+	}
 	job, err := prepareHelper(m.root, m.file, m.digest, m.target, m.kind, m.status.Manifest.Version)
 	if err != nil {
 		return err
 	}
 	m.job = job
 	m.status.State = "installing"
+	return nil
+}
+
+// Called with mu held before downloading and again before handing off to the
+// helper, since permissions may change while a download is in progress.
+func (m *Manager) checkInstallation() error {
+	if err := checkInstallationTarget(m.target, m.kind); err != nil {
+		m.status.State = "error"
+		m.status.CanInstall = false
+		m.status.Error = err.Error()
+		m.status.ErrorCode = ""
+		return err
+	}
 	return nil
 }
 
@@ -346,7 +365,11 @@ func (m *Manager) Release(shutdownErr error) error {
 		return nil
 	}
 	if shutdownErr != nil {
-		return os.WriteFile(filepath.Join(m.root, "last-error.txt"), []byte("Update postponed: application shutdown failed. Reopen the app and retry."), 0600)
+		// Stop this helper before publishing the error that a new launch may
+		// consume. It must not report the same failed handoff again later.
+		cancelErr := os.WriteFile(m.job.cancellationFile(), []byte("cancelled"), 0600)
+		reportErr := os.WriteFile(filepath.Join(m.root, "last-error.txt"), []byte("Update postponed: application shutdown failed. Reopen the app and retry. "+shutdownErr.Error()), 0600)
+		return errors.Join(cancelErr, reportErr)
 	}
 	return os.WriteFile(m.job.Gate, []byte("ready"), 0600)
 }

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 
 	"res-downloader/internal/server"
+	"res-downloader/internal/system"
 )
 
 type portRestart struct {
@@ -15,12 +16,13 @@ type portRestart struct {
 	command  *exec.Cmd
 }
 
-func (r *Runtime) preparePortRestart() error {
-	r.restartMu.Lock()
-	defer r.restartMu.Unlock()
-	if r.closing || r.portRestart != nil || r.App.IsReset {
+func (a *App) preparePortRestart() error {
+	a.exitMu.Lock()
+	defer a.exitMu.Unlock()
+	if a.closing || a.portRestart != nil || a.IsReset {
 		return errors.New("application is already shutting down or restarting")
 	}
+	r := a.runtime
 	select {
 	case <-r.startupDone:
 		if !server.IsPortUnavailable(r.startupErr) {
@@ -45,7 +47,7 @@ func (r *Runtime) preparePortRestart() error {
 		_ = listener.Close()
 		return fmt.Errorf("save new listen port: %w", err)
 	}
-	r.portRestart = &portRestart{listener: listener, command: exec.Command(executable)}
+	a.portRestart = &portRestart{listener: listener, command: system.RelaunchCommand(executable)}
 	r.Logger.Info().Str("previousPort", previous.Port).Str("port", port).Msg("restart requested with a new listen port")
 	return nil
 }

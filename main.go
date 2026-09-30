@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"time"
 
 	application "res-downloader/internal/app"
 	"res-downloader/internal/automation"
@@ -38,6 +40,22 @@ var icon []byte
 var wailsJson string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--wait-for-parent" {
+		if len(os.Args) != 3 {
+			log.Fatal("invalid restart arguments")
+		}
+		pid, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Fatal("invalid restart process ID")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		err = system.WaitForParentExit(ctx, pid)
+		cancel()
+		if err != nil {
+			log.Fatal(err)
+		}
+		os.Args = os.Args[:1]
+	}
 	if len(os.Args) == 3 && os.Args[1] == "--apply-update" {
 		if err := updates.RunHelper(os.Args[2]); err != nil {
 			log.Print(err)
@@ -93,9 +111,13 @@ func main() {
 		StartHidden:              true,
 		Menu:                     appMenu,
 		EnableDefaultContextMenu: true,
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId:               "res-downloader",
+			OnSecondInstanceLaunch: func(options.SecondInstanceData) { app.ActivateWindow() },
+		},
 		AssetServer: &assetserver.Options{
 			Assets:     assets,
-			Middleware: appRuntime.HTTP.Middleware,
+			Middleware: appRuntime.Middleware,
 		},
 		BackgroundColour: &options.RGBA{R: 243, G: 245, B: 244, A: 255},
 		OnStartup: func(ctx context.Context) {
@@ -111,10 +133,16 @@ func main() {
 
 			log.Println(logo)
 			fmt.Println("version:", app.Version)
-			app.Startup(ctx)
+		},
+		OnDomReady: func(ctx context.Context) {
+			// Wails checks the Linux instance lock after scheduling OnStartup.
+			// DOM readiness runs after frontend setup on all supported platforms.
+			app.PrepareStartupWindow(ctx)
+			go app.Startup(ctx)
 		},
 		OnBeforeClose: func(ctx context.Context) bool {
 			app.SaveWindowSize(ctx)
+			app.BeginShutdown()
 			return false
 		},
 		OnShutdown: func(ctx context.Context) {
@@ -151,6 +179,8 @@ func main() {
 	if err != nil {
 		appRuntime.Logger.Esg(err, "run application")
 	}
+	// Also covers failures before Wails reaches OnShutdown.
+	app.OnExit()
 }
 
 func windowsRuntimeMessages() *windows.Messages {

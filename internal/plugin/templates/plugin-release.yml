@@ -1,0 +1,20 @@
+name: Release plugin
+
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to publish (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: putyy/res-downloader/.github/workflows/plugin-release.yml@master
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}

@@ -60,9 +60,37 @@ Use **Clear cache and restart** under **Setting → Basic Setting**, approving a
 
 ## Retry a failed update check
 
-Once the connection is restored, select **Check for updates** under **Setting → Basic Setting** without restarting the app. Update checks also follow **Download Proxy**, so confirm that the configured upstream proxy works when enabled. See [In-app updates](installation.md#in-app-updates) for the update options.
+Once the connection is restored, select **Check for updates** under **Setting → Basic Setting** without restarting the app. Update checks also follow **Download Proxy**, so confirm that the configured upstream proxy works when enabled. See [Basic settings](settings.md#basic-settings) for the settings location.
 
 If the update service is not providing valid version information, try again later or visit the website. Include the update source error from the application log when reporting the problem. The server may be missing valid metadata; resetting local settings will not fix that.
+
+## Debian / Ubuntu installation permission notice {#debian-ubuntu-apt-permission}
+
+When using `sudo apt install ./package.deb`, you may see a notice like this at the end:
+
+```text
+N: Download is performed unsandboxed as root as file '…deb' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+```
+
+APT prefers the low-privilege `_apt` user when acquiring packages, even when the command is run with `sudo`. If the package is unreadable, or a parent directory such as your home or Desktop directory prevents `_apt` from accessing it, APT falls back to reading the local file as root. This notice alone does not mean installation failed, and it does not describe how the application itself is sandboxed.
+
+First, check the current installation status:
+
+```bash
+dpkg -s res-downloader
+```
+
+If the output includes `Status: install ok installed`, the package is currently installed and configured. Also check that `Version:` matches the expected version. There is no need to reinstall solely because of this notice. If other errors report unmet dependencies or another problem, troubleshoot using the full output.
+
+To avoid the notice, copy the package to a directory accessible to `_apt` and grant read permission before installing. This example uses the amd64 package for `4.0.0`; replace the path, version, and architecture with those of your downloaded file:
+
+```bash
+cp ~/Desktop/res-downloader_4.0.0_linux_amd64.deb /tmp/
+chmod 644 /tmp/res-downloader_4.0.0_linux_amd64.deb
+sudo apt install /tmp/res-downloader_4.0.0_linux_amd64.deb
+```
+
+You do not need to relax permissions on your entire home directory. `sudo dpkg -i` bypasses APT's package acquisition process, so it does not produce this `_apt` notice, but it also does not download missing dependencies. See the [Debian / Ubuntu installation guide](installation.md#debian-ubuntu) for the recommended method.
 
 ## Retry a failed Windows installation
 

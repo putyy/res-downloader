@@ -55,7 +55,7 @@ Press Enter at each prompt to use the default parent directory `./plugins` and s
 go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plugin "Example Video"
 ```
 
-The scaffold contains `plugin.json`, `main.js`, `README.md`, `.gitignore`, and an empty `fixtures/` directory.
+The scaffold contains `plugin.json`, `main.js`, `README.md`, `.gitignore`, an empty `fixtures/` directory, and `.github/workflows/release.yml` calling the shared release workflow.
 
 Plugins include an **Enable logging** setting named `enableLog`, with type `boolean` and default `false`. Manually created plugins should also declare this setting and provide Chinese and English labels.
 
@@ -88,7 +88,7 @@ The default output is `<plugin-directory>/dist/plugin.zip`. To save it elsewhere
 
 The packer excludes:
 
-- Directories: `.git/`, `.idea/`, `.vscode/`, `dist/`, and `tests/`.
+- Directories: `.git/`, `.github/`, `.idea/`, `.vscode/`, `dist/`, and `tests/`.
 - Files: the output ZIP itself, plus `.gitignore`, `.DS_Store`, `README.md`, and `LICENSE`.
 
 These are the packer's own rules; it does not read `.gitignore`. Git's rules determine whether `dist/plugin.zip` can be committed to the plugin repository.

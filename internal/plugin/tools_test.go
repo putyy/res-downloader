@@ -9,24 +9,27 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestPackPluginDirectoryExcludesDevelopmentFilesAndDirectories(t *testing.T) {
 	directory := t.TempDir()
 	manifest := `{"id":"test.pack","name":"Pack","version":"1.0.0","apiVersion":1,"runtime":"javascript","entry":"main.js","permissions":{"domains":["example.com"],"capabilities":[]},"match":[]}`
 	for name, content := range map[string]string{
-		"plugin.json":           manifest,
-		"main.js":               `function onObservation() { return {decision: "continue"} }`,
-		".git/config":           "secret",
-		".idea/workspace.xml":   "local workspace",
-		".vscode/settings.json": "{}",
-		".gitignore":            "dist/",
-		".DS_Store":             "finder metadata",
-		"README.md":             "development documentation",
-		"LICENSE":               "license text",
-		"dist/old.zip":          "old",
-		"tests/main.test.js":    `throw new Error("development only")`,
-		"fixtures/video.json":   `{}`,
+		"plugin.json":                   manifest,
+		"main.js":                       `function onObservation() { return {decision: "continue"} }`,
+		".git/config":                   "secret",
+		".github/workflows/release.yml": "name: Release",
+		".idea/workspace.xml":           "local workspace",
+		".vscode/settings.json":         "{}",
+		".gitignore":                    "dist/",
+		".DS_Store":                     "finder metadata",
+		"README.md":                     "development documentation",
+		"LICENSE":                       "license text",
+		"dist/old.zip":                  "old",
+		"tests/main.test.js":            `throw new Error("development only")`,
+		"fixtures/video.json":           `{}`,
 	} {
 		fileName := filepath.Join(directory, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
@@ -48,7 +51,7 @@ func TestPackPluginDirectoryExcludesDevelopmentFilesAndDirectories(t *testing.T)
 	seen := make(map[string]bool)
 	for _, entry := range archive.File {
 		seen[entry.Name] = true
-		if strings.HasPrefix(entry.Name, ".git/") || strings.HasPrefix(entry.Name, ".idea/") || strings.HasPrefix(entry.Name, ".vscode/") || strings.HasPrefix(entry.Name, "dist/") || strings.HasPrefix(entry.Name, "tests/") {
+		if strings.HasPrefix(entry.Name, ".git/") || strings.HasPrefix(entry.Name, ".github/") || strings.HasPrefix(entry.Name, ".idea/") || strings.HasPrefix(entry.Name, ".vscode/") || strings.HasPrefix(entry.Name, "dist/") || strings.HasPrefix(entry.Name, "tests/") {
 			t.Fatalf("pack included generated or repository metadata: %q", entry.Name)
 		}
 	}
@@ -190,6 +193,61 @@ func assertPluginScaffoldDevelopmentFiles(t *testing.T, directory string) {
 	}
 	if _, err := os.Stat(filepath.Join(directory, "fixtures")); err != nil {
 		t.Fatal(err)
+	}
+	workflowRaw, err := os.ReadFile(filepath.Join(directory, ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		On struct {
+			Push struct {
+				Tags []string `yaml:"tags"`
+			} `yaml:"push"`
+			Dispatch struct {
+				Inputs map[string]struct {
+					Required bool   `yaml:"required"`
+					Type     string `yaml:"type"`
+				} `yaml:"inputs"`
+			} `yaml:"workflow_dispatch"`
+		} `yaml:"on"`
+		Permissions map[string]string `yaml:"permissions"`
+		Jobs        map[string]struct {
+			Uses string            `yaml:"uses"`
+			With map[string]string `yaml:"with"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(workflowRaw, &workflow); err != nil {
+		t.Fatal(err)
+	}
+	if len(workflow.On.Push.Tags) != 1 || workflow.On.Push.Tags[0] != "v[0-9]*" {
+		t.Fatalf("missing version tag trigger: %#v", workflow.On.Push.Tags)
+	}
+	input := workflow.On.Dispatch.Inputs["tag"]
+	if !input.Required || input.Type != "string" || workflow.Permissions["contents"] != "write" {
+		t.Fatal("release workflow lacks manual tag input or publishing permission")
+	}
+	job := workflow.Jobs["release"]
+	if job.Uses != "putyy/res-downloader/.github/workflows/plugin-release.yml@master" || job.With["tag"] != "${{ inputs.tag || github.ref_name }}" {
+		t.Fatalf("release workflow does not call the shared publisher: %#v", job)
+	}
+}
+
+func TestRunPluginCLICreatePreservesExistingWorkflow(t *testing.T) {
+	directory := t.TempDir()
+	workflow := filepath.Join(directory, ".github", "workflows", "release.yml")
+	if err := os.MkdirAll(filepath.Dir(workflow), 0750); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("name: Custom release\n")
+	if err := os.WriteFile(workflow, original, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RunPluginCLI([]string{"create", directory, "com.example.video", "Example"}, io.Discard); err == nil {
+		t.Fatal("scaffold should reject an existing plugin directory")
+	}
+	actual, err := os.ReadFile(workflow)
+	if err != nil || !bytes.Equal(actual, original) {
+		t.Fatalf("existing workflow changed: %q, %v", actual, err)
 	}
 }
 

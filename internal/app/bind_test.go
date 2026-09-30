@@ -28,6 +28,28 @@ func TestAPISessionReportsStartupFailure(t *testing.T) {
 	}
 }
 
+func TestAppInfoWaitsForCertificateInitialisation(t *testing.T) {
+	r := &Runtime{App: &App{Version: "4.0.0"}, startupDone: make(chan struct{})}
+	result := make(chan *httpapi.ResponseData, 1)
+	go func() { result <- NewBind(r).AppInfo() }()
+	select {
+	case <-result:
+		t.Fatal("application info returned before initialisation finished")
+	case <-time.After(20 * time.Millisecond):
+	}
+	r.App.CertificateError = "certificate unavailable"
+	r.startupErr = errors.New("startup failed")
+	close(r.startupDone)
+	response := <-result
+	if response.Code != 1 || response.Data.(*App).CertificateError != "certificate unavailable" {
+		t.Fatalf("application info did not include final startup state: %+v", response)
+	}
+	// Startup failure remains available through APISession, including port recovery.
+	if response := NewBind(r).APISession(); response.Code != 0 {
+		t.Fatal("startup failure was hidden")
+	}
+}
+
 func TestAPISessionOffersPortRecoveryOnlyForBindFailure(t *testing.T) {
 	busy := syscall.EADDRINUSE
 	if runtime.GOOS == "windows" {
@@ -62,10 +84,11 @@ func TestPortRestartRejectsOtherStartupStates(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime := &Runtime{App: &App{}, startupDone: make(chan struct{}), startupErr: test.err}
+			runtime.App.runtime = runtime
 			if test.done {
 				close(runtime.startupDone)
 			}
-			if err := runtime.preparePortRestart(); err == nil || runtime.portRestart != nil {
+			if err := runtime.App.preparePortRestart(); err == nil || runtime.App.portRestart != nil {
 				t.Fatalf("unexpected port restart: %v", err)
 			}
 		})

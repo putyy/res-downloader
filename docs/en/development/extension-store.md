@@ -54,6 +54,14 @@ When publishing an update to plugin content, follow these steps in order:
 
 Do not change an existing tag to point to another commit. Commit WASM, `dist/plugin.zip`, and other build files before creating the tag. Files committed afterward will not be included in that version's downloads, because jsDelivr and GitHub source archives both use the commit referenced by the tag.
 
+## Automated releases with GitHub Actions
+
+Each official plugin's `.github/workflows/release.yml` calls the shared release workflow on the host repository's `master` branch.
+
+1. Update `plugin.json`, rebuild the package, and commit the source and `dist/plugin.zip`.
+2. Push the matching `vMAJOR.MINOR.PATCH` tag.
+3. Actions checks the version and ZIP contents, then creates a stable release with the package attached.
+
 ## Package structure and download acceleration
 
 Store releases require `plugin.json` at the repository root. Recommended structure:
@@ -79,7 +87,7 @@ Use `tests/` for the plugin's JavaScript tests, preferably named `*.test.js`.
 
 When packaging:
 
-- The packer excludes `.git/`, `dist/`, `tests/`, and the output file itself, but retains `fixtures/`.
+- The packer excludes `.git/`, `.github/`, `dist/`, `tests/`, and the output file itself, but retains `fixtures/`.
 - Place `plugin.json` at the root of `plugin.zip`.
 - Rebuild the package for each release and commit `dist/plugin.zip` before creating the tag, so its runtime files and version match that tag.
 

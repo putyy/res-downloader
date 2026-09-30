@@ -15,7 +15,7 @@ Settings are saved automatically. Invalid listen addresses, ports, upstream prox
 - **Insert tail**: controls whether newly captured resources appear at the top or bottom of the list.
 - **Clear cache and restart**: use this to recover from app problems. It clears certificates, settings, captured resources, task history, capture cache, and download temporary files in the current save directory. It keeps downloaded files, installed plugins, and temporary files in other save directories.
 - **Open log folder**: opens the directory containing `app.log` on your system for diagnosing startup, capture, and download issues. Remove private information before sharing logs.
-- **Check for updates**: beside **Open log folder**, checks for updates or retries a failed check at any time. See [In-app updates](installation.md#in-app-updates).
+- **Check for updates**: checks for updates or retries a failed check at any time. See [In-app updates](installation.md#in-app-updates).
 
 ## Filename template
 

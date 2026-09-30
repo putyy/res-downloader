@@ -13,6 +13,10 @@ import (
 
 func installationTarget() (string, string) {
 	if image := os.Getenv("APPIMAGE"); filepath.IsAbs(image) {
+		image, err := filepath.EvalSymlinks(image)
+		if err != nil {
+			return "", ""
+		}
 		return image, "appimage"
 	}
 	executable, err := os.Executable()

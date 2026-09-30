@@ -33,11 +33,17 @@ If macOS blocks the first launch, allow the app under **System Settings → Priv
 
 ### Debian / Ubuntu
 
-On Debian, Ubuntu, and similar systems, install the `.deb` package for your architecture:
+On Debian, Ubuntu, and similar systems, use `apt` to install the `.deb` package for your architecture:
 
 ```bash
-sudo apt install ./res-downloader_<version>_linux_amd64.deb
+sudo apt install './res-downloader_<version>_linux_amd64.deb'
 ```
+
+`apt` handles dependencies automatically. You can also use `sudo dpkg -i`, but must install any missing dependencies separately.
+
+::: tip Permission notice mentioning `_apt`
+If installation ends with “Download is performed unsandboxed as root” because `_apt` cannot access the file, this notice alone does not mean installation failed. See [Debian / Ubuntu installation permission notice](troubleshooting.md#debian-ubuntu-apt-permission) to check the installation status or retry from an accessible location.
+:::
 
 ### Arch Linux
 
@@ -70,13 +76,5 @@ For a standalone executable, add execute permission before launching:
 chmod +x ./res-downloader_<version>_linux_amd64
 ./res-downloader_<version>_linux_amd64
 ```
-
-## In-app updates
-
-Select **Check for updates** beside **Open log folder** under **Setting → Basic Setting** at any time. If you started offline or a check failed, restore the connection and check again without restarting the app.
-
-Update checks and installer downloads follow **Download Proxy** in Advanced Setting: they use the configured upstream proxy when enabled and connect directly when disabled.
-
-Follow the update prompt to download, install, and restart. Finish, pause, or stop active tasks first. If downloading is slow or updating fails, select **Visit website** for other installation methods. Windows updates use the standard installer.
 
 Once installed, continue to [Quick Start](getting-started.md).

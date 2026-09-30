@@ -12,6 +12,9 @@ import (
 func (a *App) PrepareStartupWindow(ctx context.Context) {
 	a.windowMu.Lock()
 	defer a.windowMu.Unlock()
+	if a.ctx == nil {
+		a.ctx = ctx
+	}
 	if a.windowClosed || a.windowShown || a.windowShowTimer != nil {
 		return
 	}
@@ -23,13 +26,28 @@ func (a *App) PrepareStartupWindow(ctx context.Context) {
 	})
 }
 
+// A launch received during startup needs no extra action: the initial ready
+// event will show the window. Never bring back a window already shutting down.
+func (a *App) ActivateWindow() {
+	a.windowMu.Lock()
+	defer a.windowMu.Unlock()
+	if a.windowClosed || !a.windowShown || a.ctx == nil {
+		return
+	}
+	if runtime.WindowIsMinimised(a.ctx) {
+		runtime.WindowUnminimise(a.ctx)
+	}
+	runtime.Show(a.ctx)
+	runtime.WindowShow(a.ctx)
+}
+
 func (a *App) reportStartupWindowTimeout(ctx context.Context) {
 	a.windowMu.Lock()
 	if a.windowClosed || a.windowShown {
 		a.windowMu.Unlock()
 		return
 	}
-	a.runtime.Logger.Error().Msg("frontend did not prepare a startup view within 10 seconds")
+	a.runtime.Logger.Error().Msg("frontend did not prepare a startup view before the startup deadline")
 	a.windowMu.Unlock()
 
 	_, _ = runtime.MessageDialog(ctx, runtime.MessageDialogOptions{

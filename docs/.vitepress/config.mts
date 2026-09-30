@@ -25,7 +25,7 @@ export default defineConfig({
   },
   head: [
     ['link', { rel: 'icon', href: `${base}favicon.ico` }],
-    ['meta', { name: 'theme-color', content: '#177858' }],
+    ['meta', { name: 'theme-color', content: '#fb923c' }],
     ['meta', { property: 'og:site_name', content: 'res-downloader' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:image', content: `${hostname}${base}images/show.png` }],

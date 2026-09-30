@@ -54,6 +54,14 @@ description: 了解 res-downloader 插件扩展商店的发布要求，包括 Gi
 
 不要将已有 Tag 改为指向其他提交。WASM、`dist/plugin.zip` 和其他构建文件必须在创建 Tag 前提交；发布后补交的文件不会进入该版本的下载包，因为 jsDelivr 和 GitHub 源码包都取自 Tag 指向的提交。
 
+## 使用 GitHub Actions 自动发布
+
+官方插件通过各自的 `.github/workflows/release.yml` 调用主仓库 `master` 上的共享发布流程。
+
+1. 更新 `plugin.json` 版本，重新打包并提交源码与 `dist/plugin.zip`。
+2. 推送对应的 `v主版本.次版本.补丁版本` 标签。
+3. Actions 校验版本与 ZIP 内容后，自动创建正式 Release 并附上安装包。
+
 ## 安装包结构与加速
 
 商店版本要求 `plugin.json` 位于仓库根目录。推荐仓库结构：
@@ -79,7 +87,7 @@ go run main.go plugin pack <插件目录>
 
 打包时请注意：
 
-- 打包工具会排除 `.git/`、`dist/`、`tests/` 和输出文件自身，保留 `fixtures/`。
+- 打包工具会排除 `.git/`、`.github/`、`dist/`、`tests/` 和输出文件自身，保留 `fixtures/`。
 - `plugin.zip` 中的 `plugin.json` 应位于 ZIP 根目录。
 - 每次发布前都要重新打包，并在创建 Tag 前提交 `dist/plugin.zip`，确保包内运行文件和版本与该 Tag 一致。
 

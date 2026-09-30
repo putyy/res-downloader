@@ -1,0 +1,84 @@
+name: Publish plugin release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing stable plugin tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plugin-release-${{ github.repository }}-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      CGO_ENABLED: '0'
+    steps:
+      - name: Check out plugin tag
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          path: plugin
+          persist-credentials: false
+
+      # Keep this ref aligned with the reusable workflow ref in plugin callers.
+      - name: Check out shared release tools
+        uses: actions/checkout@v6
+        with:
+          repository: putyy/res-downloader
+          ref: master
+          path: release-tools
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: release-tools/go.mod
+          cache-dependency-path: release-tools/go.sum
+
+      - name: Build plugin authoring tool
+        working-directory: release-tools
+        run: go build -o "$RUNNER_TEMP/pluginctl" ./cmd/pluginctl
+
+      - name: Validate plugin and committed package
+        shell: bash
+        env:
+          TRIGGER_EVENT: ${{ github.event_name }}
+          TRIGGER_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          commit="$(git -C plugin rev-parse HEAD)"
+          if [[ "$TRIGGER_EVENT" == "push" && "$commit" != "$TRIGGER_COMMIT" ]]; then
+            echo "The tag no longer points to the triggering commit" >&2
+            exit 1
+          fi
+          "$RUNNER_TEMP/pluginctl" verify-release "$GITHUB_WORKSPACE/plugin" "$RELEASE_TAG"
+
+      - name: Publish formal release with the committed ZIP
+        working-directory: plugin
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          remote_commit="$(git ls-remote origin "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" |
+            awk '{ if ($2 ~ /\^\{\}$/) peeled=$1; else direct=$1 } END { print peeled ? peeled : direct }')"
+          if [[ "$remote_commit" != "$(git rev-parse HEAD)" ]]; then
+            echo "The remote tag changed or was deleted; refusing to publish" >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; inspect it manually instead of overwriting it" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" dist/plugin.zip \
+            --verify-tag --title "$RELEASE_TAG" --generate-notes

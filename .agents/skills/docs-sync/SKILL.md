@@ -50,6 +50,9 @@ Do not update the SDK files speculatively. If code and SDK disagree, identify wh
 - Update commands, paths, option names, UI labels, defaults, limitations, and screenshots only when supported by current repository state.
 - Remove or repair stale links and navigation entries. Check relative paths and filename case because the documentation site and GitHub may resolve them differently.
 - Preserve unrelated user edits and avoid broad prose rewrites unless the user requested them.
+- Keep release instructions to the shared-workflow relationship and necessary version, package, commit, and tag steps. Link to maintained configuration rather than embedding a full workflow tutorial unless requested.
+- Keep temporary branch/merge plans, deployment handoff notes, and routine validation status out of public documentation. Do not append boilerplate about personal tokens, existing Releases, checking logs, or manual acceptance unless needed to explain a concrete user-facing requirement. Preserve real limitations and required setup.
+- When simplifying an explanation at the user's request, remove the corresponding material from both languages; do not restore it in another section as generic caution text.
 
 ## Plugin README conventions
 

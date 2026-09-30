@@ -55,7 +55,7 @@ go run main.go plugin create
 go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plugin "Example Video"
 ```
 
-脚手架包含 `plugin.json`、`main.js`、`README.md`、`.gitignore` 和空的 `fixtures/` 目录。
+脚手架包含 `plugin.json`、`main.js`、`README.md`、`.gitignore`、空的 `fixtures/` 目录，以及调用共享发布流程的 `.github/workflows/release.yml`。
 
 插件默认包含“启用日志”设置 `enableLog`，类型为 `boolean`、默认值为 `false`，手动创建插件时也应声明该设置，并提供中英文本地化名称。
 
@@ -88,7 +88,7 @@ go run main.go plugin pack ./plugins/com.example.my-plugin
 
 打包时会排除以下内容：
 
-- 目录：`.git/`、`.idea/`、`.vscode/`、`dist/`、`tests/`；
+- 目录：`.git/`、`.github/`、`.idea/`、`.vscode/`、`dist/`、`tests/`；
 - 文件：输出的 ZIP 本身，以及 `.gitignore`、`.DS_Store`、`README.md`、`LICENSE`。
 
 这些是打包器自身的规则，不读取 `.gitignore`。是否将 `dist/plugin.zip` 提交到插件仓库，由 Git 的规则决定。

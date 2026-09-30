@@ -20,11 +20,11 @@
 
 ## ✨ Features
 
-- 🚀 **User-Friendly**: Simple operation with an intuitive and beautiful UI
-- 🖥️ **Cross-Platform**: Available on Windows / macOS / Linux
-- 🌐 **Supports Multiple Resource Types**: Video / Audio / Images / M3U8 / Live streams, and more
+- 🪄 **User-Friendly**: Simple operation with an intuitive and beautiful UI
+- 💻 **Cross-Platform**: Available on Windows / macOS / Linux
+- 🎞️ **Supports Multiple Resource Types**: Video / Audio / Images / M3U8 / Live streams, and more
 - 📱 **Site Support**: Includes the WeChat Channels plugin; Douyin and other sites are available through the plugin store
-- 🌍 **Network Capture**: Finds HTTP and HTTPS resources used by browsers, phones, and desktop apps
+- 🌐 **Network Capture**: Finds HTTP and HTTPS resources used by browsers, phones, and desktop apps
 - 🧩 **Plugin Extensions**: Adds site-specific discovery, download, and processing capabilities
 - 📥 **Download Center**: Manages progress, pause, resume, cancellation, retry, and history in one place
 - 🤖 **CLI / MCP**: Lets commands and agents query captured resources, create downloads, and manage tasks while the desktop app is running
@@ -32,58 +32,23 @@
 
 ## 📚 Docs & Versions
 
-- 📘 [Online Documentation](https://res.putyy.com/en/)
-- 🤖 [CLI & MCP](./docs/en/guide/automation.md)
-- 🧩 [Plugin Management](./docs/en/guide/plugin-management.md)
-- 🛠️ [Plugin Development](./docs/en/development/plugins.md)
-- 🤝 [Contributing](./docs/en/development/contributing.md)
-- 🧩 [Releases](https://github.com/putyy/res-downloader/releases) ｜ [Mini Version](https://github.com/putyy/resd-mini) ｜ [Legacy Archive](https://github.com/putyy/res-downloader/tree/old)
-- 💬 [Join the User Group (Chinese)](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
+- [Online Documentation](https://res.putyy.com/en/)
+- [CLI & MCP](./docs/en/guide/automation.md)
+- [Plugin Management](./docs/en/guide/plugin-management.md)
+- [Plugin Development](./docs/en/development/plugins.md)
+- [Contributing](./docs/en/development/contributing.md)
+- [Troubleshooting](./docs/en/guide/troubleshooting.md)
+- [Releases](https://github.com/putyy/res-downloader/releases) ｜ [Mini Version](https://github.com/putyy/resd-mini) ｜ [Legacy Archive](https://github.com/putyy/res-downloader/tree/old)
+- [Join the User Group (Chinese)](https://www.putyy.com/app/admin/upload/img/20250418/6801d9554dc7.webp)
   > *If full, you can add WeChat `AmorousWorld` with a note “github”*
 
 ## 🧩 Download Links
 
-- 🆕 [Download from GitHub](https://github.com/putyy/res-downloader/releases)
-- 🆕 [Download via Lanzou Cloud (Password: 9vs5)](https://wwjv.lanzoum.com/b04wgtfyb)
-- ⚠️ *Windows 7 can only use legacy version `2.3.0`, which does not include the current release's features.*
+- [Download from GitHub](https://github.com/putyy/res-downloader/releases)
+- [Download via Lanzou Cloud (Password: 9vs5)](https://wwjv.lanzoum.com/b04wgtfyb)
+- *Windows 7 can only use legacy version `2.3.0`, which does not include the current release's features.*
 
-## 🚀 How to Use
-
-> Follow these steps to use the software correctly:
-
-1. Install and launch the app, allowing network access when prompted by the system.
-2. Open **Setting → Certificate** and install the certificate for this device.
-3. Return to **Intercept** and click **Start Grabbing**.
-4. Select capture types, then visit the target content in a browser, phone, or desktop app.
-5. Download from the resource list and manage created jobs in **Downloads**.
-
----
-
-## ❓ FAQ
-
-### 📺 HLS / M3U8 Video Resources
-
-- Built-in HLS preview and download support relative segment URLs, master playlists, AES keys, and captured request headers.
-
-### 📡 Live Stream Resources
-
-- HLS and FLV streams can be previewed directly. After configuring a user-installed FFmpeg, live streams can be recorded and stopped with a valid saved output.
-
-### 🔐 Encrypted WeChat Channels Resources
-
-- Downloads created in the app run the plugin processing pipeline automatically. If an encrypted file was downloaded from a copied link with another tool, use “Decrypt Local Video” from the matching resource menu.
-
-### 🧩 Unable to Intercept Resources?
-
-- Confirm that the device certificate is installed and capture is enabled. The default proxy is `127.0.0.1:8899`; if the listener was changed, use the value shown in System Settings.
-
-### 🌐 Can't Access Internet After Closing the App?
-
-- A normal app shutdown disables the proxy managed by the app. If the process exited unexpectedly, disable the proxy manually in the operating system's network settings.
-
-### 🧠 More Questions?
-
-- [GitHub Issues](https://github.com/putyy/res-downloader/issues)
+![预览](docs/public/images/show.png)
 
 ## 💡 How It Works
 

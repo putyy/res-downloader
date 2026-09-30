@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	desktopsystem "res-downloader/internal/system"
@@ -29,6 +28,11 @@ type App struct {
 	assets           embed.FS
 	runtime          *Runtime
 	events           *events.Emitter
+	exitMu           sync.Mutex
+	closing          bool
+	portRestart      *portRestart
+	shutdownOnce     sync.Once
+	shutdownErr      error
 	windowMu         sync.Mutex
 	windowClosed     bool
 	windowShown      bool
@@ -64,9 +68,6 @@ func newApp(assets embed.FS, wjs string) (*App, error) {
 	if err := os.MkdirAll(app.UserDir, 0750); err != nil {
 		return nil, fmt.Errorf("create user directory: %w", err)
 	}
-	if err := removeLegacyLocalFiles(app.UserDir); err != nil {
-		return nil, fmt.Errorf("remove legacy local files: %w", err)
-	}
 	return app, nil
 }
 
@@ -89,25 +90,16 @@ func (a *App) emitEvent(eventType string, data interface{}) {
 
 func (a *App) Startup(ctx context.Context) {
 	if err := a.runtime.Start(ctx); err != nil {
+		a.exitMu.Lock()
+		closing := a.closing
+		a.exitMu.Unlock()
+		if closing || errors.Is(err, context.Canceled) {
+			return
+		}
 		a.runtime.Logger.Esg(err, "start application runtime")
 		if !server.IsPortUnavailable(err) {
 			a.dialogErr(err.Error())
 		}
-	}
-}
-
-func (a *App) OnExit() {
-	// Drain any pending size save before configuration reset or logger shutdown.
-	a.windowMu.Lock()
-	a.windowClosed = true
-	if a.windowShowTimer != nil {
-		a.windowShowTimer.Stop()
-	}
-	a.windowMu.Unlock()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := a.runtime.Close(ctx); err != nil {
-		fmt.Println("err:", err)
 	}
 }
 
@@ -186,9 +178,9 @@ func (a *App) PrepareReset(password string) error {
 	if a == nil || a.runtime == nil || a.runtime.System == nil {
 		return errors.New("certificate cleanup is unavailable")
 	}
-	a.runtime.restartMu.Lock()
-	defer a.runtime.restartMu.Unlock()
-	if a.runtime.closing || a.runtime.portRestart != nil {
+	a.exitMu.Lock()
+	defer a.exitMu.Unlock()
+	if a.closing || a.portRestart != nil {
 		return errors.New("application is already shutting down or updating")
 	}
 	setup := a.runtime.System.WithPassword(password)
@@ -273,6 +265,6 @@ func (a *App) ResetApp() error {
 	if err := errors.Join(cleanupErrors...); err != nil {
 		return err
 	}
-	cmd := exec.Command(exePath)
+	cmd := desktopsystem.RelaunchCommand(exePath)
 	return cmd.Start()
 }

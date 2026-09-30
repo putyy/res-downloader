@@ -1,7 +1,7 @@
 interface:
   display_name: "Plugin Release"
-  short_description: "Validate, package, and publish a site plugin"
-  default_prompt: "Use $plugin-release to lint and replay this independent plugin, package the final ZIP, prepare its release, and request explicit confirmation before Git or GitHub mutations."
+  short_description: "Prepare plugin releases and shared Actions automation"
+  default_prompt: "Use $plugin-release to prepare this plugin release or its shared workflow, verify it with Go tooling, and complete the actions already authorized for the specified repositories."
 
 policy:
   allow_implicit_invocation: true

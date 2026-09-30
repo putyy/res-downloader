@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"runtime"
 	"time"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -25,9 +27,9 @@ func (a *App) update(ctx context.Context, action string, direct bool) (interface
 	case "cancel":
 		r.Updates.Cancel()
 	case "install":
-		r.restartMu.Lock()
-		defer r.restartMu.Unlock()
-		if r.closing || r.portRestart != nil || a.IsReset {
+		a.exitMu.Lock()
+		defer a.exitMu.Unlock()
+		if a.closing || a.portRestart != nil || a.IsReset {
 			return nil, errors.New("application is shutting down")
 		}
 		if !r.Downloads.ReserveUpdate() {
@@ -39,8 +41,8 @@ func (a *App) update(ctx context.Context, action string, direct bool) (interface
 			r.Downloads.ReleaseUpdate()
 		}
 		if err == nil {
-			r.closing = true
-			time.AfterFunc(300*time.Millisecond, func() { wailsruntime.Quit(a.ctx) })
+			a.closing = true
+			time.AfterFunc(300*time.Millisecond, a.quitForUpdate)
 		}
 	case "status":
 	default:
@@ -50,4 +52,23 @@ func (a *App) update(ctx context.Context, action string, direct bool) (interface
 		return nil, err
 	}
 	return r.Updates.Status(r.Config.Snapshot().Locale), nil
+}
+
+func (a *App) quitForUpdate() {
+	if runtime.GOOS == "windows" {
+		// Windows native-window teardown can stall before OnShutdown runs.
+		// Release application resources while the UI message loop is still alive.
+		a.SaveWindowSize(a.ctx)
+		a.runtime.Logger.Info().Msg("preparing Windows update shutdown; process will exit after cleanup")
+		if err := a.shutdown(); err != nil {
+			// Release withheld the helper gate. Never force an update through a
+			// failed cleanup; the failure is saved for the next application launch.
+			fmt.Println("update shutdown:", err)
+		} else {
+			// Arm this only after cleanup and the helper handoff succeeded. The
+			// helper still waits for this PID to exit before replacing any files.
+			time.AfterFunc(5*time.Second, func() { os.Exit(0) })
+		}
+	}
+	wailsruntime.Quit(a.ctx)
 }

@@ -25,6 +25,35 @@ type Job struct {
 	Root    string `json:"root"`
 }
 
+var errShutdownCancelled = errors.New("update cancelled because application cleanup failed")
+
+func (job Job) cancellationFile() string {
+	return filepath.Join(filepath.Dir(job.Gate), "cancelled")
+}
+
+// Cancellation belongs to this helper job and survives consumption of the
+// user-facing last-error.txt by a subsequent application launch.
+func shutdownReady(job Job, parentRunning bool) (bool, error) {
+	if _, err := os.Stat(job.cancellationFile()); err == nil {
+		return false, errShutdownCancelled
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return false, fmt.Errorf("read update cancellation: %w", err)
+	}
+	_, gateErr := os.Stat(job.Gate)
+	if gateErr != nil && !errors.Is(gateErr, os.ErrNotExist) {
+		return false, fmt.Errorf("read update handoff: %w", gateErr)
+	}
+	if parentRunning {
+		return false, nil
+	}
+	if gateErr != nil {
+		// Only the parent can release this gate, and it has already exited.
+		// Do not wait and later recreate an error a newer instance has read.
+		return false, errors.New("application exited without releasing the update helper; update was not installed")
+	}
+	return true, nil
+}
+
 func copyFile(source, destination string, mode os.FileMode) error {
 	in, err := os.Open(source)
 	if err != nil {
@@ -124,12 +153,21 @@ func RunHelper(jobFile string) error {
 	}
 	deadline := time.Now().Add(2 * time.Minute)
 	for {
-		_, gateErr := os.Stat(job.Gate)
-		if gateErr == nil && !processRunning(job.Parent) {
+		ready, err := shutdownReady(job, processRunning(job.Parent))
+		if err != nil {
+			return err
+		}
+		if ready {
 			break
 		}
 		if time.Now().After(deadline) {
-			return errors.New("application did not finish shutting down; update was not installed")
+			_, gateErr := os.Stat(job.Gate)
+			err := fmt.Errorf("application did not finish shutting down; update was not installed (pid=%d, cleanupComplete=%t)", job.Parent, gateErr == nil)
+			// Preserve a more specific cleanup failure recorded by the parent.
+			if _, readErr := os.Stat(filepath.Join(job.Root, "last-error.txt")); errors.Is(readErr, os.ErrNotExist) {
+				_ = os.WriteFile(filepath.Join(job.Root, "last-error.txt"), []byte(err.Error()), 0600)
+			}
+			return err
 		}
 		time.Sleep(200 * time.Millisecond)
 	}

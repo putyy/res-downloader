@@ -33,11 +33,17 @@ Windows 7 只能使用旧版归档中的 `2.3.0`。
 
 ### Debian / Ubuntu
 
-Debian、Ubuntu 等系统可以安装对应架构的 `.deb` 文件：
+Debian、Ubuntu 等系统推荐使用 `apt` 安装对应架构的 `.deb` 文件：
 
 ```bash
-sudo apt install ./res-downloader_<version>_linux_amd64.deb
+sudo apt install './res-downloader_<version>_linux_amd64.deb'
 ```
+
+`apt` 会自动处理依赖；也可使用 `sudo dpkg -i` 安装，但需自行补齐缺失依赖。
+
+::: tip 出现 `_apt` 权限提示
+如果末尾提示文件“无法被用户 `_apt` 访问，已脱离沙盒并提权为根用户来进行下载”，这条提示本身不代表安装失败。请按[Debian / Ubuntu 安装时的权限提示](troubleshooting.md#debian-ubuntu-apt-permission)检查安装状态，或调整安装包位置后重试。
+:::
 
 ### Arch Linux
 
@@ -70,13 +76,5 @@ wails build -platform "linux/amd64" -tags webkit2_41 -upx
 chmod +x ./res-downloader_<version>_linux_amd64
 ./res-downloader_<version>_linux_amd64
 ```
-
-## 应用内更新
-
-可随时在“系统设置 → 基础设置”中点击“打开日志目录”旁的“检查更新”。如果启动时未联网或检查失败，恢复网络后再次检查即可，无需重启应用。
-
-更新检查和安装包下载遵循“高级设置”中的“下载代理”开关：开启时使用填写的上游代理，关闭时直连。
-
-有新版本时，按提示下载安装并重启。更新前请先处理未完成的下载或录制任务；下载较慢或更新失败时，可点击“前往官网”选择其他安装方式。Windows 更新默认使用普通安装包。
 
 安装完成后，继续查看[快速开始](getting-started.md)。

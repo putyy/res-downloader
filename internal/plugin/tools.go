@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed templates/plugin-release.yml
+var pluginReleaseWorkflowTemplate string
 
 type PluginFixture struct {
 	Observation  shared.Observation   `json:"observation" yaml:"observation"`
@@ -201,7 +205,7 @@ func RunPluginCLI(args []string, output io.Writer) error {
 
 func RunPluginCLIWithInput(args []string, input io.Reader, output io.Writer) error {
 	if len(args) < 1 {
-		return errors.New("usage: res-downloader plugin <create|lint|lint-bundled|replay|pack|sync-bundled> ...")
+		return errors.New("usage: res-downloader plugin <create|lint|lint-bundled|replay|pack|verify-release|sync-bundled> ...")
 	}
 	switch args[0] {
 	case "create":
@@ -247,6 +251,16 @@ func RunPluginCLIWithInput(args []string, input io.Reader, output io.Writer) err
 			return err
 		}
 		_, _ = fmt.Fprintln(output, outputPath)
+		return nil
+	case "verify-release":
+		if len(args) != 3 {
+			return errors.New("usage: res-downloader plugin verify-release <plugin-directory> <tag>")
+		}
+		manifest, err := verifyPluginRelease(args[1], args[2])
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(output, "verified plugin %s %s: dist/plugin.zip matches source\n", manifest.ID, args[2])
 		return nil
 	case "sync-bundled":
 		if len(args) < 2 {
@@ -377,15 +391,21 @@ Plugin logging is disabled by default. Enable it in the plugin settings when tro
 2. Implement resource discovery in `+"`main.js`"+`.
 3. Add sanitized offline fixtures under `+"`fixtures/`"+`.
 4. Run the plugin lint and replay commands before packaging.
+5. Commit `+"`dist/plugin.zip`"+` and push a matching `+"`vMAJOR.MINOR.PATCH`"+` tag to publish through GitHub Actions.
 `, name, id)
 	files := map[string]string{
-		".gitignore":  ".idea\n.vscode\n",
-		"README.md":   readme,
-		"main.js":     script,
-		"plugin.json": manifest,
+		".gitignore":                    ".idea\n.vscode\n",
+		"README.md":                     readme,
+		"main.js":                       script,
+		"plugin.json":                   manifest,
+		".github/workflows/release.yml": pluginReleaseWorkflowTemplate,
 	}
 	for fileName, content := range files {
-		if err := os.WriteFile(filepath.Join(directory, fileName), []byte(content), 0644); err != nil {
+		path := filepath.Join(directory, filepath.FromSlash(fileName))
+		if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			return err
 		}
 	}
@@ -470,7 +490,7 @@ func packPluginDirectory(directory, outputPath string) error {
 }
 
 func excludedPluginDevelopmentDirectory(name string) bool {
-	return name == ".git" || name == ".idea" || name == ".vscode" || name == "dist" || name == "tests"
+	return name == ".git" || name == ".github" || name == ".idea" || name == ".vscode" || name == "dist" || name == "tests"
 }
 
 func excludedPluginPackageFile(name string) bool {

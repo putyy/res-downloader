@@ -1,10 +1,10 @@
 package app
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"res-downloader/internal/httpapi"
 	shared "res-downloader/internal/model"
@@ -28,24 +28,27 @@ func (b *Bind) Config() *httpapi.ResponseData {
 }
 
 func (b *Bind) AppInfo() *httpapi.ResponseData {
+	ctx, cancel := context.WithTimeout(context.Background(), startupWaitTimeout)
+	defer cancel()
+	if err := b.runtime.awaitStartup(ctx); err != nil {
+		return httpapi.NewResponse(0, "Application services are still starting; retry the startup check", nil)
+	}
 	return httpapi.NewResponse(1, "ok", b.runtime.App)
 }
 
 func (b *Bind) APISession() *httpapi.ResponseData {
-	// Bind calls can arrive while OnStartup is still running. Do not let the
+	// Bind calls can arrive while backend startup is still running. Do not let the
 	// frontend probe a port that this instance failed to acquire.
-	timer := time.NewTimer(5 * time.Second)
-	defer timer.Stop()
-	select {
-	case <-b.runtime.startupDone:
-		if b.runtime.startupErr != nil {
-			return httpapi.NewResponse(0, b.runtime.startupErr.Error(), map[string]bool{
-				"restartRequired": true,
-				"portUnavailable": server.IsPortUnavailable(b.runtime.startupErr),
-			})
-		}
-	case <-timer.C:
+	ctx, cancel := context.WithTimeout(context.Background(), startupWaitTimeout)
+	defer cancel()
+	if err := b.runtime.awaitStartup(ctx); err != nil {
 		return httpapi.NewResponse(0, "Application services are still starting; retry the startup check", nil)
+	}
+	if b.runtime.startupErr != nil {
+		return httpapi.NewResponse(0, b.runtime.startupErr.Error(), map[string]bool{
+			"restartRequired": true,
+			"portUnavailable": server.IsPortUnavailable(b.runtime.startupErr),
+		})
 	}
 	return httpapi.NewResponse(1, "ok", map[string]string{"token": b.runtime.HTTP.SessionToken()})
 }
@@ -59,7 +62,7 @@ func (b *Bind) OpenLogDirectory() error {
 }
 
 func (b *Bind) RestartWithNewPort() error {
-	if err := b.runtime.preparePortRestart(); err != nil {
+	if err := b.runtime.App.preparePortRestart(); err != nil {
 		return err
 	}
 	runtime.Quit(b.runtime.App.ctx)
@@ -79,11 +82,20 @@ func (b *Bind) LogFrontendError(message string) {
 }
 
 func (b *Bind) PrepareReset(password string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), startupWaitTimeout)
+	defer cancel()
+	if err := b.runtime.awaitStartup(ctx); err != nil {
+		return err
+	}
 	return b.runtime.App.PrepareReset(password)
 }
 
 func (b *Bind) ResetApp() {
-	if !b.runtime.App.IsReset {
+	a := b.runtime.App
+	a.exitMu.Lock()
+	reset := a.IsReset && !a.closing
+	a.exitMu.Unlock()
+	if !reset {
 		return
 	}
 	runtime.Quit(b.runtime.App.ctx)
