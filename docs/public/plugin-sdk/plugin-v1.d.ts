@@ -89,16 +89,60 @@ interface ProcessFileActionDefinition {
   locales?: Record<string, PluginLocale>
 }
 
-interface PageCommandActionDefinition {
-  kind: 'page-command'
-  /** Opt in to execution ownership, timeouts and desktop progress. Default false. */
-  trackProgress?: boolean
-  /** ID of a manifest pageScripts entry with bridge: true. */
-  pageScript: string
+interface OperationActionDefinition {
+  kind: 'operation'
+  /** ID in the same manifest's operations map. */
+  operation: string
   locales?: Record<string, PluginLocale>
 }
 
-type PluginActionDefinition = ProcessFileActionDefinition | PageCommandActionDefinition
+type PluginActionDefinition = ProcessFileActionDefinition | OperationActionDefinition
+
+/** Strict subset, maximum depth 12; no $ref, unions, defaults or pattern. */
+interface OperationSchema {
+  type: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null'
+  title?: string
+  description?: string
+  properties?: Record<string, OperationSchema>
+  /** Required for every object schema. */
+  additionalProperties?: false
+  required?: string[]
+  items?: OperationSchema
+  enum?: JSONPrimitive[]
+  minimum?: number
+  maximum?: number
+  minLength?: number
+  maxLength?: number
+  minItems?: number
+  maxItems?: number
+  /** Opt in individual scalar leaves only. */
+  'x-persist'?: boolean
+  /** Excludes this subtree, overriding x-persist. */
+  'x-sensitive'?: boolean
+}
+
+interface OperationDefinition {
+  name: string
+  description?: string
+  locales?: Record<string, PluginLocale>
+  category: 'search' | 'detail' | 'current-content' | 'list' | 'resolve' | 'text' | 'custom'
+  pageScript: string
+  pageMatch?: PluginPageScriptMatch[]
+  requiresLogin?: boolean
+  inputSchema: OperationSchema & {type: 'object'}
+  outputSchema: OperationSchema
+  examples?: Record<string, JSONValue>[]
+  effects: ('read' | 'page' | 'publish' | 'download')[]
+  timeoutSeconds?: number
+  cancellable?: boolean
+  /** Read-only only. No automatic retries; explicit retryOf has a bounded retry chain. */
+  safeRetry?: boolean
+  /** Defaults to false. Requires the page effect; permits one SDK-managed reload within the original execution deadline. */
+  allowReload?: boolean
+  automation?: boolean
+  persistResult?: boolean
+  resultTTLSeconds?: number
+}
 
 interface Selector {
   path?: string
@@ -145,6 +189,7 @@ interface PluginManifest {
   extractors?: DeclarativeExtractor[]
   processors?: Record<string, PluginProcessorDefinition>
   actions?: Record<string, PluginActionDefinition>
+  operations?: Record<string, OperationDefinition>
   locales?: Record<string, PluginLocale>
   requires?: {ffmpeg?: string}
 }
@@ -338,16 +383,37 @@ interface PageMessageResult {
   autoDownload?: boolean
 }
 
-interface PageCommandMessage {
-  protocol: 1
-  type: 'resource-action'
-  requestId: string
-  actionId: string
-  resource: {
-    id: string
-    groupKey?: string
-  }
-  data?: Record<string, unknown>
+interface OperationContext<I = Record<string, JSONValue>> {
+  executionId: string
+  /** Zero initially, one after the explicitly requested reload. */
+  reloadCount: 0 | 1
+  input: I
+  /** Plugin's original opaque cursor; host binds the public token to query/session. */
+  cursor?: string
+  limit: number
+  resource?: {id: string; actionId: string}
+  signal: AbortSignal
+  /** Percent 0–100. The SDK sends heartbeat reports automatically. */
+  report(progress?: number): Promise<unknown>
+  /** Requires allowReload. Clean up uncommitted capture data first; never call after final submission.
+   * Ends this handler and reloads the same URL once. Await or return it; do not catch it to continue work.
+   */
+  reload(): Promise<never>
+}
+
+interface OperationPageResult<T = JSONValue> {
+  data: T
+  count?: number
+  hasMore?: boolean
+  nextCursor?: string
+  truncated?: boolean
+}
+
+interface OperationResultMessage {
+  type: 'operation-result'
+  operationId: string
+  executionId: string
+  data: JSONValue
 }
 
 interface PageSessionFilter {
@@ -386,16 +452,13 @@ interface PageScriptAPI {
   readonly scriptId: string
   readonly pageSessionId: string
   send(message: JSONValue): Promise<PageMessageResult>
-  onMessage(listener: (message: JSONValue | PageCommandMessage) => void): () => void
-  commands: {
-    /** Call only after verifying the resource's business ID. Only one recipient is accepted. */
-    claim(requestId: string, resumeToken?: string): Promise<{ok: true; accepted: boolean; resumeToken?: string}>
-    /** Report at most once per second, with a heartbeat at least every 30 seconds. */
-    report(requestId: string, report: {
-      state: 'running' | 'completed' | 'failed' | 'cancelled' | 'rejected'
-      progress?: number
-      message?: string
-    }): Promise<{ok: true}>
+  onMessage(listener: (message: JSONValue) => void): () => void
+  operations: {
+    /** Read-only bootstrap hint; does not claim or replay an execution. */
+    hasPendingReload(): boolean
+    /** Update on SPA/account/readiness changes; changing state interrupts prior work. */
+    setState(state: {ready: boolean; login?: 'unknown' | 'authenticated' | 'required'; context?: string}): Promise<{revision: string}>
+    handle<I = Record<string, JSONValue>, O = JSONValue>(id: string, handler: (context: OperationContext<I>) => Promise<OperationPageResult<O>> | OperationPageResult<O>): () => void
   }
   capture: {
     start(key: string): Promise<{ok: true}>
@@ -411,3 +474,130 @@ declare function onObservation(observation: Observation, api: PluginAPI): Plugin
 declare function onPageMessage(message: JSONValue, context: PageMessageContext, api: PluginAPI): PageMessageResult | void
 declare function refreshResource(input: ResourceHookInput, api: PluginBaseAPI): ResourceRefreshResult | null | void
 declare function createDownloadPlan(input: ResourceHookInput, api: PluginBaseAPI): DownloadPlan | null | void
+
+/** Public host discovery/execution shapes used by desktop and automation. */
+interface OperationInfo {
+  pluginId: string
+  pluginVersion: string
+  operationId: string
+  definition: OperationDefinition
+  automationEnabled: boolean
+  available: boolean
+}
+
+interface OperationSession {
+  pluginId: string
+  scriptId: string
+  pageSessionId: string
+  title: string
+  pageUrl: string
+  connected: boolean
+  ready: boolean
+  login: 'unknown' | 'authenticated' | 'required'
+  revision: string
+  operations: string[]
+}
+
+interface OperationRequest {
+  pluginId: string
+  operationId: string
+  input: Record<string, JSONValue>
+  pageSessionId?: string
+  cursor?: string
+  limit?: number
+  idempotencyKey?: string
+  retryOf?: string
+  resourceId?: string
+  actionId?: string
+}
+
+type OperationState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'timed_out' | 'interrupted'
+type OperationResultStatus = 'available' | 'expired' | 'cleaned' | 'never_persisted'
+
+interface OperationResult<T = JSONValue> {
+  data: T
+  /** Omitted from a recovered persisted projection. */
+  pagination?: {cursor: string; hasMore: boolean; count: number; truncated: boolean}
+}
+
+interface OperationExecution<T = JSONValue> {
+  executionId: string
+  batchId?: string
+  index: number
+  pluginId: string
+  pluginVersion: string
+  operationId: string
+  pageSessionId: string
+  revision: string
+  source: 'desktop' | 'automation'
+  state: OperationState
+  certainty: 'not_started' | 'confirmed' | 'unknown'
+  errorCode?: string
+  progress?: number
+  cancelRequested: boolean
+  cancelConfirmed: boolean
+  inputSummary?: JSONValue
+  resultStatus: OperationResultStatus
+  result?: OperationResult<T>
+  resultProjection: boolean
+  resultExpiresAt?: number
+  createdAt: number
+  updatedAt: number
+  startedAt?: number
+  acceptedAt?: number
+  deadline?: number
+  retryOf?: string
+  /** Number of explicit page reloads, at most one. */
+  reloadCount?: number
+  resourceId?: string
+  resourceIds: string[]
+  downloadTaskIds: string[]
+  /** Revoked with result cleanup/expiry; memory-only when persistResult is false. */
+  artifactIds: string[]
+}
+
+interface OperationBatch {
+  batchId: string
+  items: OperationExecution[]
+  counts: Partial<Record<OperationState, number>>
+  total: number
+  offset: number
+  hasMore: boolean
+}
+
+interface OperationArtifact {
+  artifactId: string
+  executionId: string
+  pluginId: string
+  resourceId?: string
+  downloadTaskId?: string
+  mime: string
+  size: number
+  status: 'available' | 'pending' | 'expired' | 'unavailable'
+  expiresAt?: number
+  output?: string
+}
+
+interface OperationTextChunk {
+  text: string
+  offset: number
+  nextOffset: number
+  size: number
+  truncated: boolean
+  encoding: 'utf-8'
+}
+
+/** Shared content-item convention. Each plugin must declare it in outputSchema. */
+interface OperationContentItem {
+  pluginId: string
+  id: string
+  kind: string
+  title: string
+  pageUrl: string
+  capabilities: ('detail' | 'list' | 'resolve' | 'text')[]
+  author?: string
+  coverUrl?: string
+  publishedAt?: number
+  duration?: number
+  summary?: string
+}

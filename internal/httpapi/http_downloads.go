@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,10 +11,52 @@ import (
 )
 
 type batchDownloadTaskResult struct {
-	ID      string                     `json:"id"`
-	Success bool                       `json:"success"`
-	Error   string                     `json:"error,omitempty"`
-	Task    *shared.DownloadTaskRecord `json:"task,omitempty"`
+	ID                 string                     `json:"id"`
+	Success            bool                       `json:"success"`
+	Error              string                     `json:"error,omitempty"`
+	Task               *shared.DownloadTaskRecord `json:"task,omitempty"`
+	OperationLinkError string                     `json:"operationLinkError,omitempty"`
+}
+
+// The download itself can succeed even if its operation-history association
+// cannot be persisted. Keep the task shape and ID visible, and report that
+// separate failure instead of suggesting the creation should be retried.
+type linkedDownloadTask struct {
+	shared.DownloadTaskRecord
+	OperationLinkError string `json:"operationLinkError,omitempty"`
+}
+
+func (h *Server) linkOperationDownload(task shared.DownloadTaskRecord) error {
+	if task.ID == "" || task.PluginID == "" || h.plugins == nil {
+		return nil
+	}
+	service := h.plugins.OperationService()
+	if service == nil {
+		return nil
+	}
+	return service.LinkDownload(task)
+}
+
+func (h *Server) respondDownloadTask(w http.ResponseWriter, task shared.DownloadTaskRecord, taskErr error) {
+	result := linkedDownloadTask{DownloadTaskRecord: task}
+	if task.ID != "" {
+		if err := h.linkOperationDownload(task); err != nil {
+			result.OperationLinkError = err.Error()
+		}
+	}
+	if taskErr != nil {
+		if task.ID != "" {
+			h.error(w, fmt.Sprintf("download task %s exists: %s", task.ID, taskErr), result)
+		} else {
+			h.error(w, taskErr.Error())
+		}
+		return
+	}
+	if result.OperationLinkError != "" {
+		h.success(w, result, "download task exists; operation association failed: "+result.OperationLinkError)
+		return
+	}
+	h.success(w, result)
 }
 
 func (h *Server) createDownload(w http.ResponseWriter, r *http.Request) {
@@ -38,11 +81,7 @@ func (h *Server) createDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	task, err := h.downloads.Enqueue(candidate)
-	if err != nil {
-		h.error(w, err.Error())
-		return
-	}
-	h.success(w, task)
+	h.respondDownloadTask(w, task, err)
 }
 
 func (h *Server) downloadTasks(w http.ResponseWriter, _ *http.Request) {
@@ -61,12 +100,12 @@ func (h *Server) retryDownload(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
-	task, err := h.downloads.Retry(data.ID)
-	if err != nil {
-		h.error(w, err.Error())
+	if h.downloads == nil {
+		h.error(w, "download scheduler is unavailable")
 		return
 	}
-	h.success(w, task)
+	task, err := h.downloads.Retry(data.ID)
+	h.respondDownloadTask(w, task, err)
 }
 
 func (h *Server) pauseDownloadTask(w http.ResponseWriter, r *http.Request) {
@@ -102,11 +141,7 @@ func (h *Server) resumeDownloadTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	task, err := h.downloads.Resume(data.ID)
-	if err != nil {
-		h.error(w, err.Error())
-		return
-	}
-	h.success(w, task)
+	h.respondDownloadTask(w, task, err)
 }
 
 func (h *Server) cancelDownloadTask(w http.ResponseWriter, r *http.Request) {
@@ -220,6 +255,14 @@ func (h *Server) batchDownloadTasks(w http.ResponseWriter, r *http.Request) {
 			err = h.downloads.Delete(id)
 		default:
 			err = errors.New("unsupported batch action")
+		}
+		if task.ID != "" {
+			result.Task = &task
+			if data.Action == "resume" || data.Action == "retry" {
+				if linkErr := h.linkOperationDownload(task); linkErr != nil {
+					result.OperationLinkError = linkErr.Error()
+				}
+			}
 		}
 		if err != nil {
 			result.Error = err.Error()

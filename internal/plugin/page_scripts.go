@@ -47,24 +47,31 @@ type loadedPageScript struct {
 }
 
 type pageBridgeSession struct {
-	id           string
-	token        string
-	pluginID     string
-	scriptID     string
-	pageURL      string
-	host         string
-	origin       string
-	createdAt    time.Time
-	lastSeen     time.Time
-	messages     chan []byte
-	done         chan struct{}
-	closeOnce    sync.Once
-	eventsMu     sync.Mutex
-	events       int
-	windowAt     time.Time
-	windowN      int
-	captureKeys  map[string]int64
-	captureBytes int64
+	operationGeneration uint64
+	documentClosed      bool
+	title               string
+	ready               bool
+	login               string
+	revision            string
+	context             string
+	id                  string
+	token               string
+	pluginID            string
+	scriptID            string
+	pageURL             string
+	host                string
+	origin              string
+	createdAt           time.Time
+	lastSeen            time.Time
+	messages            chan []byte
+	done                chan struct{}
+	closeOnce           sync.Once
+	eventsMu            sync.Mutex
+	events              int
+	windowAt            time.Time
+	windowN             int
+	captureKeys         map[string]int64
+	captureBytes        int64
 }
 
 func (s *pageBridgeSession) close() { s.closeOnce.Do(func() { close(s.done) }) }
@@ -72,7 +79,6 @@ func (s *pageBridgeSession) close() { s.closeOnce.Do(func() { close(s.done) }) }
 type pageBridgeHub struct {
 	mu       sync.RWMutex
 	sessions map[string]*pageBridgeSession
-	commands map[string]*trackedPageCommand
 	logger   *Logger
 }
 
@@ -105,6 +111,7 @@ func (m *PluginManager) PageScripts(request shared.RequestSnapshot) []shared.Pag
 	}
 	m.mu.RLock()
 	plugins := append([]managedPlugin(nil), m.plugins...)
+	operationGeneration := m.operationGeneration
 	m.mu.RUnlock()
 
 	out := make([]shared.PageScriptInjection, 0)
@@ -126,7 +133,7 @@ func (m *PluginManager) PageScripts(request shared.RequestSnapshot) []shared.Pag
 				injection.Frames = "top"
 			}
 			if injection.Bridge && manifest.Permissions.Has("page-bridge") {
-				session := m.pages.create(manifest.ID, script.definition.ID, request.URL, request.Host)
+				session := m.pages.create(manifest.ID, script.definition.ID, request.URL, request.Host, operationGeneration)
 				if session != nil {
 					injection.PageSessionID = session.id
 					injection.BridgeToken = session.token
@@ -154,7 +161,7 @@ func matchesPageScript(script shared.PluginPageScript, request shared.RequestSna
 	return false
 }
 
-func (h *pageBridgeHub) create(pluginID, scriptID, pageURL, pageHost string) *pageBridgeSession {
+func (h *pageBridgeHub) create(pluginID, scriptID, pageURL, pageHost string, operationGeneration ...uint64) *pageBridgeSession {
 	sessionID, err := randomPageBridgeValue(16)
 	if err != nil {
 		return nil
@@ -169,6 +176,9 @@ func (h *pageBridgeHub) create(pluginID, scriptID, pageURL, pageHost string) *pa
 		pageURL: pageURL, host: pageHost, origin: pageOrigin(pageURL), createdAt: now, lastSeen: now,
 		messages: make(chan []byte, maxPageSessionQueue), done: make(chan struct{}),
 		captureKeys: make(map[string]int64),
+	}
+	if len(operationGeneration) > 0 {
+		session.operationGeneration = operationGeneration[0]
 	}
 	h.mu.Lock()
 	h.pruneLocked(now)
@@ -251,11 +261,7 @@ func (h *pageBridgeHub) closeAll() {
 		delete(h.sessions, id)
 		session.close()
 	}
-	for _, command := range h.commands {
-		if !commandTerminal(command.view.State) {
-			command.fail("page_command_reloaded", "Plugin reloaded; open the page and retry", time.Now())
-		}
-	}
+
 	h.mu.Unlock()
 	if count > 0 && h.logger != nil {
 		h.logger.Warn().Int("sessions", count).Msg("page bridge sessions closed by plugin reload")
@@ -268,6 +274,7 @@ func (h *pageBridgeHub) closeSession(session *pageBridgeSession) (bool, bool) {
 	if current := h.sessions[session.id]; current != session {
 		return false, false
 	}
+	session.documentClosed = true
 	if len(session.captureKeys) > 0 {
 		session.lastSeen = time.Now()
 		if h.logger != nil {
@@ -489,11 +496,11 @@ func (m *PluginManager) HandlePageBridge(request *http.Request) (*http.Response,
 		return pageBridgeJSONResponse(request, http.StatusForbidden, map[string]interface{}{"ok": false, "error": "page bridge request origin is invalid"}), true
 	}
 	switch parts[2] {
-	case "command-claim", "command-report":
+	case "operation-ready", "operation-claim", "operation-report", "operation-reload", "operation-resume", "operation-reload-abort":
 		if request.Method != http.MethodPost {
 			return pageBridgeJSONResponse(request, http.StatusMethodNotAllowed, map[string]interface{}{"ok": false}), true
 		}
-		return m.handlePageCommandRequest(request, session, parts[2]), true
+		return m.handleOperationRequest(request, session, parts[2]), true
 	case "events":
 		if request.Method != http.MethodGet {
 			return pageBridgeJSONResponse(request, http.StatusMethodNotAllowed, map[string]interface{}{"ok": false}), true
@@ -711,10 +718,12 @@ func (m *PluginManager) processPageMessage(ctx context.Context, session *pageBri
 		if !ok {
 			return shared.PageMessageResult{OK: false, Error: "plugin does not handle page messages"}, nil
 		}
+		m.pages.mu.RLock()
 		contextValue := shared.PageMessageContext{
 			PageSessionID: session.id, ScriptID: session.scriptID, PageURL: session.pageURL, Origin: session.origin,
-			Settings: m.pluginSettings(manifest.ID),
 		}
+		m.pages.mu.RUnlock()
+		contextValue.Settings = m.pluginSettings(manifest.ID)
 		var result shared.PageMessageResult
 		var handled bool
 		err := m.runtimeState(manifest.ID).run(ctx, func(callCtx context.Context) error {

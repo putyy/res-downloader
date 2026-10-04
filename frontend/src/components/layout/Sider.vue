@@ -1,15 +1,17 @@
 <template>
-  <div class="app-sidebar relative isolate text-app-sidebar-text bg-app-sidebar border-black/[0.12] flex pb-2 flex-col h-full shrink-0 border-r"
-       :style="{minWidth: `${collapsedWidth}px`}">
-    <Screen v-if="envInfo.platform!=='darwin'"></Screen>
+  <div
+    class="app-sidebar relative isolate text-app-sidebar-text bg-app-sidebar border-black/[0.12] flex pb-2 flex-col h-full shrink-0 border-r"
+    :style="{minWidth: `${collapsedWidth}px`}"
+  >
+    <Screen v-if="envInfo.platform !== 'darwin'"></Screen>
     <div class="w-full flex flex-row items-center justify-center" :class="logoPaddingClass">
       <div class="relative flex items-center justify-center cursor-pointer [--wails-draggable:no-drag]" @click="showUpdate ? updateUI.openDialog() : handleFooterUpdate('github')">
-        <img class="w-12 h-12 rounded-full transition-transform duration-300 hover:scale-105 dark"
-             src="@/assets/image/logo.png" alt="res-downloader logo"/>
+        <img class="w-12 h-12 rounded-full transition-transform duration-300 hover:scale-105 dark" src="@/assets/image/logo.png" alt="res-downloader logo" />
         <span
-            class="absolute -right-1.5 -top-1 z-10 whitespace-nowrap font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-update-pulse"
-            v-if="showUpdate">
-            New
+          class="absolute -right-1.5 -top-1 z-10 whitespace-nowrap font-semibold rounded-full bg-red-500 text-white dark:bg-red-600 dark:text-gray-100 text-[10px] px-1.5 py-0.5 animate-update-pulse"
+          v-if="showUpdate"
+        >
+          New
         </span>
       </div>
     </div>
@@ -17,53 +19,61 @@
       <NScrollbar :size="1">
         <NLayout has-sider>
           <NLayoutSider
-              :bordered="false"
-              show-trigger
-              collapse-mode="width"
-              :trigger-style="triggerStyle"
-              :collapsed-trigger-style="triggerStyle"
-              :on-after-enter="() => { showAppName = true }"
-              :on-after-leave="() => { showAppName = false }"
-              :collapsed-width="collapsedWidth"
-              :collapsed="collapsed"
-              :width="envInfo.platform==='linux' ? 160 : 140"
-              :native-scrollbar="false"
-              inverted
-              :on-update:collapsed="collapsedChange"
-              class="bg-inherit"
+            :bordered="false"
+            show-trigger
+            collapse-mode="width"
+            :trigger-style="triggerStyle"
+            :collapsed-trigger-style="triggerStyle"
+            :on-after-enter="
+              () => {
+                showAppName = true
+              }
+            "
+            :on-after-leave="
+              () => {
+                showAppName = false
+              }
+            "
+            :collapsed-width="collapsedWidth"
+            :collapsed="collapsed"
+            :width="envInfo.platform === 'linux' ? 160 : 140"
+            :native-scrollbar="false"
+            inverted
+            :on-update:collapsed="collapsedChange"
+            class="bg-inherit"
           >
             <NMenu
-                inverted
-                :collapsed="collapsed"
-                :collapsed-width="collapsedWidth"
-                :collapsed-icon-size="22"
-                :options="menuOptions"
-                :value="menuValue"
-                @update:value="handleUpdateValue"
+              inverted
+              :collapsed="collapsed"
+              :collapsed-width="collapsedWidth"
+              :collapsed-icon-size="22"
+              :options="menuOptions"
+              :value="menuValue"
+              @update:value="handleUpdateValue"
             />
           </NLayoutSider>
         </NLayout>
         <NLayoutFooter position="absolute" inverted class="bg-inherit">
           <NMenu
-              inverted
-              :collapsed="collapsed"
-              :collapsed-width="collapsedWidth"
-              :collapsed-icon-size="22"
-              :options="footerOptions"
-              :value="menuValue"
-              @update:value="handleFooterUpdate"
+            inverted
+            :collapsed="collapsed"
+            :collapsed-width="collapsedWidth"
+            :collapsed-icon-size="22"
+            :options="footerOptions"
+            :value="menuValue"
+            @update:value="handleFooterUpdate"
           />
         </NLayoutFooter>
       </NScrollbar>
     </main>
   </div>
-  <Footer v-model:showModal="showAppInfo"/>
+  <Footer v-model:showModal="showAppInfo" />
   <UpdateDialog @available="showUpdate = $event" />
 </template>
 
 <script lang="ts" setup>
 import {MenuOption, NIcon} from "naive-ui"
-import {computed, h, onMounted, ref, watch} from "vue"
+import {computed, h, onMounted, ref} from "vue"
 import {useRoute, useRouter} from "vue-router"
 import {CloudOutline, DownloadOutline, ExtensionPuzzleOutline, HelpCircleOutline, LanguageSharp, LogoGithub, SettingsOutline} from "@vicons/ionicons5"
 import {useIndexStore} from "@/stores"
@@ -72,7 +82,7 @@ import Screen from "@/components/Screen.vue"
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
 import {useI18n} from "vue-i18n"
 import UpdateDialog from "@/components/UpdateDialog.vue"
-import {useUpdateStore} from '@/stores/update'
+import {useUpdateStore} from "@/stores/update"
 
 const {t} = useI18n()
 const route = useRoute()
@@ -80,7 +90,7 @@ const router = useRouter()
 const collapsed = ref(false)
 const showAppName = ref(false)
 const showAppInfo = ref(false)
-const menuValue = ref(route.path.substring(1))
+const menuValue = computed(() => (route.path === "/operations" ? "plugins" : route.path.substring(1)))
 const store = useIndexStore()
 const is = ref(false)
 const showUpdate = ref(false)
@@ -99,12 +109,8 @@ const globalConfig = computed(() => {
   return store.globalConfig
 })
 
-watch(() => route.path, (newPath) => {
-  menuValue.value = newPath.substring(1)
-})
-
 onMounted(() => {
-  const collapsedCache = localStorage.getItem("collapsed");
+  const collapsedCache = localStorage.getItem("collapsed")
   if (collapsedCache) {
     collapsed.value = JSON.parse(collapsedCache).collapsed
   }
@@ -118,22 +124,22 @@ const renderIcon = (icon: any) => {
 const menuOptions = ref([
   {
     label: computed(() => t("menu.index")),
-    key: 'index',
+    key: "index",
     icon: renderIcon(CloudOutline),
   },
   {
     label: computed(() => t("menu.tasks")),
-    key: 'tasks',
+    key: "tasks",
     icon: renderIcon(DownloadOutline),
   },
   {
     label: computed(() => t("menu.plugin")),
-    key: 'plugins',
+    key: "plugins",
     icon: renderIcon(ExtensionPuzzleOutline),
   },
   {
     label: computed(() => t("menu.setting")),
-    key: 'setting',
+    key: "setting",
     icon: renderIcon(SettingsOutline),
   },
 ])
@@ -141,23 +147,22 @@ const menuOptions = ref([
 const footerOptions = ref([
   {
     label: "github",
-    key: 'github',
+    key: "github",
     icon: renderIcon(LogoGithub),
   },
   {
     label: computed(() => t("menu.locale")),
-    key: 'locale',
+    key: "locale",
     icon: renderIcon(LanguageSharp),
   },
   {
     label: computed(() => t("menu.about")),
-    key: 'about',
+    key: "about",
     icon: renderIcon(HelpCircleOutline),
   },
 ])
 
 const handleUpdateValue = (key: string, item?: MenuOption) => {
-  menuValue.value = key
   return router.push({path: "/" + key})
 }
 const handleFooterUpdate = (key: string, item?: MenuOption) => {
@@ -180,7 +185,6 @@ const handleFooterUpdate = (key: string, item?: MenuOption) => {
     return
   }
 
-  menuValue.value = key
   return router.push({path: "/" + key})
 }
 

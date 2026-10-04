@@ -1,34 +1,27 @@
 <template>
   <div class="h-full overflow-hidden p-5">
     <div class="mx-auto h-full min-h-0 w-full">
-      <NTabs
-          v-model:value="activeTab"
-          type="line"
-          animated
-          class="h-full"
-          pane-wrapper-class="min-h-0 flex-1"
-          pane-class="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
-          @update:value="onTabChanged"
-      >
+      <NTabs :value="activeTab" type="line" animated class="h-full" pane-wrapper-class="min-h-0 flex-1" pane-class="h-full overflow-hidden" @update:value="onTabChanged">
         <template #suffix>
           <NSpace :wrap="false">
-            <NButton secondary :loading="localInspecting" @click="inspectLocalPlugin">
-              {{ t('plugin.install_file') }}
+            <NButton secondary :loading="localInspecting || localInstalling" @click="inspectLocalPlugin">
+              {{ t("plugin.install_file") }}
             </NButton>
             <NButton v-if="activeTab === 'installed'" secondary :loading="reloading" @click="reloadPlugins">
-              {{ t('plugin.reload') }}
+              {{ t("plugin.reload") }}
             </NButton>
             <NButton v-else secondary :loading="storeLoading" @click="loadPluginStore(true)">
-              {{ t('plugin.store_refresh') }}
+              {{ t("plugin.store_refresh") }}
             </NButton>
           </NSpace>
         </template>
 
-        <NTabPane name="installed" :tab="t('plugin.installed_tab')">
-          <NSpin :show="loading">
-            <NEmpty v-if="!loading && pluginStatuses.length === 0" :description="t('plugin.empty')"/>
-            <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 [--wails-draggable:no-drag]">
-              <InstalledPluginCard
+        <NTabPane name="installed" :tab="t('plugin.installed_tab')" display-directive="show:lazy">
+          <div ref="installedScroll" class="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden">
+            <NSpin :show="loading">
+              <NEmpty v-if="!loading && pluginStatuses.length === 0" :description="t('plugin.empty')" />
+              <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 [--wails-draggable:no-drag]">
+                <InstalledPluginCard
                   v-for="plugin in pluginStatuses"
                   :key="plugin.manifest.id || plugin.path"
                   :plugin="plugin"
@@ -40,44 +33,35 @@
                   @rollback="rollbackPlugin"
                   @configure="openPluginSettings"
                   @uninstall="uninstallPlugin"
-              />
-            </div>
-          </NSpin>
+                />
+              </div>
+            </NSpin>
+          </div>
         </NTabPane>
 
-        <NTabPane name="store" class="[--wails-draggable:no-drag]">
+        <NTabPane name="store" display-directive="show:lazy" class="[--wails-draggable:no-drag]">
           <template #tab>
-            <NBadge
-                :value="storeUpdateCount"
-                :show="storeUpdateCount > 0"
-                :max="99"
-                type="warning"
-                :offset="[8, 0]"
-            >
-              <span>{{ t('plugin.store_tab') }}</span>
+            <NBadge :value="storeUpdateCount" :show="storeUpdateCount > 0" :max="99" type="warning" :offset="[8, 0]">
+              <span>{{ t("plugin.store_tab") }}</span>
             </NBadge>
           </template>
-          <div class="mb-3 space-y-3">
-            <NAlert type="warning" :show-icon="false">
-              {{ t('plugin.store_warning') }}
-            </NAlert>
-            <NAlert v-if="storeStale" type="warning" :show-icon="false">
-              {{ t('plugin.store_stale') }}<span v-if="storeWarning">：{{ storeWarning }}</span>
-            </NAlert>
-            <div class="flex flex-wrap gap-3">
-              <NInput v-model:value="storeSearch" class="min-w-0 flex-1 basis-64" clearable :placeholder="t('plugin.store_search')"/>
-              <NSelect
-                  v-model:value="storeSort"
-                  class="!w-44 shrink-0"
-                  :options="storeSortOptions"
-                  :aria-label="t('plugin.store_sort')"
-              />
+          <div ref="storeScroll" class="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden">
+            <div class="mb-3 space-y-3">
+              <NAlert type="warning" :show-icon="false">
+                {{ t("plugin.store_warning") }}
+              </NAlert>
+              <NAlert v-if="storeStale" type="warning" :show-icon="false">
+                {{ t("plugin.store_stale") }}<span v-if="storeWarning">：{{ storeWarning }}</span>
+              </NAlert>
+              <div class="flex flex-wrap gap-3">
+                <NInput v-model:value="storeSearch" class="min-w-0 flex-1 basis-64" clearable :placeholder="t('plugin.store_search')" />
+                <NSelect v-model:value="storeSort" class="!w-44 shrink-0" :options="storeSortOptions" :aria-label="t('plugin.store_sort')" />
+              </div>
             </div>
-          </div>
-          <NSpin :show="storeLoading">
-            <NEmpty v-if="!storeLoading && filteredStoreEntries.length === 0" :description="t('plugin.store_empty')"/>
-            <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 [--wails-draggable:no-drag]">
-              <StoreExtensionCard
+            <NSpin :show="storeLoading">
+              <NEmpty v-if="!storeLoading && filteredStoreEntries.length === 0" :description="t('plugin.store_empty')" />
+              <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 [--wails-draggable:no-drag]">
+                <StoreExtensionCard
                   v-for="extension in filteredStoreEntries"
                   :key="extension.repository"
                   :extension="extension"
@@ -87,24 +71,27 @@
                   :update-available="storeCanUpdate(extension)"
                   :installed-version="installedPlugin(extension)?.manifest.version"
                   @install="installFromStore"
-              />
-            </div>
-          </NSpin>
+                />
+              </div>
+            </NSpin>
+          </div>
         </NTabPane>
       </NTabs>
 
       <NModal v-model:show="localInstallModalVisible">
         <NCard
-            v-if="localInspection"
-            class="w-[min(680px,calc(100vw-48px))] [--wails-draggable:no-drag]"
-            :title="t('plugin.install_file_title')"
-            :bordered="false"
-            role="dialog"
-            aria-modal="true"
+          v-if="localInspection"
+          class="w-[min(680px,calc(100vw-48px))] [--wails-draggable:no-drag]"
+          :title="t('plugin.install_file_title')"
+          :bordered="false"
+          role="dialog"
+          aria-modal="true"
         >
           <div class="space-y-3">
             <div>
-              <div class="text-base font-medium">{{ localizedPluginName(localInspection.manifest) }}</div>
+              <div class="text-base font-medium">
+                {{ localizedPluginName(localInspection.manifest) }}
+              </div>
               <div class="mt-1 text-xs text-gray-500 dark:text-app-muted">
                 {{ localInspection.manifest.id }} · v{{ localInspection.manifest.version }} · API
                 {{ localInspection.manifest.apiVersion }}
@@ -114,49 +101,41 @@
               {{ localStoreMatchText }}
             </NAlert>
             <NAlert v-if="localInspection.installed" type="info" :show-icon="false">
-              {{ t('plugin.local_installed_version', {version: localInspection.installed.version}) }}
+              {{ t("plugin.local_installed_version", {version: localInspection.installed.version}) }}
             </NAlert>
             <div>
-              <div class="mb-1 text-sm font-medium">{{ t('plugin.local_domains') }}</div>
+              <div class="mb-1 text-sm font-medium">{{ t("plugin.local_domains") }}</div>
               <div class="flex flex-wrap gap-1">
                 <NTag v-for="domain in localInspection.manifest.permissions?.domains ?? []" :key="domain" size="small">
                   {{ domain }}
                 </NTag>
-                <span v-if="!(localInspection.manifest.permissions?.domains?.length)"
-                      class="text-xs text-gray-500 dark:text-app-muted">-</span>
+                <span v-if="!localInspection.manifest.permissions?.domains?.length" class="text-xs text-gray-500 dark:text-app-muted">-</span>
               </div>
             </div>
             <div>
-              <div class="mb-1 text-sm font-medium">{{ t('plugin.local_capabilities') }}</div>
+              <div class="mb-1 text-sm font-medium">{{ t("plugin.local_capabilities") }}</div>
               <div class="flex flex-wrap gap-1">
-                <NTag
-                    v-for="capability in localInspection.manifest.permissions?.capabilities ?? []"
-                    :key="capability"
-                    size="small"
-                    type="warning"
-                >
+                <NTag v-for="capability in localInspection.manifest.permissions?.capabilities ?? []" :key="capability" size="small" type="warning">
                   {{ capability }}
                 </NTag>
-                <span v-if="!(localInspection.manifest.permissions?.capabilities?.length)" class="text-xs text-gray-500 dark:text-app-muted">-</span>
+                <span v-if="!localInspection.manifest.permissions?.capabilities?.length" class="text-xs text-gray-500 dark:text-app-muted">-</span>
               </div>
             </div>
             <NAlert v-if="hasPageInjectionPermission(localInspection.manifest)" type="error" :show-icon="false">
-              {{ t('plugin.page_injection_warning') }}
+              {{ t("plugin.page_injection_warning") }}
             </NAlert>
-            <div class="break-all text-xs text-gray-500 dark:text-app-muted">
-              {{ t('plugin.local_content_sha256') }}：{{ localInspection.contentSha256 }}
-            </div>
+            <div class="break-all text-xs text-gray-500 dark:text-app-muted">{{ t("plugin.local_content_sha256") }}：{{ localInspection.contentSha256 }}</div>
           </div>
           <template #footer>
             <div class="flex justify-end gap-2">
-              <NButton @click="localInstallModalVisible = false">{{ t('plugin.cancel') }}</NButton>
+              <NButton @click="localInstallModalVisible = false">{{ t("plugin.cancel") }}</NButton>
               <NButton
-                  type="primary"
-                  :loading="localInstalling"
-                  :disabled="!!localInspection.installed?.builtin || !!localInspection.installed?.bundled"
-                  @click="installLocalPlugin"
+                type="primary"
+                :loading="localInstalling"
+                :disabled="!!localInspection.installed?.builtin || !!localInspection.installed?.bundled"
+                @click="installLocalPlugin"
               >
-                {{ localInspection.installed ? t('plugin.local_replace') : t('plugin.store_install') }}
+                {{ localInspection.installed ? t("plugin.local_replace") : t("plugin.store_install") }}
               </NButton>
             </div>
           </template>
@@ -164,40 +143,38 @@
       </NModal>
 
       <NModal v-model:show="settingsModalVisible">
-        <NCard
-            class="w-[min(680px,calc(100vw-48px))] [--wails-draggable:no-drag]"
-            :title="settingsModalTitle"
-            :bordered="false"
-            role="dialog"
-            aria-modal="true"
-        >
+        <NCard class="w-[min(680px,calc(100vw-48px))] [--wails-draggable:no-drag]" :title="settingsModalTitle" :bordered="false" role="dialog" aria-modal="true">
           <NForm v-if="!advancedSettingsMode" label-placement="top">
             <NFormItem v-for="field in selectedSettingFields" :key="field.key" :label="settingFieldLabel(field.key, field.schema)">
               <div class="w-full">
-                <NSelect v-if="Array.isArray(field.schema.enum)" v-model:value="pluginSettingValues[selectedPluginID][field.key]" :options="settingEnumOptions(field.schema)"/>
-                <NSwitch v-else-if="field.schema.type === 'boolean'" v-model:value="pluginSettingValues[selectedPluginID][field.key]"/>
-                <NInputNumber v-else-if="field.schema.type === 'number' || field.schema.type === 'integer'" v-model:value="pluginSettingValues[selectedPluginID][field.key]" class="w-full"/>
-                <NInput v-else-if="field.schema.type === 'string' || !field.schema.type" v-model:value="pluginSettingValues[selectedPluginID][field.key]"/>
+                <NSelect v-if="Array.isArray(field.schema.enum)" v-model:value="pluginSettingValues[selectedPluginID][field.key]" :options="settingEnumOptions(field.schema)" />
+                <NSwitch v-else-if="field.schema.type === 'boolean'" v-model:value="pluginSettingValues[selectedPluginID][field.key]" />
+                <NInputNumber
+                  v-else-if="field.schema.type === 'number' || field.schema.type === 'integer'"
+                  v-model:value="pluginSettingValues[selectedPluginID][field.key]"
+                  class="w-full"
+                />
+                <NInput v-else-if="field.schema.type === 'string' || !field.schema.type" v-model:value="pluginSettingValues[selectedPluginID][field.key]" />
                 <NAlert v-else type="warning" :show-icon="false">
-                  {{ t('plugin.unsupported_setting', {name: field.key}) }}
+                  {{ t("plugin.unsupported_setting", {name: field.key}) }}
                 </NAlert>
                 <div v-if="settingFieldDescription(field.schema)" class="mt-1 text-xs text-gray-500 dark:text-app-muted">
                   {{ settingFieldDescription(field.schema) }}
                 </div>
               </div>
             </NFormItem>
-            <NEmpty v-if="selectedSettingFields.length === 0" :description="t('plugin.no_settings_fields')"/>
+            <NEmpty v-if="selectedSettingFields.length === 0" :description="t('plugin.no_settings_fields')" />
           </NForm>
-          <NInput v-else v-model:value="pluginSettingsJSON[selectedPluginID]" type="textarea" :rows="14" :placeholder="t('plugin.settings_json')"/>
+          <NInput v-else v-model:value="pluginSettingsJSON[selectedPluginID]" type="textarea" :rows="14" :placeholder="t('plugin.settings_json')" />
           <template #footer>
             <div class="flex items-center justify-between gap-2">
               <NButton text type="primary" @click="toggleAdvancedSettings">
-                {{ advancedSettingsMode ? t('plugin.form_view') : t('plugin.advanced_json') }}
+                {{ advancedSettingsMode ? t("plugin.form_view") : t("plugin.advanced_json") }}
               </NButton>
               <div class="flex gap-2">
-                <NButton @click="settingsModalVisible = false">{{ t('plugin.cancel') }}</NButton>
+                <NButton @click="settingsModalVisible = false">{{ t("plugin.cancel") }}</NButton>
                 <NButton type="primary" :loading="savingPluginID === selectedPluginID" @click="savePluginSettings(selectedPluginID)">
-                  {{ t('plugin.save_settings') }}
+                  {{ t("plugin.save_settings") }}
                 </NButton>
               </div>
             </div>
@@ -209,25 +186,25 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref} from 'vue'
-import axios from 'axios'
-import {useI18n} from 'vue-i18n'
-import {useRouter} from 'vue-router'
-import appApi from '@/api/app'
-import type {appType} from '@/types/app'
-import InstalledPluginCard from '@/components/plugin/InstalledPluginCard.vue'
-import StoreExtensionCard from '@/components/plugin/StoreExtensionCard.vue'
+import {computed, nextTick, onActivated, onMounted, ref} from "vue"
+import axios from "axios"
+import {useI18n} from "vue-i18n"
+import {onBeforeRouteLeave, useRouter} from "vue-router"
+import appApi from "@/api/app"
+import type {appType} from "@/types/app"
+import InstalledPluginCard from "@/components/plugin/InstalledPluginCard.vue"
+import StoreExtensionCard from "@/components/plugin/StoreExtensionCard.vue"
 
 const {t, locale} = useI18n()
 const router = useRouter()
-const genericDetectorID = 'builtin.generic-detector'
+const genericDetectorID = "builtin.generic-detector"
 
 interface LocalPluginInspection {
   token: string
   manifest: appType.PluginManifest
   contentSha256: string
-  storeMatch: 'same-version' | 'different' | 'not-listed' | 'cache-unavailable'
-  installed?: { version: string, builtin: boolean, bundled: boolean }
+  storeMatch: "same-version" | "different" | "not-listed" | "cache-unavailable"
+  installed?: {version: string; builtin: boolean; bundled: boolean}
 }
 
 const pluginStatuses = ref<appType.PluginStatus[]>([])
@@ -235,76 +212,94 @@ const pluginSettingsJSON = ref<Record<string, string>>({})
 const pluginSettingValues = ref<Record<string, Record<string, any>>>({})
 const loading = ref(false)
 const reloading = ref(false)
-const updatingPluginID = ref('')
-const savingPluginID = ref('')
-const uninstallingPluginID = ref('')
+const updatingPluginID = ref("")
+const savingPluginID = ref("")
+const uninstallingPluginID = ref("")
 const localInspecting = ref(false)
 const localInstalling = ref(false)
 const localInstallModalVisible = ref(false)
 const localInspection = ref<LocalPluginInspection | null>(null)
-const activeTab = ref<'installed' | 'store'>('installed')
+type PluginTab = "installed" | "store"
+const activeTab = ref<PluginTab>("installed")
+const installedScroll = ref<HTMLElement>()
+const storeScroll = ref<HTMLElement>()
+const scrollPositions: Record<PluginTab, number> = {installed: 0, store: 0}
+const activeScrollElement = () => (activeTab.value === "installed" ? installedScroll.value : storeScroll.value)
+
+const saveScrollPosition = () => {
+  const element = activeScrollElement()
+  if (element) scrollPositions[activeTab.value] = element.scrollTop
+}
+const restoreScrollPosition = async () => {
+  await nextTick()
+  const element = activeScrollElement()
+  if (element?.isConnected) element.scrollTop = scrollPositions[activeTab.value]
+}
+// KeepAlive retains component state, but detached scroll containers need their
+// positions captured before navigation and restored after reactivation.
+onBeforeRouteLeave(saveScrollPosition)
+onActivated(restoreScrollPosition)
+
 const storeEntries = ref<appType.PluginStoreEntry[]>([])
 const storeLoading = ref(false)
 const storeLoaded = ref(false)
 const storeStale = ref(false)
-const storeWarning = ref('')
-const storeSearch = ref('')
-const storeSort = ref<'default' | 'stars' | 'publishedAt' | 'updatedAt'>('default')
+const storeWarning = ref("")
+const storeSearch = ref("")
+const storeSort = ref<"default" | "stars" | "publishedAt" | "updatedAt">("default")
 const storeSortOptions = computed(() => [
-  {value: 'default', label: t('plugin.store_sort_default')},
-  {value: 'stars', label: t('plugin.store_sort_stars')},
-  {value: 'publishedAt', label: t('plugin.store_sort_published')},
-  {value: 'updatedAt', label: t('plugin.store_sort_updated')},
+  {value: "default", label: t("plugin.store_sort_default")},
+  {value: "stars", label: t("plugin.store_sort_stars")},
+  {value: "publishedAt", label: t("plugin.store_sort_published")},
+  {value: "updatedAt", label: t("plugin.store_sort_updated")},
 ])
-const storeInstallingRepository = ref('')
+const storeInstallingRepository = ref("")
 const settingsModalVisible = ref(false)
-const selectedPluginID = ref('')
+const selectedPluginID = ref("")
 const advancedSettingsMode = ref(false)
 
-const selectedPlugin = computed(() =>
-    pluginStatuses.value.find(plugin => plugin.manifest.id === selectedPluginID.value),
-)
+const selectedPlugin = computed(() => pluginStatuses.value.find((plugin) => plugin.manifest.id === selectedPluginID.value))
 
 const localStoreMatchType = computed(() => {
-  if (localInspection.value?.storeMatch === 'same-version') return 'success'
-  if (localInspection.value?.storeMatch === 'different') return 'error'
-  return 'warning'
+  if (localInspection.value?.storeMatch === "same-version") return "success"
+  if (localInspection.value?.storeMatch === "different") return "error"
+  return "warning"
 })
 
 const localStoreMatchText = computed(() => {
   const match = localInspection.value?.storeMatch
-  if (match === 'same-version') return t('plugin.local_match_same_version')
-  if (match === 'different') return t('plugin.local_match_different')
-  return ''
+  if (match === "same-version") return t("plugin.local_match_same_version")
+  if (match === "different") return t("plugin.local_match_different")
+  return ""
 })
 
 const settingsModalTitle = computed(() =>
-    t('plugin.settings_title', {
-      name: selectedPlugin.value ? localizedPluginName(selectedPlugin.value.manifest) : '',
-    }),
+  t("plugin.settings_title", {
+    name: selectedPlugin.value ? localizedPluginName(selectedPlugin.value.manifest) : "",
+  }),
 )
 
 const selectedSettingFields = computed(() => {
   const properties = selectedPlugin.value?.manifest.settingsSchema?.properties ?? {}
-  return Object.entries(properties).map(([key, schema]) => ({key, schema: schema as Record<string, any>}))
+  return Object.entries(properties).map(([key, schema]) => ({
+    key,
+    schema: schema as Record<string, any>,
+  }))
 })
 
 const localizedPluginEntry = (manifest: appType.PluginManifest) => {
   const entries = manifest.locales ?? {}
   const current = locale.value
-  const language = current.split('-')[0]
+  const language = current.split("-")[0]
   return entries[current] ?? entries[language] ?? entries.en ?? Object.values(entries)[0] ?? {}
 }
 
-const localizedPluginName = (manifest: appType.PluginManifest) =>
-    localizedPluginEntry(manifest).name || manifest.name || manifest.id
+const localizedPluginName = (manifest: appType.PluginManifest) => localizedPluginEntry(manifest).name || manifest.name || manifest.id
 
-const localizedPluginDescription = (manifest: appType.PluginManifest) =>
-    localizedPluginEntry(manifest).description || ''
+const localizedPluginDescription = (manifest: appType.PluginManifest) => localizedPluginEntry(manifest).description || ""
 
 const hasPageInjectionPermission = (manifest: appType.PluginManifest) =>
-    (manifest.permissions?.capabilities ?? []).some(capability =>
-      capability === 'inject-page-script' || capability === 'page-bridge' || capability === 'enqueue-download')
+  (manifest.permissions?.capabilities ?? []).some((capability) => capability === "inject-page-script" || capability === "page-bridge" || capability === "enqueue-download")
 
 const openPluginSettings = (id: string) => {
   selectedPluginID.value = id
@@ -315,18 +310,16 @@ const openPluginSettings = (id: string) => {
 const localizedSchemaValue = (values?: Record<string, any>) => {
   if (!values) return {}
   const current = locale.value
-  const language = current.split('-')[0]
+  const language = current.split("-")[0]
   return values[current] ?? values[language] ?? values.en ?? Object.values(values)[0] ?? {}
 }
 
-const settingFieldLabel = (key: string, schema: Record<string, any>) =>
-    localizedSchemaValue(schema['x-locales']).name || schema.title || key
+const settingFieldLabel = (key: string, schema: Record<string, any>) => localizedSchemaValue(schema["x-locales"]).name || schema.title || key
 
-const settingFieldDescription = (schema: Record<string, any>) =>
-    localizedSchemaValue(schema['x-locales']).description || schema.description || ''
+const settingFieldDescription = (schema: Record<string, any>) => localizedSchemaValue(schema["x-locales"]).description || schema.description || ""
 
 const settingEnumOptions = (schema: Record<string, any>) => {
-  const labels = localizedSchemaValue(schema['x-enumLabels'])
+  const labels = localizedSchemaValue(schema["x-enumLabels"])
   return (schema.enum ?? []).map((value: any) => ({value, label: labels[value] || String(value)}))
 }
 
@@ -338,26 +331,24 @@ const toggleAdvancedSettings = () => {
     return
   }
   try {
-    pluginSettingValues.value[id] = JSON.parse(pluginSettingsJSON.value[id] || '{}')
+    pluginSettingValues.value[id] = JSON.parse(pluginSettingsJSON.value[id] || "{}")
     advancedSettingsMode.value = false
   } catch (_) {
-    window?.$message?.error(t('plugin.settings_invalid'))
+    window?.$message?.error(t("plugin.settings_invalid"))
   }
 }
 
-const openResourceRules = () => router.push({path: '/setting', query: {tab: 'resource-rules'}})
+const openResourceRules = () => router.push({path: "/setting", query: {tab: "resource-rules"}})
 
-const storeExtensionName = (extension: appType.PluginStoreEntry) =>
-    extension.manifest ? localizedPluginName(extension.manifest) : extension.name
+const storeExtensionName = (extension: appType.PluginStoreEntry) => (extension.manifest ? localizedPluginName(extension.manifest) : extension.name)
 
-const installedPlugin = (extension: appType.PluginStoreEntry) =>
-    extension.id ? pluginStatuses.value.find(plugin => plugin.manifest.id === extension.id) : undefined
+const installedPlugin = (extension: appType.PluginStoreEntry) => (extension.id ? pluginStatuses.value.find((plugin) => plugin.manifest.id === extension.id) : undefined)
 
 const compareSemanticVersions = (left: string, right: string) => {
   const parse = (value: string) => {
     const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/)
     if (!match) return null
-    return {core: match.slice(1, 4).map(Number), prerelease: match[4]?.split('.') ?? []}
+    return {core: match.slice(1, 4).map(Number), prerelease: match[4]?.split(".") ?? []}
   }
   const a = parse(left)
   const b = parse(right)
@@ -366,12 +357,12 @@ const compareSemanticVersions = (left: string, right: string) => {
     if (a.core[index] !== b.core[index]) return a.core[index] - b.core[index]
   }
   if (!a.prerelease.length || !b.prerelease.length) {
-    return a.prerelease.length === b.prerelease.length ? 0 : (a.prerelease.length ? -1 : 1)
+    return a.prerelease.length === b.prerelease.length ? 0 : a.prerelease.length ? -1 : 1
   }
   for (let index = 0; index < Math.max(a.prerelease.length, b.prerelease.length); index++) {
     const av = a.prerelease[index]
     const bv = b.prerelease[index]
-    if (av === undefined || bv === undefined) return av === bv ? 0 : (av === undefined ? -1 : 1)
+    if (av === undefined || bv === undefined) return av === bv ? 0 : av === undefined ? -1 : 1
     if (av === bv) continue
     const an = /^\d+$/.test(av)
     const bn = /^\d+$/.test(bv)
@@ -384,34 +375,34 @@ const compareSemanticVersions = (left: string, right: string) => {
 
 const storeCanUpdate = (extension: appType.PluginStoreEntry) => {
   const installed = installedPlugin(extension)
-  return !!installed && !installed.builtin && !!extension.release &&
-      compareSemanticVersions(extension.release.version, installed.manifest.version) > 0
+  return !!installed && !installed.builtin && !!extension.release && compareSemanticVersions(extension.release.version, installed.manifest.version) > 0
 }
 
 const storeEntryPriority = (extension: appType.PluginStoreEntry) => {
-  if (extension.status !== 'available' || !extension.manifest || !extension.release) return 3
+  if (extension.status !== "available" || !extension.manifest || !extension.release) return 3
   if (storeCanUpdate(extension)) return 0
   if (!installedPlugin(extension)) return 1
   return 2
 }
 
 const storeEntrySortValue = (extension: appType.PluginStoreEntry) => {
-  if (storeSort.value === 'stars') return extension.stars ?? 0
-  const value = storeSort.value === 'publishedAt' ? extension.release?.publishedAt : extension.updatedAt
-  const timestamp = Date.parse(value ?? '')
+  if (storeSort.value === "stars") return extension.stars ?? 0
+  const value = storeSort.value === "publishedAt" ? extension.release?.publishedAt : extension.updatedAt
+  const timestamp = Date.parse(value ?? "")
   return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY
 }
 
 const filteredStoreEntries = computed(() => {
   const keyword = storeSearch.value.trim().toLocaleLowerCase()
   const entries = keyword
-    ? storeEntries.value.filter(extension => [
-      storeExtensionName(extension), extension.description, extension.repository,
-      extension.manifest?.author?.name, extension.owner,
-    ].some(value => value?.toLocaleLowerCase().includes(keyword)))
+    ? storeEntries.value.filter((extension) =>
+        [storeExtensionName(extension), extension.description, extension.repository, extension.manifest?.author?.name, extension.owner].some((value) =>
+          value?.toLocaleLowerCase().includes(keyword),
+        ),
+      )
     : storeEntries.value
   return [...entries].sort((left, right) => {
-    if (storeSort.value !== 'default') {
+    if (storeSort.value !== "default") {
       const leftValue = storeEntrySortValue(left)
       const rightValue = storeEntrySortValue(right)
       if (leftValue !== rightValue) return leftValue > rightValue ? -1 : 1
@@ -426,24 +417,24 @@ const storeUpdateCount = computed(() => {
 })
 
 const storeInstallDisabled = (extension: appType.PluginStoreEntry) => {
-  if (extension.status !== 'available' || !extension.manifest || !extension.release) return true
+  if (extension.status !== "available" || !extension.manifest || !extension.release) return true
   return !!installedPlugin(extension) && !storeCanUpdate(extension)
 }
 
 const storeInstallLabel = (extension: appType.PluginStoreEntry) => {
-  if (extension.status !== 'available') return t('plugin.store_unavailable')
-  if (storeCanUpdate(extension)) return t('plugin.store_update')
-  if (installedPlugin(extension)) return t('plugin.store_installed')
-  return t('plugin.store_install')
+  if (extension.status !== "available") return t("plugin.store_unavailable")
+  if (storeCanUpdate(extension)) return t("plugin.store_update")
+  if (installedPlugin(extension)) return t("plugin.store_installed")
+  return t("plugin.store_install")
 }
 
 const pluginInstallErrorMessage = (error: unknown) => {
-  if (axios.isAxiosError(error) && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT')) {
-    return t('plugin.install_timeout')
+  if (axios.isAxiosError(error) && (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT")) {
+    return t("plugin.install_timeout")
   }
-  const message = String(error ?? '')
-  if (message.includes('context deadline exceeded') || message.includes('Client.Timeout exceeded')) {
-    return t('plugin.install_timeout')
+  const message = String(error ?? "")
+  if (message.includes("context deadline exceeded") || message.includes("Client.Timeout exceeded")) {
+    return t("plugin.install_timeout")
   }
   return message
 }
@@ -486,7 +477,7 @@ const loadPluginStore = async (force = false) => {
     }
     storeEntries.value = res.data.index?.extensions ?? []
     storeStale.value = !!res.data.stale
-    storeWarning.value = res.data.warning ?? ''
+    storeWarning.value = res.data.warning ?? ""
     storeLoaded.value = true
   } catch (error) {
     window?.$message?.error(String(error))
@@ -495,8 +486,11 @@ const loadPluginStore = async (force = false) => {
   }
 }
 
-const onTabChanged = (tab: string) => {
-  if (tab === 'store') loadPluginStore()
+const onTabChanged = (tab: PluginTab) => {
+  saveScrollPosition()
+  activeTab.value = tab
+  void restoreScrollPosition()
+  if (tab === "store") loadPluginStore()
 }
 
 const installFromStore = async (extension: appType.PluginStoreEntry) => {
@@ -513,18 +507,21 @@ const installFromStore = async (extension: appType.PluginStoreEntry) => {
       window?.$message?.error(pluginInstallErrorMessage(res.message))
       return
     }
-    window?.$message?.success(t(replacing ? 'plugin.store_update_success' : 'plugin.install_success', {
-      name: localizedPluginName(res.data.manifest),
-    }))
+    window?.$message?.success(
+      t(replacing ? "plugin.store_update_success" : "plugin.install_success", {
+        name: localizedPluginName(res.data.manifest),
+      }),
+    )
     await loadPlugins()
   } catch (error) {
     window?.$message?.error(pluginInstallErrorMessage(error))
   } finally {
-    storeInstallingRepository.value = ''
+    storeInstallingRepository.value = ""
   }
 }
 
 const inspectLocalPlugin = async () => {
+  if (localInspecting.value || localInstalling.value) return
   localInspecting.value = true
   try {
     const res: appType.Res = await appApi.inspectPluginFile()
@@ -543,28 +540,35 @@ const inspectLocalPlugin = async () => {
 }
 
 const installLocalPlugin = async () => {
-  if (!localInspection.value) return
+  if (!localInspection.value || localInstalling.value) return
+  const inspection = localInspection.value
   localInstalling.value = true
   try {
     const res: appType.Res = await appApi.installPluginFile({
-      token: localInspection.value.token,
-      replace: !!localInspection.value.installed,
-      approvePermissions: !!localInspection.value.installed,
+      token: inspection.token,
+      replace: !!inspection.installed,
+      approvePermissions: !!inspection.installed,
     })
     if (res.code === 0) {
-      window?.$message?.error(res.message)
+      const expired = res.data?.errorCode === "plugin_package_token_expired"
+      window?.$message?.error(expired ? t("plugin.local_package_expired") : `${res.message} ${t("plugin.local_install_reselect")}`)
       return
     }
-    window?.$message?.success(t(
-        localInspection.value.installed ? 'plugin.store_update_success' : 'plugin.install_success',
-        {name: localizedPluginName(res.data.manifest)},
-    ))
+    window?.$message?.success(
+      t(inspection.installed ? "plugin.store_update_success" : "plugin.install_success", {
+        name: localizedPluginName(res.data.manifest),
+      }),
+    )
     localInstallModalVisible.value = false
     localInspection.value = null
     await loadPlugins()
   } catch (error) {
-    window?.$message?.error(String(error))
+    window?.$message?.error(`${String(error)} ${t("plugin.local_install_uncertain")}`)
   } finally {
+    // The host consumes the token when installation starts, including failures.
+    // A lost response also cannot safely reuse the same confirmation.
+    localInstallModalVisible.value = false
+    localInspection.value = null
     localInstalling.value = false
   }
 }
@@ -578,7 +582,7 @@ const setPluginEnabled = async (id: string, enabled: boolean) => {
   } catch (error) {
     window?.$message?.error(String(error))
   } finally {
-    updatingPluginID.value = ''
+    updatingPluginID.value = ""
   }
 }
 
@@ -606,16 +610,16 @@ const uninstallPlugin = async (id: string) => {
       window?.$message?.error(res.message)
       return
     }
-    window?.$message?.success(t('plugin.uninstall_success'))
+    window?.$message?.success(t("plugin.uninstall_success"))
     await loadPlugins()
   } catch (error) {
     window?.$message?.error(String(error))
   } finally {
-    uninstallingPluginID.value = ''
+    uninstallingPluginID.value = ""
   }
 }
 
-const rollbackPluginID = ref('')
+const rollbackPluginID = ref("")
 const rollbackPlugin = async (id: string) => {
   rollbackPluginID.value = id
   try {
@@ -624,10 +628,10 @@ const rollbackPlugin = async (id: string) => {
       window?.$message?.error(res.message)
       return
     }
-    window?.$message?.success(t('plugin.rollback_success'))
+    window?.$message?.success(t("plugin.rollback_success"))
     await loadPlugins()
   } finally {
-    rollbackPluginID.value = ''
+    rollbackPluginID.value = ""
   }
 }
 
@@ -635,9 +639,9 @@ const savePluginSettings = async (id: string) => {
   let settings: Record<string, any>
   if (advancedSettingsMode.value) {
     try {
-      settings = JSON.parse(pluginSettingsJSON.value[id] || '{}')
+      settings = JSON.parse(pluginSettingsJSON.value[id] || "{}")
     } catch (_) {
-      window?.$message?.error(t('plugin.settings_invalid'))
+      window?.$message?.error(t("plugin.settings_invalid"))
       return
     }
   } else {
@@ -651,13 +655,13 @@ const savePluginSettings = async (id: string) => {
     else {
       pluginSettingValues.value[id] = JSON.parse(JSON.stringify(settings))
       pluginSettingsJSON.value[id] = JSON.stringify(settings, null, 2)
-      window?.$message?.success(t('plugin.settings_saved'))
+      window?.$message?.success(t("plugin.settings_saved"))
       settingsModalVisible.value = false
     }
   } catch (error) {
     window?.$message?.error(String(error))
   } finally {
-    savingPluginID.value = ''
+    savingPluginID.value = ""
   }
 }
 

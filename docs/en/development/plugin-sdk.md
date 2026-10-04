@@ -9,7 +9,7 @@ The public protocol helper files for plugin development are maintained in `docs/
 ## Files
 
 - [Manifest Schema](/plugin-sdk/plugin-v1.schema.json): the JSON Schema for `plugin.json`, covering permissions, matching rules, page scripts, resource kinds, settings, declarative extractors, WASM processors, and resource actions.
-- [`plugin-v1.d.ts`](/plugin-sdk/plugin-v1.d.ts): TypeScript declarations for the JavaScript plugin API, including Observation, runtime APIs, resources, page commands, refresh results, and download plans.
+- [`plugin-v1.d.ts`](/plugin-sdk/plugin-v1.d.ts): TypeScript declarations for the JavaScript plugin API, including Observation, runtime APIs, resources, operations and page execution, refresh results, and download plans.
 
 In an editor supporting JSON Schema, associate `plugin.json` with this schema URL:
 
@@ -31,3 +31,5 @@ See [Plugin Development](plugins.md) for the complete Manifest, permissions, hoo
 When adding or changing the plugin protocol, update the Schema, type declarations, examples, fixtures, and developer guide together.
 
 JSON Schema provides field assistance but cannot establish a package's distribution source. `plugin lint`, `plugin replay`, and `plugin pack` also do not grant official status; they allow authors to work with `official.` plugins during development. See [Plugin sources and reserved IDs](extension-store.md#plugin-sources-and-reserved-ids) for installation source classification and restrictions on the `builtin.` / `official.` prefixes.
+
+See [the operation contract](operations.md) for declarations, page execution and result handling.

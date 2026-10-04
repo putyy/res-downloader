@@ -1,9 +1,14 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	shared "res-downloader/internal/model"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestTrustedPluginManagementRequest(t *testing.T) {
@@ -30,6 +35,41 @@ func TestTrustedPluginManagementRequest(t *testing.T) {
 		}
 		if got := trustedPluginManagementRequest(request); got != test.allowed {
 			t.Errorf("method=%s origin=%q: got %v, want %v", test.method, test.origin, got, test.allowed)
+		}
+	}
+}
+
+func TestExpiredLocalPluginArchiveIsNotReturned(t *testing.T) {
+	token := strings.Repeat("a", 48)
+	server := &Server{pluginArchives: map[string]pendingPluginArchive{
+		token: {data: []byte("archive"), expiresAt: time.Now().Add(-time.Second)},
+	}}
+	if _, err := server.takePluginArchive(token); !errors.Is(err, errPluginArchiveToken) {
+		t.Fatalf("expired package error = %v", err)
+	}
+	if len(server.pluginArchives) != 0 {
+		t.Fatal("expired package remained in the confirmation cache")
+	}
+}
+
+func TestLocalPluginInstallReportsUnusableConfirmation(t *testing.T) {
+	server := &Server{pluginArchives: make(map[string]pendingPluginArchive)}
+	for _, token := range []string{"", "invalid", strings.Repeat("a", 48)} {
+		raw, _ := json.Marshal(map[string]string{"token": token})
+		request := httptest.NewRequest(http.MethodPost, "/api/plugins/file/install", strings.NewReader(string(raw)))
+		response := httptest.NewRecorder()
+		server.installPluginFile(response, request)
+		var result struct {
+			Code int `json:"code"`
+			Data struct {
+				ErrorCode string `json:"errorCode"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		if result.Code != 0 || result.Data.ErrorCode != "plugin_package_token_expired" {
+			t.Fatalf("unexpected confirmation response: %s", response.Body.String())
 		}
 	}
 }

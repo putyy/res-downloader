@@ -1,26 +1,21 @@
 <template>
   <n-modal
-      :show="showModal"
-      :on-update:show="changeShow"
-      preset="dialog"
-      :title="t('components.password_title')"
-      content=""
-      :show-icon="false"
-      :mask-closable="false"
-      :close-on-esc="false"
-      class="rounded-lg [--wails-draggable:no-drag]"
+    :show="showModal"
+    :on-update:show="changeShow"
+    preset="dialog"
+    :title="t('components.password_title')"
+    content=""
+    :show-icon="false"
+    :mask-closable="false"
+    :close-on-esc="false"
+    class="rounded-lg [--wails-draggable:no-drag]"
   >
     <div>
       <div class="text-red-500 text-base">
         {{ t("components.password_tip") }}
       </div>
       <div class="mt-3">
-        <n-input
-            v-model:value="password"
-            type="password"
-            :placeholder="t('components.password_placeholder')"
-            class="w-full"
-        />
+        <n-input v-model:value="password" type="password" :placeholder="t('components.password_placeholder')" class="w-full" />
       </div>
     </div>
     <template #action>
@@ -30,9 +25,9 @@
 </template>
 
 <script setup lang="ts">
-import {ref} from 'vue'
-import {NButton, NInput, NModal} from 'naive-ui'
-import {useI18n} from 'vue-i18n'
+import {ref} from "vue"
+import {NButton, NInput, NModal} from "naive-ui"
+import {useI18n} from "vue-i18n"
 
 const {t} = useI18n()
 
@@ -50,7 +45,7 @@ const submit = () => {
     window.$message?.error(t("components.password_empty"))
     return
   }
-  emits('submit', password.value)
-  password.value = ''
+  emits("submit", password.value)
+  password.value = ""
 }
 </script>

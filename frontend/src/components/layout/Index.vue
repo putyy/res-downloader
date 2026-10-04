@@ -4,7 +4,7 @@
       <div id="content" class="z-40 transition flex relative w-full h-full rounded-xl">
         <Sider></Sider>
         <NLayoutContent class="app-workspace bg-app-background h-full min-w-0 flex-1">
-          <RouterView v-slot="{ Component, route }">
+          <RouterView v-slot="{Component, route}">
             <KeepAlive>
               <component v-if="route.meta.keepAlive" :is="Component" :key="route.name"></component>
             </KeepAlive>

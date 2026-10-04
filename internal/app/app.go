@@ -250,7 +250,7 @@ func (a *App) ResetApp() error {
 	var cleanupErrors []error
 	for _, name := range []string{
 		"install.lock", "pass.cache", "config.json", "cert.crt",
-		"mitm-ca.crt", "mitm-ca.key", "resources.db", "tasks.db",
+		"mitm-ca.crt", "mitm-ca.key", "resources.db", "tasks.db", "operations.db",
 		"certificate-migration-v1.json", "plugin-store-cache.json",
 	} {
 		if err := os.Remove(filepath.Join(a.UserDir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {

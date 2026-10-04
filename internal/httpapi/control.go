@@ -17,12 +17,14 @@ func (h *Server) ControlHandler(token string) http.Handler {
 		}
 		switch r.URL.Path {
 		case "/api/resources", "/api/download/create", "/api/download/tasks",
-			"/api/download/pause", "/api/download/resume", "/api/download/cancel", "/api/download/retry":
+			"/api/download/pause", "/api/download/resume", "/api/download/cancel", "/api/download/retry",
+			"/api/operations/list", "/api/operations/get", "/api/operations/sessions", "/api/operations/invoke", "/api/operations/batch", "/api/operations/execution", "/api/operations/batch-get", "/api/operations/history", "/api/operations/cancel", "/api/operations/batch-cancel", "/api/operations/artifact", "/api/operations/text":
 		default:
 			http.NotFound(w, r)
 			return
 		}
-		request := r.Clone(r.Context())
+		request := automationRequest(r)
+		request = request.Clone(request.Context())
 		request.Header.Set("Authorization", "Bearer "+h.sessionToken)
 		h.HandleAPI(w, request)
 	})

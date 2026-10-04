@@ -44,3 +44,9 @@ Check the following in order:
 If the issue persists, contact the plugin developer with the app version, plugin version, reproduction steps, and error message. Remove private information such as cookies and account details first.
 
 To create plugins, see the [plugin developer guide](../development/plugins.md).
+
+## Business operations
+
+When a plugin provides an operation, use its resource-row button, such as **Capture and download**. Open the matching webpage and sign in if needed; multiple matches open a page picker. Capture progress and errors appear in the resource list, while download and merge progress appear in the task center.
+
+To enter parameters, submit batches or view history, expand **Advanced operations** on the plugin card and select an operation. You can also enable automation there; see [CLI and MCP](automation.md) for setup.

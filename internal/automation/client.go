@@ -60,7 +60,7 @@ func (c *client) call(ctx context.Context, op operation, raw json.RawMessage) (*
 	if err != nil {
 		// Mutating requests are not retried: a lost response may still mean
 		// that the task was created or changed successfully.
-		return nil, fail("unavailable", "desktop request failed or timed out; check that the app is running and query task state before retrying")
+		return nil, fail("unavailable", "desktop request failed or timed out; check that the app is running and query execution/task state or reuse the same idempotency key and payload before resubmitting")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized {
@@ -79,7 +79,14 @@ func (c *client) call(ctx context.Context, op operation, raw json.RawMessage) (*
 		return nil, fail("api_error", "desktop API returned invalid JSON")
 	}
 	if result.Code != 1 {
-		return nil, fail("operation_failed", result.Message)
+		kind := "operation_failed"
+		var details struct {
+			ErrorCode string `json:"errorCode"`
+		}
+		if json.Unmarshal(result.Data, &details) == nil && details.ErrorCode != "" {
+			kind = details.ErrorCode
+		}
+		return nil, fail(kind, result.Message)
 	}
 	if op.name == "get_download" {
 		var tasks []json.RawMessage

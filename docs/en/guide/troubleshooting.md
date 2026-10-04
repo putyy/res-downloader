@@ -188,3 +188,13 @@ Install FFmpeg, then run detection under **Setting → Media Processing**.
 ## Still need help
 
 Report the issue through [GitHub Issues](https://github.com/putyy/res-downloader/issues), including your operating system, app version, reproduction steps, and error message. Remove private information such as account details and cookies first.
+
+## Unavailable operations or missing results
+
+- Disconnected or unready page: enable capture and the plugin, refresh the target webpage, wait for content to load, and sign in if needed. Select the correct page when several match; refreshing the app interface cannot reconnect a webpage.
+- Interrupted or uncertain outcome: check linked resources and download tasks before deciding whether to submit again.
+- History exists but results are missing: results may have expired, been cleared or not survived a restart. Run the operation again if needed.
+- Storage unavailable: check configuration-directory permissions and disk space, then restart the app.
+- Unreadable artifact: confirm the download has finished and the file has not been moved, deleted or cleared.
+
+See [CLI and MCP](automation.md) for automation usage.

@@ -43,6 +43,7 @@ export const en = {
         items: [
           { text: 'Developer Guide', link: '/en/development/plugins' },
           { text: 'Plugin SDK v1', link: '/en/development/plugin-sdk' },
+          { text: 'Plugin operations', link: '/en/development/operations' },
           { text: 'Publishing to the Extension Store', link: '/en/development/extension-store' },
         ],
       },

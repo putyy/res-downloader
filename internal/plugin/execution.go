@@ -14,7 +14,7 @@ import (
 const (
 	maxPluginResponseCaptures = 8
 	maxPluginCaptureKeySize   = 512
-	maxPageCommandDataSize    = 60 * 1024
+	maxOperationDataSize      = 32 * 1024
 )
 
 // Process runs matching plugins for one captured observation and publishes the
@@ -193,8 +193,8 @@ func validateResourceActions(manifest shared.PluginManifest, actions []shared.Re
 		}
 		raw, err := json.Marshal(action.Data)
 		limit := maxPluginWASMOptions
-		if definition.Kind == shared.PluginActionPageCommand {
-			limit = maxPageCommandDataSize
+		if definition.Kind == shared.PluginActionOperation {
+			limit = maxOperationDataSize
 		}
 		if err != nil || len(raw) > limit {
 			return fmt.Errorf("resource action %q data exceeds %d bytes", action.ID, limit)

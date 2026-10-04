@@ -1,12 +1,15 @@
 package plugin
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
 	shared "res-downloader/internal/model"
+	"res-downloader/internal/operation"
 	"res-downloader/internal/plugin/native"
 	"slices"
 	"sort"
@@ -36,30 +39,35 @@ type ResourceSink interface {
 }
 
 type PluginManager struct {
-	resources     ResourceSink
-	captures      PageCaptureStore
-	pageDownload  func(shared.ResourceCandidate) error
-	logger        *Logger
-	config        NetworkSettingsProvider
-	media         *mediaEngine
-	correlations  *pluginCorrelationStore
-	pages         *pageBridgeHub
-	mu            sync.RWMutex
-	reloadMu      sync.Mutex
-	installMu     sync.Mutex
-	plugins       []managedPlugin
-	statuses      map[string]shared.PluginStatus
-	overrides     map[string]bool
-	settings      map[string]map[string]interface{}
-	removed       map[string]bool
-	sources       map[string]string
-	runtimeStates map[string]*pluginRuntimeState
-	pluginDir     string
-	stateFile     string
-	settingsFile  string
-	removedFile   string
-	sourcesFile   string
-	backupDir     string
+	operationGeneration uint64
+	operations          *operation.Service
+	operationDownload   func(context.Context, shared.ResourceCandidate) (string, error)
+	operationDownloads  func() []shared.DownloadTaskRecord
+	artifactHandler     func(shared.OperationArtifact) (io.ReadSeekCloser, shared.OperationArtifact, error)
+	resources           ResourceSink
+	captures            PageCaptureStore
+	pageDownload        func(shared.ResourceCandidate) error
+	logger              *Logger
+	config              NetworkSettingsProvider
+	media               *mediaEngine
+	correlations        *pluginCorrelationStore
+	pages               *pageBridgeHub
+	mu                  sync.RWMutex
+	reloadMu            sync.Mutex
+	installMu           sync.Mutex
+	plugins             []managedPlugin
+	statuses            map[string]shared.PluginStatus
+	overrides           map[string]bool
+	settings            map[string]map[string]interface{}
+	removed             map[string]bool
+	sources             map[string]string
+	runtimeStates       map[string]*pluginRuntimeState
+	pluginDir           string
+	stateFile           string
+	settingsFile        string
+	removedFile         string
+	sourcesFile         string
+	backupDir           string
 }
 
 func (m *PluginManager) SetCaptureStore(captures PageCaptureStore) {
@@ -263,6 +271,7 @@ func (m *PluginManager) Reload() error {
 		return m.plugins[i].runtime.Manifest().Priority > m.plugins[j].runtime.Manifest().Priority
 	})
 	m.statuses = statuses
+	m.operationGeneration++
 	m.mu.Unlock()
 	m.pages.closeAll()
 

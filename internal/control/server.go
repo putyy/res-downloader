@@ -42,7 +42,11 @@ func Start(appDir string, handler func(token string) http.Handler, report func(e
 				http.Error(w, "local automation clients only", http.StatusForbidden)
 				return
 			}
-			r.Body = http.MaxBytesReader(w, r.Body, 4096)
+			limit := int64(4096)
+			if r.URL.Path == "/api/operations/invoke" || r.URL.Path == "/api/operations/batch" {
+				limit = 2 * 1024 * 1024
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 			api.ServeHTTP(w, r)
 		}),
 	}

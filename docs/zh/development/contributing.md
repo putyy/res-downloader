@@ -67,6 +67,8 @@ npm run build
 
 这些命令用于类型检查和静态构建；客户端交互仍需按实际改动进行人工验证。
 
+在 `frontend` 目录运行 `npm run format` 格式化代码，或运行 `npm run format:check` 检查格式。详见[前端开发说明](https://github.com/putyy/res-downloader/blob/master/frontend/README.md)。
+
 ## 文档贡献
 
 修正文案、补充截图、完善操作步骤和帮助翻译都可以直接提交 PR。用户指南应优先说明在哪里操作、选项有什么作用、遇到问题怎么办。

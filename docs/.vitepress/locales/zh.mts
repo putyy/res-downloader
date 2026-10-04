@@ -43,6 +43,7 @@ export const zh = {
         items: [
           { text: '开发指南', link: '/development/plugins' },
           { text: '插件 SDK v1', link: '/development/plugin-sdk' },
+          { text: '业务操作', link: '/development/operations' },
           { text: '发布到扩展商店', link: '/development/extension-store' },
         ],
       },

@@ -217,7 +217,8 @@ settingsSchema:
 | `pageScripts` | 否 | 由宿主注入匹配 HTML 页面的脚本 |
 | `extractors` | 声明式必填 | 从 JSON Body 提取资源的规则 |
 | `processors` | 否 | 插件自带的 WASM 处理器 |
-| `actions` | 否 | 由宿主渲染的本地文件处理或页面命令操作 |
+| `operations` | 否 | 独立业务能力及输入输出契约，见[业务操作](operations.md) |
+| `actions` | 否 | 由宿主渲染的本地文件处理或业务操作引用 |
 | `requires` | 否 | 可选宿主工具要求，例如 `ffmpeg: ">=6.0"` |
 
 `match` 中的 `host`、`path` 和完整 `url` 支持 `*` 通配符；`method` 忽略大小写。`contentTypes` 匹配响应 Content-Type，`readBody` 决定命中该规则时是否需要 Body。只依赖 URL 或响应头时应明确设置 `readBody: false`。
@@ -259,7 +260,7 @@ quality:
 | `media.ffmpeg` | 使用 FFmpeg 参数数组高级接口 | 不经过 Shell；需要 FFmpeg |
 | `media.ffmpeg.network` | 允许 FFmpeg 读取插件提供的 HLS/直播地址 | 下载地址必须是合法的 HTTP/HTTPS URL；这是敏感权限 |
 | `inject-page-script` | 在匹配 HTML 页面中注入脚本 | 目标域名必须被 TLS 拦截且允许安全注入 |
-| `page-bridge` | 页面脚本与插件运行时交换 JSON 消息，或接收用户触发的 `page-command` | 需要 `inject-page-script` |
+| `page-bridge` | 页面脚本与插件运行时交换 JSON 消息，或执行声明的业务操作 | 需要 `inject-page-script` |
 | `capture-response-body` | 缓存 Range 响应、页面分片，或通过 `api.capture.save` 保存插件生成的文件 | 需要 `observe-response`；页面分片还需要 `inject-page-script` 和 `page-bridge` |
 | `enqueue-download` | 页面消息上报资源后自动创建下载任务 | 需要 `page-bridge` 和 `emit-resource`；属于会写入下载目录的敏感权限 |
 
@@ -362,35 +363,12 @@ return {
 `context` 提供 `pageSessionId`、`scriptId`、`pageUrl`、`origin` 和当前插件设置 `settings`。
 
 - `settings` 只传给应用中的 `onPageMessage`，不会直接交给网页，也不会出现在 `api.page.sessions()` 的结果中。网页需要设置时，插件可在初始化消息的回复中返回必要的非敏感选项，例如是否显示按钮。
-- `pageUrl` 是创建会话时的地址。单页应用切换内容后，页面脚本需要重新确认当前作品或资源，不能只依赖这个地址。
+- `pageUrl` 随 `operations.setState` 更新。单页应用切换内容后，页面脚本仍需重新确认当前作品或资源。
 - 声明 `page-bridge` 权限后，插件还可调用 `api.page.broadcast(filter, message)` 和 `api.page.sessions(filter)`。
 
 普通消息和回复必须是 JSON，单条最大 64 KiB。较大的媒体数据使用 `pageApi.capture.write` 传输。每个插件最多保留 32 个活动页面会话；各会话还受消息队列、连接数量和请求频率限制。
 
-在 Manifest 中声明 `page-command` 资源操作后，用户可以从应用资源列表向指定的页面脚本发送命令。应用使用资源记录中已保存的 `action.data`，不接受前端另传的自定义参数。消息格式如下：
-
-```ts
-interface PageCommandMessage {
-  protocol: 1
-  type: "resource-action"
-  requestId: string
-  actionId: string
-  resource: {id: string; groupKey?: string}
-  data?: Record<string, unknown>
-}
-```
-
-应用会为每条命令生成随机 `requestId`。页面返回处理结果时，需要带上同一个 `requestId`。
-
-发送前，应用会清理已过期的空闲页面会话。接收命令的页面必须同时满足：
-
-- 属于当前插件，并使用该操作的 `pageScript` 所指定的脚本；
-- 脚本设置了 `bridge: true`；
-- 页面与应用之间仍有 SSE 连接。
-
-没有符合条件的页面、消息超过 64 KiB，或所有目标页面的消息队列都已满时，发送失败。发送成功后，本地 API 返回 `requestId`、`pageScriptId` 和 `delivered`；其中 `delivered` 是命令已加入消息队列的页面会话数。
-
-进入队列不代表页面已经收到或执行了命令，页面仍可能断开连接。处理结果需要由页面带上 `requestId` 返回。同一命令可能发给多个页面，因此每个页面都要核对资源 ID，并用 `requestId` 防止重复执行。
+业务操作通过 `pageApi.operations` 登记处理器与业务就绪状态，由宿主选择明确页面并统一管理执行、结果和取消。接口契约见[插件业务操作](operations.md)。
 
 页面脚本与网站代码在同一个网页 JavaScript 环境中运行，网站代码可能读取或模拟桥接请求，因此插件必须校验收到的页面消息。
 
@@ -919,163 +897,9 @@ actions: [{
 
 应用负责显示并执行 `process-file` 操作。用户通过系统对话框选择文件后，应用调用当前插件声明的 WASM 处理器。插件不会取得文件路径或任意读写文件的权限。处理结果保存到原目录，文件名增加 `.decrypted`，原文件保留。
 
-### 向页面发送资源命令
+### 资源引用业务操作
 
-JavaScript 插件可以把资源操作声明为 `page-command`。它必须引用当前 Manifest 中一个 `bridge: true` 的页面脚本，并申请 `inject-page-script` 和 `page-bridge`：
-
-```json
-{
-  "permissions": {
-    "domains": ["www.example.com"],
-    "capabilities": ["inject-page-script", "page-bridge"]
-  },
-  "pageScripts": [{
-    "id": "resource-controller",
-    "entry": "page/controller.js",
-    "match": [{"host": "www.example.com", "path": "/watch/*"}],
-    "runAt": "document-start",
-    "frames": "top",
-    "bridge": true
-  }],
-  "actions": {
-    "inspect-page-resource": {
-      "kind": "page-command",
-      "pageScript": "resource-controller",
-      "locales": {
-        "zh": {"name": "检查页面资源"},
-        "en": {"name": "Inspect Page Resource"}
-      }
-    }
-  }
-}
-```
-
-资源携带由插件定义的动态参数，序列化后最大 60 KiB：
-
-```javascript
-actions: [{
-  id: "inspect-page-resource",
-  data: {assetId: payload.id, expectedType: "video"}
-}]
-```
-
-`action.data` 会随资源写入 `resources.db`，只能放业务 ID、格式选项等可持久化数据；Cookie、Authorization、页面会话令牌和短期 `sessionBuffer` 等值应留在页面内存，并在页面确认目标匹配后使用。
-
-页面脚本通过消息监听器接收命令，并确认命令中的资源 ID 与当前页面一致：
-
-```javascript
-pageApi.onMessage(function (message) {
-  if (message.type !== "resource-action" || message.actionId !== "inspect-page-resource") return
-  if (String(currentAssetId()) !== String(message.data.assetId)) {
-    showPageNotice("请打开对应资源后重试")
-    return
-  }
-  inspectCurrentResource(message.requestId)
-})
-```
-
-默认情况下，应用会检查权限，再将 `data` 发送给对应的页面脚本。具体如何处理由页面脚本决定；普通页面消息不会自动显示在应用界面中。
-
-页面可以自行显示提示，也可以通过 `pageApi.send` 返回带有 `requestId` 的结果，由插件的 `onPageMessage` 处理。需要生成文件时，可将数据写入 Capture Store，再上报资源并通过 `enqueue-download` 创建下载任务。
-
-#### 执行权与进度回报
-
-需要在应用中显示执行进度时，在 `page-command` 操作上设置 `trackProgress: true`。页面命令需要 `inject-page-script` 和 `page-bridge` 权限；自动创建下载任务还需要 `enqueue-download`。
-
-页面先确认命令中的作品或资源 ID 与当前页面一致，再调用 `claim` 申请执行。只有收到 `accepted: true` 后，页面才能开始执行该命令：
-
-```javascript
-// message 来自 pageApi.onMessage，已校验 protocol/type/actionId 和视频等业务 ID。
-var claim = await pageApi.commands.claim(message.requestId)
-if (!claim.accepted) return // 同一命令已由其他匹配页面领取。
-try {
-  await pageApi.commands.report(message.requestId, {
-    state: "running", progress: 25, message: "正在读取页面数据"
-  })
-  // 执行插件自己的流程。长任务需定期回报，即使百分比没有变化。
-  await pageApi.commands.report(message.requestId, {
-    state: "completed", progress: 100, message: "处理完成"
-  })
-} catch (error) {
-  await pageApi.commands.report(message.requestId, {
-    state: "failed", message: "页面处理失败，请重新打开目标页面"
-  })
-}
-```
-
-**由哪个页面执行**
-
-`claim(requestId)` 确保同一命令只由一个页面执行，即使多个页面同时申请，也只有一个能收到 `accepted: true`。重复申请返回 `accepted: false`。没有收到该命令的页面、其他插件或脚本不能申请执行。
-
-页面中的资源不匹配或页面正在忙碌时，可在申请前报告 `state: "rejected"`。所有接收页面都拒绝后，应用显示失败。只有成功取得执行权的页面可以更新该命令的状态。
-
-**报告状态与进度**
-
-取得执行权后，可以报告 `running`、`completed`、`failed` 或 `cancelled`。命令进入已完成、已失败或已取消状态后，不能再修改其状态。
-
-| 字段或限制 | 说明 |
-| --- | --- |
-| `progress` | 可省略，或填写 0–100 的有限数字；省略表示进度未知，不会生成估算百分比 |
-| `message` | 最长 1024 UTF-8 字节，按纯文本显示；不得包含凭据、私有地址或令牌 |
-| 完整请求 | 最大 4096 字节；未知字段和无效类型会被拒绝 |
-| 建议报告频率 | 最多每秒一次；进度没有变化时，也应至少每 30 秒报告一次，表明任务仍在运行 |
-| 请求频率上限 | 与普通消息共用每个会话每 10 秒最多 100 次的限额 |
-
-以下情况会使命令失败：
-
-- 发出后 30 秒内，没有页面取得执行权；
-- 执行过程中，连续 90 秒没有收到进度或心跳报告；
-- 命令运行总时长超过 6 小时。
-
-页面断开后，如果无法恢复进度上报，应用会在超时后将命令标记为失败。重载、禁用或卸载插件，也会使该插件已有的命令失效。
-
-**刷新页面后恢复连接**
-
-成功取得执行权的页面会收到短期 `resumeToken`。如果插件需要自动刷新页面，可以：
-
-1. 将 `resumeToken` 临时保存到当前标签页的 `sessionStorage`。
-2. 刷新后取出令牌，调用 `claim(requestId, resumeToken)` 恢复连接。
-3. 应用重新校验插件和脚本。恢复成功后会返回新令牌，旧令牌失效，旧页面不能再报告进度。
-
-插件需要限制自动重试次数和令牌保存时间，并在使用后删除旧令牌。如需再次刷新，只保留最新令牌。不要将令牌写入资源、日志、fixture 或 URL。重载插件或重启应用后，不能用该令牌恢复连接。
-
-**命令记录与界面显示**
-
-应用最多保存 256 条命令记录。命令完成、失败或取消后，记录保留 10 分钟；查询状态、发送命令或报告进度时，会清理过期记录。同一插件对同一资源的同一操作尚未结束时，不能重复发起。命令状态仅保存在内存中，应用重启后不会恢复，也不会作为下载任务保存。
-
-资源列表约每 1.5 秒查询一次进度，并按 `resourceId` 显示最新命令的状态、百分比和提示。页面处理完成并创建下载任务后，该资源行会转为显示下载或合并进度。
-
-普通 `pageApi.send` 回复不会自动变成进度信息。页面命令接口不能伪造下载任务或指定文件路径。目前应用没有用于取消页面命令的按钮；插件可以在网页上提供取消操作，并报告 `cancelled`。
-
-完整的脱敏示例位于 `examples/plugins/page-command/`。
-
-**错误码**
-
-应用通过固定的 `errorCode` 表示错误，界面会按当前语言显示对应提示。发起操作失败时，本地 API 响应包含 `code`、`message` 和 `data.errorCode`；命令开始后的错误，通过命令状态的 `errorCode` 返回。
-
-| 阶段 | 原因 | `errorCode` |
-| --- | --- | --- |
-| 发起操作 | 同一操作仍在执行 | `page_command_already_active` |
-| 发起操作 | 命令数量达到上限 | `page_command_limit_reached` |
-| 发起操作 | 没有符合条件的已连接页面 | `page_command_no_page` |
-| 发起操作 | 目标页面的消息队列已满 | `page_command_queue_full` |
-| 发起操作 | 服务不可用 | `page_command_unavailable` |
-| 发起操作 | 消息参数过大 | `page_command_too_large` |
-| 发起操作 | 其他启动错误 | `page_command_start_failed` |
-| 等待或执行 | 没有页面接受命令 | `page_command_not_accepted` |
-| 等待或执行 | 页面资源不匹配或页面忙碌 | `page_command_target_unavailable` |
-| 等待或执行 | 命令超时 | `page_command_timeout` |
-| 等待或执行 | 插件被重新加载 | `page_command_reloaded` |
-
-这些错误码由应用设置，插件的普通进度报告不能自行填写。
-
-资源表的“保存路径”列也用于显示页面命令的进度和提示；没有插件提示时，显示应用提供的状态文字。此时内容不可点击。创建下载任务后，该列显示下载或处理进度，下载成功后才显示可打开的文件路径。
-
-应用只翻译自身的状态和错误提示。插件提供的 `message` 会原样显示，多语言文案需要由插件处理。
-
-界面通过 `POST /api/resources/page-commands` 查询命令状态，请求需要 API 会话认证。每次查询最多等待 5 秒，失败后会继续重试。
-
-查询失败时，未结束的命令显示“进度暂不可用”，不再沿用旧的等待状态或百分比。这只表示暂时无法获取进度，不代表命令执行失败。连接恢复后，界面显示最新状态；如果期间已经创建新的下载任务，则显示该下载任务的进度。连续查询失败期间只提示一次，不会每次重试都弹窗。
+资源按钮通过 `kind: "operation"` 和 `operation` 引用 Manifest 中的业务操作。输入来自已保存资源的 `action.data`，宿主校验归属后交给统一执行服务。详见[插件业务操作](operations.md)。
 
 ### ABI v1
 
@@ -1227,7 +1051,7 @@ fixture 编写建议：
 | 页面脚本未注入 | 页面未经过 TLS 拦截、响应被压缩、CSP 不允许或未找到可注入位置 |
 | fixture 通过但线上失败 | fixture 遗漏分支、站点数据变化、凭据过期或线上请求顺序不同 |
 
-每次 JavaScript 钩子最多执行 5 秒，包含初始化和返回结果转换；算上排队时间后，总共最多 10 秒。网页中的脚本不受这个钩子时限限制，但页面命令仍有等待执行、进度报告和总运行时长的限制。
+每次 JavaScript 钩子最多执行 5 秒，包含初始化和返回结果转换；算上排队时间后，总共最多 10 秒。网页中的脚本不受这个钩子时限限制，但业务操作仍有等待执行、进度报告和总运行时长的限制。
 
 避免在循环中处理超大对象，不要将完整响应、Cookie 或带签名的 URL 写入日志。需要重复排查的问题，应准备脱敏 fixture。
 

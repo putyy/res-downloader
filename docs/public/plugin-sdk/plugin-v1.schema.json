@@ -45,6 +45,16 @@
       "propertyNames": {"$ref": "#/$defs/identifier"},
       "additionalProperties": {"$ref": "#/$defs/processor"}
     },
+    "operations": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "$ref": "#/$defs/identifier"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/operation"
+      }
+    },
     "actions": {
       "type": "object",
       "maxProperties": 32,
@@ -322,35 +332,52 @@
       "type": "object",
       "oneOf": [
         {
-          "required": ["kind", "processor"],
+          "required": [
+            "kind",
+            "processor"
+          ],
           "properties": {
-            "kind": {"const": "process-file"},
-            "trackProgress": {"const": false},
-            "processor": {"type": "string", "minLength": 1},
-            "pageScript": {"const": ""},
+            "kind": {
+              "const": "process-file"
+            },
+            "processor": {
+              "type": "string",
+              "minLength": 1
+            },
             "inputExtensions": {
               "type": "array",
-              "items": {"$ref": "#/$defs/extension"}
+              "items": {
+                "$ref": "#/$defs/extension"
+              }
             },
-            "outputExtension": {"$ref": "#/$defs/extension"},
+            "outputExtension": {
+              "$ref": "#/$defs/extension"
+            },
             "locales": {
               "type": "object",
-              "additionalProperties": {"$ref": "#/$defs/locale"}
+              "additionalProperties": {
+                "$ref": "#/$defs/locale"
+              }
             }
           }
         },
         {
-          "required": ["kind", "pageScript"],
+          "required": [
+            "kind",
+            "operation"
+          ],
           "properties": {
-            "kind": {"const": "page-command"},
-            "trackProgress": {"type": "boolean", "default": false, "description": "Enable host-tracked execution with pageApi.commands.claim/report."},
-            "pageScript": {"allOf": [{"$ref": "#/$defs/identifier"}]},
-            "processor": {"const": ""},
-            "inputExtensions": {"type": "array", "maxItems": 0},
-            "outputExtension": {"const": ""},
+            "kind": {
+              "const": "operation"
+            },
+            "operation": {
+              "$ref": "#/$defs/identifier"
+            },
             "locales": {
               "type": "object",
-              "additionalProperties": {"$ref": "#/$defs/locale"}
+              "additionalProperties": {
+                "$ref": "#/$defs/locale"
+              }
             }
           }
         }
@@ -361,6 +388,255 @@
       "properties": {
         "ffmpeg": {"type": "string", "pattern": "^>=\\s*[0-9]+(?:\\.[0-9]+){0,2}$"}
       }
+    },
+    "operationSchema": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "x-persist": {
+          "type": "boolean"
+        },
+        "x-sensitive": {
+          "type": "boolean"
+        },
+        "properties": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": {
+            "$ref": "#/$defs/operationSchema"
+          }
+        },
+        "additionalProperties": {
+          "const": false
+        },
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "$ref": "#/$defs/operationSchema"
+        },
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "object"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "additionalProperties"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "array"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "items"
+            ]
+          }
+        }
+      ],
+      "description": "Strict host schema subset; maximum nesting depth 12, 16 KiB per schema. x-persist opts scalar leaves into persistence; x-sensitive always excludes values. Host also checks keyword/type pairing and bounds."
+    },
+    "operation": {
+      "type": "object",
+      "required": [
+        "name",
+        "category",
+        "pageScript",
+        "inputSchema",
+        "outputSchema",
+        "effects"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "locales": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/locale"
+          }
+        },
+        "category": {
+          "enum": [
+            "search",
+            "detail",
+            "current-content",
+            "list",
+            "resolve",
+            "text",
+            "custom"
+          ]
+        },
+        "pageScript": {
+          "$ref": "#/$defs/identifier"
+        },
+        "pageMatch": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pageScriptMatch"
+          }
+        },
+        "requiresLogin": {
+          "type": "boolean"
+        },
+        "inputSchema": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/operationSchema"
+            },
+            {
+              "properties": {
+                "type": {
+                  "const": "object"
+                }
+              }
+            }
+          ]
+        },
+        "outputSchema": {
+          "$ref": "#/$defs/operationSchema"
+        },
+        "examples": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object"
+          }
+        },
+        "effects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "read",
+              "page",
+              "publish",
+              "download"
+            ]
+          }
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1800,
+          "description": "0 uses the host default of 120 seconds."
+        },
+        "resultTTLSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "cancellable": {
+          "type": "boolean",
+          "default": false
+        },
+        "safeRetry": {
+          "type": "boolean",
+          "default": false
+        },
+        "allowReload": {
+          "type": "boolean",
+          "default": false,
+          "description": "Requires the page effect. Permits one SDK-managed reload that resumes the same execution without extending its deadline; independent of safeRetry."
+        },
+        "automation": {
+          "type": "boolean",
+          "default": false
+        },
+        "persistResult": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "allOf": [{
+        "if": {
+          "required": ["allowReload"],
+          "properties": {"allowReload": {"const": true}}
+        },
+        "then": {
+          "properties": {"effects": {"contains": {"const": "page"}}}
+        }
+      }]
     }
   }
 }

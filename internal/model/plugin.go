@@ -34,6 +34,7 @@ type PluginManifest struct {
 	SettingsSchema map[string]interface{}               `json:"settingsSchema,omitempty" yaml:"settingsSchema,omitempty"`
 	Extractors     []DeclarativeExtractor               `json:"extractors,omitempty" yaml:"extractors,omitempty"`
 	Processors     map[string]PluginProcessorDefinition `json:"processors,omitempty" yaml:"processors,omitempty"`
+	Operations     map[string]OperationDefinition       `json:"operations,omitempty" yaml:"operations,omitempty"`
 	Actions        map[string]PluginActionDefinition    `json:"actions,omitempty" yaml:"actions,omitempty"`
 	Locales        map[string]PluginLocale              `json:"locales,omitempty" yaml:"locales,omitempty"`
 	Requires       PluginRequirements                   `json:"requires,omitempty" yaml:"requires,omitempty"`
@@ -112,66 +113,19 @@ type PluginProcessorDefinition struct {
 
 const (
 	PluginActionProcessFile = "process-file"
-	PluginActionPageCommand = "page-command"
-	PageCommandProtocol     = 1
-	PageCommandType         = "resource-action"
+	PluginActionOperation   = "operation"
 )
 
 // PluginActionDefinition describes a trusted host-rendered operation. Plugins
 // provide metadata and select a bounded host primitive; they never receive
 // filesystem access or inject desktop frontend code.
 type PluginActionDefinition struct {
-	TrackProgress   bool                    `json:"trackProgress,omitempty" yaml:"trackProgress,omitempty"`
 	Kind            string                  `json:"kind" yaml:"kind"`
 	Processor       string                  `json:"processor,omitempty" yaml:"processor,omitempty"`
-	PageScript      string                  `json:"pageScript,omitempty" yaml:"pageScript,omitempty"`
+	Operation       string                  `json:"operation,omitempty" yaml:"operation,omitempty"`
 	InputExtensions []string                `json:"inputExtensions,omitempty" yaml:"inputExtensions,omitempty"`
 	OutputExtension string                  `json:"outputExtension,omitempty" yaml:"outputExtension,omitempty"`
 	Locales         map[string]PluginLocale `json:"locales,omitempty" yaml:"locales,omitempty"`
-}
-
-// PageCommandMessage is the host-owned envelope delivered to a bridged page
-// when the user invokes a page-command resource action. Data remains opaque to
-// the host and comes from the persisted ResourceAction selected by ID.
-type PageCommandMessage struct {
-	Protocol  int                    `json:"protocol"`
-	Type      string                 `json:"type"`
-	RequestID string                 `json:"requestId"`
-	ActionID  string                 `json:"actionId"`
-	Resource  PageCommandResource    `json:"resource"`
-	Data      map[string]interface{} `json:"data,omitempty"`
-}
-
-type PageCommandResource struct {
-	ID       string `json:"id"`
-	GroupKey string `json:"groupKey,omitempty"`
-}
-
-type PageCommandDispatch struct {
-	RequestID    string `json:"requestId"`
-	PageScriptID string `json:"pageScriptId"`
-	Delivered    int    `json:"delivered"`
-}
-
-// PageCommandStatus is transient host-owned state, separate from download tasks.
-type PageCommandStatus struct {
-	ErrorCode  string   `json:"errorCode,omitempty"`
-	RequestID  string   `json:"requestId"`
-	PluginID   string   `json:"pluginId"`
-	ActionID   string   `json:"actionId"`
-	ResourceID string   `json:"resourceId"`
-	State      string   `json:"state"`
-	Progress   *float64 `json:"progress,omitempty"`
-	Message    string   `json:"message,omitempty"`
-	CreatedAt  int64    `json:"createdAt"`
-	UpdatedAt  int64    `json:"updatedAt"`
-}
-
-type PageCommandReport struct {
-	RequestID string   `json:"requestId"`
-	State     string   `json:"state"`
-	Progress  *float64 `json:"progress,omitempty"`
-	Message   string   `json:"message,omitempty"`
 }
 
 func (m PluginManifest) IsEnabled() bool {

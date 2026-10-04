@@ -1,10 +1,10 @@
 ---
-description: Use the res-downloader CLI and MCP to query captured resources, create downloads, and manage tasks. Configure clients, understand connections, and troubleshoot common issues.
+description: Use the res-downloader CLI and MCP to manage resources and downloads, invoke plugin operations, and connect agents.
 ---
 
 # CLI and MCP
 
-CLI and MCP control the **running desktop app**. They can query captured resources, create downloads, and manage download tasks. Tasks continue in the desktop app after a command exits or an agent disconnects. Quitting the desktop app stops background downloads.
+CLI and MCP control the **running desktop app**. They can query captured resources, manage downloads, and invoke plugin operations. Tasks continue in the desktop app after a command exits or an agent disconnects. Quitting the desktop app stops background downloads.
 
 Before using them, launch the updated desktop app, enable capture as described in [Quick Start](getting-started.md), and open the target content. CLI / MCP do not automatically open websites, sign in, or resolve arbitrary webpage links into videos.
 
@@ -81,6 +81,23 @@ Errors go to standard error in the form `{"code":0,"message":"error description"
 
 Each request has a default timeout of 15 seconds. Add `--timeout 30s` after a specific command to change it, up to `5m`. A timeout does not mean the operation did not happen. If a connection error occurs after creating or changing a task, query its status before deciding whether to retry. The client does not retry operations automatically.
 
+## Discover and invoke plugin operations
+
+Available operations depend on installed plugins. Enable automation for the required operations under the plugin card's **Advanced operations**, then open the matching webpage and sign in if needed. Select the target page when several match.
+
+```bash
+res-downloader cli operations list --args '{}' --json
+res-downloader cli operations get --args '{"pluginId":"com.example.operations","operationId":"search"}' --json
+res-downloader cli operations sessions --args '{}' --json
+res-downloader cli operations invoke --args '{"pluginId":"com.example.operations","operationId":"search","pageSessionId":"PAGE_ID","input":{"query":"example"},"limit":2,"idempotencyKey":"search-example-1"}' --json
+res-downloader cli operations execution --args '{"id":"EXECUTION_ID"}' --json
+res-downloader cli operations history --args '{"offset":0,"limit":50}' --json
+```
+
+This example uses the repository's demo plugin; replace the plugin, operation and page IDs with your own. Submission returns an `executionId` immediately. Query `data.state`, `data.resultStatus` and `data.result` to check the outcome. After a request times out, check history before deciding whether to retry.
+
+See `cli --help` for batch, cancellation and artifact arguments, and [the operation contract](../development/operations.md) for detailed rules.
+
 ## Configure MCP
 
 MCP exposes the same operations as tools that an agent can discover and call. It uses a **stdio** connection with this startup command:
@@ -108,26 +125,13 @@ On Windows, `command` can be `C:\\YourInstallDirectory\\res-downloader.exe`; on 
 
 There is no need to copy a token. The client and desktop app should run as the same operating system user. Sandboxed agents need permission to read that user's connection file and access the local control port.
 
-| MCP tool | Arguments | Purpose |
-| --- | --- | --- |
-| `list_resources` | Optional `offset`, `limit` | Query captured resources by page |
-| `create_download` | `resourceId` | Create a download and return its task |
-| `list_downloads` | None | Query all tasks |
-| `get_download` | `id` | Query one task |
-| `pause_download` | `id` | Pause a task |
-| `resume_download` | `id` | Resume a task |
-| `cancel_download` | `id` | Cancel a task |
-| `retry_download` | `id` | Retry a task |
-
 For example, ask your agent: “Find the videos just captured, download the one titled XXX, and tell me its progress.” The agent can call `list_resources`, `create_download`, and `get_download` in sequence.
 
-Successful tools return JSON text and identical data in `structuredContent`. Business errors use MCP's `isError` flag. Query tools are annotated as read-only; task operations are annotated as modifying state, allowing clients to show confirmation prompts accordingly.
-
-MCP can connect and discover tools before the desktop app starts, but actual tool calls require it to be running. Each call rereads the current connection information, so restarting the desktop app usually does not require restarting the MCP process. Standard output is reserved for MCP messages; diagnostics go to standard error.
+Actual calls require the desktop app to be running. Restarting the desktop app usually does not require restarting the MCP process.
 
 ## Connection and troubleshooting
 
-On startup, the desktop app writes the current connection information to `control/session.json` in its user configuration directory and removes it on normal exit. The control service listens on a dynamic port on `127.0.0.1`, independently of the capture proxy's Host / Port settings. Credentials are randomly generated on every launch. They allow only the resource and task operations above, not changing settings, installing certificates, or controlling the system proxy.
+The desktop app writes its current connection information to `control/session.json` in the user configuration directory and removes it on normal exit. The connection uses a separate local port; there is no need to change the capture proxy's Host / Port settings.
 
 Default connection file locations:
 
@@ -137,7 +141,7 @@ Default connection file locations:
 | macOS | `~/Library/Preferences/res-downloader/control/session.json` |
 | Linux | `${XDG_CONFIG_HOME:-$HOME/.config}/res-downloader/control/session.json` |
 
-On macOS / Linux, only the current user can access the control directory. Windows access controls allow only the current user and SYSTEM. Do not share the connection file or commit its contents to a repository.
+The connection file contains session credentials. Do not share it or commit it to a repository.
 
 To specify another connection file, add `--session-file PATH` after a specific CLI or MCP command. This changes only the client's lookup path, not the desktop app's data directory.
 

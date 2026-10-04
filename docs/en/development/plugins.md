@@ -217,7 +217,8 @@ Main fields:
 | `pageScripts` | No | Scripts injected by the host into matching HTML pages |
 | `extractors` | For declarative | Rules for extracting resources from JSON bodies |
 | `processors` | No | Plugin-provided WASM processors |
-| `actions` | No | Local file processing or page command actions displayed by the host |
+| `operations` | No | Independent business capabilities and schemas; see [Operations](operations.md) |
+| `actions` | No | Local file processing or business operation references displayed by the host |
 | `requires` | No | Optional host tool requirements, such as `ffmpeg: ">=6.0"` |
 
 In `match`, `host`, `path`, and the full `url` support `*` wildcards; `method` is case-insensitive. `contentTypes` matches the response Content-Type. `readBody` determines whether a matching rule needs the body. Set `readBody: false` explicitly when only the URL or response headers are needed.
@@ -259,7 +260,7 @@ quality:
 | `media.ffmpeg` | Use the advanced FFmpeg argument-array interface | No shell; requires FFmpeg |
 | `media.ffmpeg.network` | Allow FFmpeg to read plugin-provided HLS/live URLs | Download URLs must be valid HTTP/HTTPS addresses; this is a sensitive permission |
 | `inject-page-script` | Inject scripts into matching HTML pages | Target domains must undergo TLS interception and allow safe injection |
-| `page-bridge` | Exchange JSON between page scripts and the plugin runtime, or receive user-triggered `page-command` actions | Requires `inject-page-script` |
+| `page-bridge` | Exchange JSON between page scripts and the plugin runtime, or execute declared business operations | Requires `inject-page-script` |
 | `capture-response-body` | Cache Range responses, page segments, or plugin-generated files through `api.capture.save` | Requires `observe-response`; page segments also require `inject-page-script` and `page-bridge` |
 | `enqueue-download` | Automatically create downloads after a page message reports resources | Requires `page-bridge` and `emit-resource`; sensitive because it writes to the download directory |
 
@@ -362,35 +363,12 @@ return {
 `context` provides `pageSessionId`, `scriptId`, `pageUrl`, `origin`, and the current plugin `settings`.
 
 - `settings` is passed only to `onPageMessage` in the app, not directly to the webpage or through `api.page.sessions()`. If a page needs settings, the plugin can return necessary nonsensitive options in an initialization reply, such as whether to show a button.
-- `pageUrl` is the address when the session was created. After a single-page app changes content, the page script must check the current item or resource again rather than relying only on this address.
+- `pageUrl` updates through `operations.setState`. After SPA navigation, the page script must still verify the current item or resource.
 - Plugins with `page-bridge` may also call `api.page.broadcast(filter, message)` and `api.page.sessions(filter)`.
 
 Ordinary messages and replies must be JSON, up to 64 KiB each. Use `pageApi.capture.write` for larger media data. Each plugin may retain up to 32 active page sessions, with additional limits on each session's message queue, connection count, and request rate.
 
-Declaring a `page-command` resource action in the Manifest lets users send commands from the app's resource list to a designated page script. The app uses the `action.data` already saved in the resource record and does not accept custom arguments supplied separately by the frontend. Messages have this format:
-
-```ts
-interface PageCommandMessage {
-  protocol: 1
-  type: "resource-action"
-  requestId: string
-  actionId: string
-  resource: {id: string; groupKey?: string}
-  data?: Record<string, unknown>
-}
-```
-
-The app generates a random `requestId` for each command. The page must return the same `requestId` with its result.
-
-Before sending a command, the app removes expired idle page sessions. A recipient page must meet all of these conditions:
-
-- It belongs to the current plugin and uses the script named by the action's `pageScript`.
-- The script has `bridge: true`.
-- An SSE connection between the page and the app is still active.
-
-Sending fails if no page meets these conditions, the message exceeds 64 KiB, or all target pages have full message queues. On success, the local API returns `requestId`, `pageScriptId`, and `delivered`. Here, `delivered` counts page sessions whose queues accepted the command.
-
-Entering a queue does not mean the page has received or executed the command; it may still disconnect. The page must return its result with `requestId`. A command may reach several pages, so each page must check the resource ID and use `requestId` to prevent duplicate execution.
+Use `pageApi.operations` to register handlers and business readiness. The host selects an explicit page and manages execution, results and cancellation; see [Plugin operations](operations.md).
 
 Page scripts and website code run in the same webpage JavaScript environment. Website code may read or imitate bridge requests, so plugins must validate incoming page messages.
 
@@ -496,7 +474,7 @@ Resource fields:
 - `technical`: optional MIME, container, codec, and duration information for display or naming.
 - `lifecycle.expiresAt`: an optional millisecond timestamp for the expected URL expiration time.
 - `metadata`: namespace site-private fields. The generic `author` field is available to filename templates.
-- `actions`: references host actions declared in the Manifest, such as WASM local file processing or page commands. Dynamic arguments are stored in the action's `data`.
+- `actions`: references host actions declared in the Manifest, such as WASM local file processing or business operations. Dynamic arguments are stored in the action's `data`.
 
 Resource output must also meet these constraints:
 
@@ -907,163 +885,9 @@ actions: [{
 
 The app displays and executes `process-file` actions. After the user chooses a file through a system dialog, the app invokes the WASM processor declared by the current plugin. The plugin does not receive file paths or arbitrary file access. The result is saved in the original directory with `.decrypted` added to the filename; the original file is preserved.
 
-### Send resource commands to a page
+### Resource operation references
 
-JavaScript plugins can declare a resource action as `page-command`. It must reference a page script with `bridge: true` in the current Manifest and request `inject-page-script` and `page-bridge`:
-
-```json
-{
-  "permissions": {
-    "domains": ["www.example.com"],
-    "capabilities": ["inject-page-script", "page-bridge"]
-  },
-  "pageScripts": [{
-    "id": "resource-controller",
-    "entry": "page/controller.js",
-    "match": [{"host": "www.example.com", "path": "/watch/*"}],
-    "runAt": "document-start",
-    "frames": "top",
-    "bridge": true
-  }],
-  "actions": {
-    "inspect-page-resource": {
-      "kind": "page-command",
-      "pageScript": "resource-controller",
-      "locales": {
-        "zh": {"name": "检查页面资源"},
-        "en": {"name": "Inspect Page Resource"}
-      }
-    }
-  }
-}
-```
-
-The resource carries plugin-defined dynamic arguments, up to 60 KiB when serialized:
-
-```javascript
-actions: [{
-  id: "inspect-page-resource",
-  data: {assetId: payload.id, expectedType: "video"}
-}]
-```
-
-`action.data` is saved with the resource in `resources.db`. Store only persistable data such as content IDs and format options. Cookies, Authorization headers, page session tokens, and short-lived values such as `sessionBuffer` should remain in page memory and be used only after the page verifies the target.
-
-The page script receives commands through its message listener and checks that the resource ID matches the current page:
-
-```javascript
-pageApi.onMessage(function (message) {
-  if (message.type !== "resource-action" || message.actionId !== "inspect-page-resource") return
-  if (String(currentAssetId()) !== String(message.data.assetId)) {
-    showPageNotice("Open the matching resource and try again")
-    return
-  }
-  inspectCurrentResource(message.requestId)
-})
-```
-
-By default, the app checks permissions and sends `data` to the matching page script. The page script decides how to process it. Ordinary page messages do not automatically appear in the app's interface.
-
-The page can display its own feedback or return a result with `requestId` through `pageApi.send`, for the plugin's `onPageMessage` to handle. To generate a file, it can write data to Capture Store, report a resource, and create a download task through `enqueue-download`.
-
-#### Execution ownership and progress reports
-
-To display execution progress in the app, set `trackProgress: true` on the `page-command` action. Page commands require `inject-page-script` and `page-bridge`. Automatically creating download tasks also requires `enqueue-download`.
-
-The page first checks that the command's content or resource ID matches the current page, then calls `claim` to request execution. It may start executing the command only after receiving `accepted: true`:
-
-```javascript
-// message comes from pageApi.onMessage; protocol/type/actionId and business IDs have been validated.
-var claim = await pageApi.commands.claim(message.requestId)
-if (!claim.accepted) return // Another matching page already claimed this command.
-try {
-  await pageApi.commands.report(message.requestId, {
-    state: "running", progress: 25, message: "Reading page data"
-  })
-  // Run the plugin workflow. Long tasks must report periodically even if the percentage is unchanged.
-  await pageApi.commands.report(message.requestId, {
-    state: "completed", progress: 100, message: "Processing complete"
-  })
-} catch (error) {
-  await pageApi.commands.report(message.requestId, {
-    state: "failed", message: "Page processing failed; reopen the target page"
-  })
-}
-```
-
-**Which page executes the command**
-
-`claim(requestId)` ensures that only one page executes a command. Even if several pages claim it at the same time, only one receives `accepted: true`. Repeated claims return `accepted: false`. Pages that did not receive the command, and other plugins or scripts, cannot claim it.
-
-A page with a different resource or one that is busy can report `state: "rejected"` before claiming. If all recipient pages reject the command, the app shows failure. Only the page that successfully claimed execution can update the command's state.
-
-**Reporting state and progress**
-
-After claiming execution, a page can report `running`, `completed`, `failed`, or `cancelled`. Once a command is completed, failed, or cancelled, its state cannot be changed again.
-
-| Field or limit | Description |
-| --- | --- |
-| `progress` | Optional, or a finite number from 0 to 100. Omission means progress is unknown; no estimated percentage is generated |
-| `message` | Up to 1024 UTF-8 bytes, displayed as plain text. Must not contain credentials, private URLs, or tokens |
-| Complete request | Up to 4096 bytes. Unknown fields and invalid types are rejected |
-| Recommended reporting frequency | At most once per second. Even when progress has not changed, report at least every 30 seconds to show that the task is still running |
-| Request rate limit | Shared with ordinary messages: at most 100 requests per 10 seconds per session |
-
-A command fails when:
-
-- No page claims execution within 30 seconds of dispatch.
-- No progress or heartbeat report arrives for 90 seconds during execution.
-- Total running time exceeds 6 hours.
-
-If a disconnected page cannot resume reporting progress, the app marks the command as failed when it times out. Reloading, disabling, or uninstalling the plugin also invalidates its existing commands.
-
-**Restoring the connection after a page reload**
-
-The page that successfully claims execution receives a short-lived `resumeToken`. If the plugin needs to reload the page automatically:
-
-1. Temporarily save `resumeToken` in the current tab's `sessionStorage`.
-2. After reloading, read the token and call `claim(requestId, resumeToken)` to restore the connection.
-3. The app rechecks the plugin and script. Successful reconnection returns a new token and invalidates the old one. The old page can no longer report progress.
-
-Limit automatic retries and token storage time, and delete the old token after use. If another reload is needed, retain only the latest token. Do not write tokens to resources, logs, fixtures, or URLs. A token cannot restore the connection after a plugin reload or app restart.
-
-**Command records and display**
-
-The app stores up to 256 command records. After a command completes, fails, or is cancelled, its record is retained for 10 minutes. Expired records are removed when querying status, sending commands, or reporting progress. While an operation is still active, the same plugin cannot start the same action on the same resource again. Command state is stored only in memory. It is not restored after an app restart or saved as a download task.
-
-The resource list queries progress about every 1.5 seconds and displays the latest command's state, percentage, and message by `resourceId`. Once page processing finishes and a download task is created, the resource row switches to download or merge progress.
-
-Ordinary `pageApi.send` replies do not automatically become progress information. Page command APIs cannot fabricate download tasks or specify file paths. The app currently has no button for cancelling page commands. Plugins can provide a cancel action on the webpage and report `cancelled`.
-
-A complete sanitized example lives in `examples/plugins/page-command/`.
-
-**Error codes**
-
-The app uses fixed `errorCode` values for errors, and the UI displays the corresponding message in its current language. If starting an action fails, the local API response contains `code`, `message`, and `data.errorCode`. Errors after the command has started are returned in the command status's `errorCode`.
-
-| Stage | Reason | `errorCode` |
-| --- | --- | --- |
-| Starting an action | The same action is still running | `page_command_already_active` |
-| Starting an action | The command count limit has been reached | `page_command_limit_reached` |
-| Starting an action | No eligible page is connected | `page_command_no_page` |
-| Starting an action | Target page message queues are full | `page_command_queue_full` |
-| Starting an action | The service is unavailable | `page_command_unavailable` |
-| Starting an action | Message arguments are too large | `page_command_too_large` |
-| Starting an action | Another startup error | `page_command_start_failed` |
-| Waiting or executing | No page accepts the command | `page_command_not_accepted` |
-| Waiting or executing | The page resource does not match or the page is busy | `page_command_target_unavailable` |
-| Waiting or executing | The command times out | `page_command_timeout` |
-| Waiting or executing | The plugin is reloaded | `page_command_reloaded` |
-
-The app sets these codes; ordinary plugin progress reports cannot supply them.
-
-The resource table's save-path column also displays page command progress and messages. Without a plugin message, it shows the app's status text. This content is not clickable. After a download task is created, the column shows download or processing progress; a clickable file path appears only after the download succeeds.
-
-The app translates only its own state and error messages. A plugin's `message` is displayed unchanged, so the plugin must provide any translations it needs.
-
-The UI queries command state through `POST /api/resources/page-commands`, which requires API session authentication. Each query waits up to 5 seconds, and failed queries are retried.
-
-If a query fails, unfinished commands show **Progress unavailable** instead of the previous waiting state or percentage. This means progress cannot currently be retrieved, not that the command failed. Once the connection returns, the UI shows the latest state. If a new download task was created in the meantime, it shows that task's progress. A continuous query outage produces only one notification, rather than another popup on every retry.
+Resource buttons use `kind: "operation"` and `operation` to reference a manifest operation. Inputs come from saved resource `action.data`; the host validates ownership and invokes the unified execution service. See [Plugin operations](operations.md).
 
 ### ABI v1
 
@@ -1215,7 +1039,7 @@ Common issues:
 | Page script is not injected | No TLS interception, compressed response, restrictive CSP, or no suitable injection point |
 | Fixture passes but live traffic fails | Missing fixture branches, changed site data, expired credentials, or a different request order |
 
-Each JavaScript hook may run for up to 5 seconds, including initialization and conversion of the returned result. Including queuing, the total limit is 10 seconds. Scripts running in webpages are not subject to that hook limit, but page commands still have limits on waiting for execution, progress reporting, and total running time.
+Each JavaScript hook may run for up to 5 seconds, including initialization and conversion of the returned result. Including queuing, the total limit is 10 seconds. Scripts running in webpages are not subject to that hook limit, but operations still have limits on waiting for execution, progress reporting, and total running time.
 
 Avoid processing oversized objects in loops. Do not log complete responses, cookies, or signed URLs. Prepare sanitized fixtures for issues that need repeated investigation.
 

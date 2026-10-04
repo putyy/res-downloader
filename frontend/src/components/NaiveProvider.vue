@@ -4,7 +4,7 @@
       <NNotificationProvider>
         <NMessageProvider>
           <slot></slot>
-          <NaiveProviderContent/>
+          <NaiveProviderContent />
         </NMessageProvider>
       </NNotificationProvider>
     </NDialogProvider>
@@ -12,12 +12,7 @@
 </template>
 <script setup lang="ts">
 import {defineComponent, h} from "vue"
-import {
-  useDialog,
-  useLoadingBar,
-  useMessage,
-  useNotification,
-} from "naive-ui"
+import {useDialog, useLoadingBar, useMessage, useNotification} from "naive-ui"
 
 function registerNaiveTools() {
   window.$loadingBar = useLoadingBar()
@@ -27,12 +22,12 @@ function registerNaiveTools() {
 }
 
 const NaiveProviderContent = defineComponent({
-  name: 'NaiveProviderContent',
+  name: "NaiveProviderContent",
   setup() {
     registerNaiveTools()
   },
   render() {
-    return h('div')
-  }
+    return h("div")
+  },
 })
 </script>

@@ -27,7 +27,7 @@
 - 🌐 **Network Capture**: Finds HTTP and HTTPS resources used by browsers, phones, and desktop apps
 - 🧩 **Plugin Extensions**: Adds site-specific discovery, download, and processing capabilities
 - 📥 **Download Center**: Manages progress, pause, resume, cancellation, retry, and history in one place
-- 🤖 **CLI / MCP**: Lets commands and agents query captured resources, create downloads, and manage tasks while the desktop app is running
+- 🤖 **CLI / MCP**: Lets commands and agents use plugin capabilities and manage resources and downloads while the desktop app is running
 - 📡 **HLS & Live**: Previews and downloads M3U8 video and records live streams after FFmpeg is configured
 
 ## 📚 Docs & Versions

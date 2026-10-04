@@ -56,6 +56,7 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 | `automation` | Convert CLI commands and MCP stdio tools into local control requests | Reads connection information on every call; does not start desktop Runtime |
 | `proxy.Engine` | Handle HTTP proxying and HTTPS MITM and generate request/response observations | Interception rules, device certificate, plugin manager |
 | `plugin.PluginManager` | Load plugins, run observation hooks, correlate resources, refresh URLs, and generate download plans | Built-in, bundled, and user plugins |
+| `operation.Service` | Discovery, sessions, single/batch scheduling, cancellation, history, results and artifacts | Independent `operations.db`, plugin bridge, resource/download adapters |
 | `resource.Resource` | Maintain the catalog, persist resource candidates, and execute resource actions and download plans | `resources.db`, capture cache, media engine |
 | `download.Scheduler` | Persist tasks, manage workers and task state, and handle pause, resume, and retry | `tasks.db`, plugin download plans |
 | `download.PlanRunner` | Acquire inputs, process them, and place final output for a download plan | HTTP, HLS, captured files, FFmpeg, WASM |
@@ -92,7 +93,7 @@ Restarts after a port change or reset wait for the previous process to exit befo
 2. `server.Gateway` accepts the connection. Recognized local `/api` requests go to the HTTP API; other requests go to `proxy.Engine`.
 3. For HTTPS CONNECT, `rules.Set` decides between MITM and pass-through based on domain policy. Only host information is available at this point; resource-type and MIME matching happen later during observation.
 4. The proxy converts requests or responses into versioned `Observation` objects. It reads bodies, bounded by `bodyLimit`, only when matching rules and permissions require them.
-5. `plugin.PluginManager` invokes enabled plugins by priority, including the built-in generic detector, bundled official plugins, and user plugins. When a user triggers a `page-command` resource action, it also delivers a host-generated standard message to the bridge-enabled page script declared by that plugin.
+5. `plugin.PluginManager` invokes enabled plugins by priority, including the built-in generic detector, bundled official plugins, and user plugins. Declared operations are sent through the unified operation service to an explicitly selected bridge page.
 6. Plugins can emit resource candidates, correlate requests, request controlled response modifications or page scripts, and write file bytes to `capture.Store` through response capture or `api.capture.save`.
 7. The resource service normalizes, correlates, and saves emitted `ResourceCandidate` objects in the in-memory catalog and `resources.db`.
 8. Wails events push changes to the frontend, which updates the resource list using the current filters.
@@ -125,7 +126,7 @@ CLI and MCP use an additional local control listener for resource queries and do
 
 ## Plugin system boundaries
 
-Plugins receive structured observations and return structured resource candidates or download plans. They do not hold Go objects or have arbitrary access to the filesystem, shell, or host network interfaces. The host validates Manifests, domains, capabilities, body limits, page scripts, resource actions, download plans, and processor declarations at load and execution time. `page-command` sends only plugin-defined arguments from a saved resource to a bridge-enabled script in that same plugin. It does not expose general page control to the desktop frontend.
+Plugins receive structured observations and return structured resource candidates or download plans. They do not hold Go objects or have arbitrary access to the filesystem, shell, or host network interfaces. The host validates Manifests, domains, capabilities, body limits, page scripts, resource actions, download plans, and processor declarations at load and execution time. Operations declare input/output schemas, page scripts and effects. Resource buttons use parameters loaded from saved resources after host ownership checks; site-specific requests stay in plugins.
 
 Plugins have three sources:
 
@@ -147,6 +148,7 @@ Application state lives in the operating system's user configuration directory f
 | `logs/app.log` and timestamped backups | Release-build logs and enabled plugin debug logs | 10 MiB per file, up to 5 backups; backups older than 7 days are cleaned on open and rotation. See [logs](../guide/troubleshooting.md#find-application-logs) |
 | `mitm-ca.crt`, `mitm-ca.key` | Device-generated HTTPS interception certificate and private key | Cleared on reset |
 | `resources.db` | Persistent catalog of discovered resources | Updated when resources are cleared or the app is reset |
+| `operations.db` | Operation summaries, permitted results, associations, settings and idempotency | Defaults to 7 days of history and 2 hours of results; supports adjustable retention and cleanup; removed on app reset |
 | `tasks.db` | Download tasks, children, progress, and recovery state | Updated with task changes |
 | `control/session.json` | This launch's automation address and separate token | Written at automation startup, removed on normal shutdown, replaced on the next launch after a crash |
 | `capture-cache/` | Temporary bytes from proxy responses and page media segments | Expires and is cleared on reset |
@@ -172,6 +174,7 @@ If the resource or task database cannot open, that module logs an error and fall
 | `internal/proxy/` | HTTP proxy, HTTPS MITM, observations, and page script injection |
 | `internal/rules/` | Domain interception and pass-through policies for CONNECT |
 | `internal/plugin/` | Plugin loading, permissions, runtime, store, installation, and developer CLI |
+| `internal/operation/` | Unified operation service and independent BoltDB storage |
 | `internal/resource/` | Catalog, correlation, persistence, resource actions, and download plan entry point |
 | `internal/download/` | Task scheduling, persistence, executors, and plan runner |
 | `internal/capture/` | Temporary response cache supporting range writes or appended segments |
@@ -199,3 +202,13 @@ If the resource or task database cannot open, that module logs an error and fall
 - Keep platform-specific certificates and capture-proxy settings in `internal/system/`, and update proxy resolution in `internal/netproxy/`. Shared business code should call them through interfaces or adapters.
 
 Read [Contributing](contributing.md) before developing code. For plugin work, also read [Plugin Development](plugins.md) and the relevant SDK documentation.
+
+## Operation lifecycle
+
+Runtime creates the operation service after resources, plugins and downloads are ready, before exposing desktop/control APIs. Backend interfaces provide plugin/page discovery, invocation delivery and resource/download result mapping; the service contains no site logic. Page handlers perform asynchronous work, while synchronous Goja hooks map results. Startup marks unfinished executions interrupted without replay. Shutdown closes operations before their dependencies. Unavailable storage explicitly rejects calls.
+
+Page bridge reports carry the revision under which the execution was claimed, never the current page revision. After a page state change, an old execution may only acknowledge that its handler ended and release its lease; it cannot commit results or overwrite a terminal state. Ordinary page messages and operation readiness reports share page context, guarded by the page session lock.
+
+Resource rows query the desktop-only `/api/operations/resources` endpoint with up to 1000 resource IDs. Each resource selects an active execution first, then the newest record by creation time, without a result payload. This query is independent of history pagination. The frontend stops polling when it leaves the resource page or the window is hidden. History queries deep-copy only the selected page of summaries instead of all result payloads.
+
+Retention cleanup reuses its last scan until a record write, settings change, manual cleanup or the nearest expiry, with a maximum interval of one minute. Results and artifacts still become unreadable as soon as they expire. App reset also removes `operations.db`, preventing history, settings and idempotency records from referring to cleared resources and tasks. See [Plugin operations](operations.md) for states, bounds and retention.

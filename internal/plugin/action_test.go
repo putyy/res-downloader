@@ -48,14 +48,14 @@ func TestManifestRejectsUnknownFileActionProcessor(t *testing.T) {
 	}
 }
 
-func TestManifestAcceptsPageCommandAction(t *testing.T) {
-	manifest := pageCommandTestManifest()
+func TestManifestAcceptsOperationAction(t *testing.T) {
+	manifest := operationTestManifest()
 	if err := validateManifest(manifest); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestManifestRejectsInvalidPageCommandAction(t *testing.T) {
+func TestManifestRejectsInvalidOperationAction(t *testing.T) {
 	tests := []struct {
 		name   string
 		mutate func(*shared.PluginManifest)
@@ -70,7 +70,7 @@ func TestManifestRejectsInvalidPageCommandAction(t *testing.T) {
 			name: "missing page script",
 			mutate: func(manifest *shared.PluginManifest) {
 				action := manifest.Actions["inspect"]
-				action.PageScript = ""
+				action.Operation = ""
 				manifest.Actions["inspect"] = action
 			},
 		},
@@ -91,18 +91,18 @@ func TestManifestRejectsInvalidPageCommandAction(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			manifest := pageCommandTestManifest()
+			manifest := operationTestManifest()
 			test.mutate(&manifest)
 			if err := validateManifest(manifest); err == nil {
-				t.Fatal("expected invalid page-command action to be rejected")
+				t.Fatal("expected invalid operation action to be rejected")
 			}
 		})
 	}
 }
 
-func pageCommandTestManifest() shared.PluginManifest {
+func operationTestManifest() shared.PluginManifest {
 	return shared.PluginManifest{
-		ID: "example.page-command", Name: "Page Command", Version: "1.0.0", APIVersion: shared.PluginAPIVersion,
+		ID: "example.operation", Name: "Operation", Version: "1.0.0", APIVersion: shared.PluginAPIVersion,
 		Runtime: "javascript", Entry: "main.js",
 		Permissions: shared.PluginPermissions{
 			Domains: []string{"www.example.com"}, Capabilities: []string{"inject-page-script", "page-bridge"},
@@ -111,8 +111,9 @@ func pageCommandTestManifest() shared.PluginManifest {
 			ID: "controller", Entry: "page/controller.js", Bridge: true,
 			Match: []shared.PluginPageScriptMatch{{Host: "www.example.com"}},
 		}},
+		Operations: map[string]shared.OperationDefinition{"inspect": {Name: "Inspect", Category: "custom", PageScript: "controller", Effects: []string{"read"}, InputSchema: map[string]interface{}{"type": "object", "additionalProperties": false}, OutputSchema: map[string]interface{}{"type": "object", "additionalProperties": false}}},
 		Actions: map[string]shared.PluginActionDefinition{
-			"inspect": {Kind: shared.PluginActionPageCommand, PageScript: "controller"},
+			"inspect": {Kind: shared.PluginActionOperation, Operation: "inspect"},
 		},
 	}
 }

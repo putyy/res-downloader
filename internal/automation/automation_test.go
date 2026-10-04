@@ -96,7 +96,7 @@ func TestMCPDiscoversToolsWithoutDesktopAndReportsToolErrors(t *testing.T) {
 	}
 	defer session.Close()
 	list, err := session.ListTools(ctx, nil)
-	if err != nil || len(list.Tools) != 8 {
+	if err != nil || len(list.Tools) != len(operations) {
 		t.Fatalf("tools=%v err=%v", list, err)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_resources", Arguments: map[string]any{"limit": 10}})

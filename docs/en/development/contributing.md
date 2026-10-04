@@ -67,6 +67,8 @@ npm run build
 
 These commands check types and produce a static build. Manually verify client interactions affected by your changes as well.
 
+In `frontend`, run `npm run format` to format code or `npm run format:check` to check formatting. See the [frontend development guide](https://github.com/putyy/res-downloader/blob/master/frontend/README.md) (Chinese).
+
 ## Documentation contributions
 
 Corrections, screenshots, clearer instructions, and translations can be submitted directly as PRs. User guides should explain where to find a control, what an option does, and how to solve a problem.

@@ -82,14 +82,14 @@ func TestBuildPageScriptTagExposesScopedBinaryCapture(t *testing.T) {
 	}
 }
 
-func TestBuildPageScriptTagExposesScopedCommandProgress(t *testing.T) {
+func TestBuildPageScriptTagExposesScopedOperations(t *testing.T) {
 	tag := buildPageScriptTag(shared.PageScriptInjection{
 		PluginID: "example.page", ScriptID: "hook", Bridge: true,
 		PageSessionID: "session", BridgeToken: "token",
 	}, "")
-	for _, expected := range []string{`commands:Object.freeze`, `bridgeBase+"command-"+action`, `resumeToken:resumeToken`, `!response.ok||!result.ok`} {
+	for _, expected := range []string{`operations:operationsAPI`, `bridgeBase + 'operation-' + action`, `operationRequest('claim'`, `operationRequest('report'`, `signal:controller.signal`, `!response.ok || !result.ok`, `!event.persisted&&navigator.sendBeacon`, `if(event.persisted)connectEvents()`, `cancelOperationStateUpdates();operationControllers.forEach`} {
 		if !strings.Contains(tag, expected) {
-			t.Fatalf("missing page command wrapper: %s", expected)
+			t.Fatalf("missing operation bridge lifecycle contract: %s", expected)
 		}
 	}
 }

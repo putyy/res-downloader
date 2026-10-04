@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "check": "vue-tsc -b",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "build": "npm run check && vite build",
     "preview": "vite preview"
   },
@@ -26,6 +28,7 @@
     "autoprefixer": "^10.5.5",
     "esbuild": "^0.28.2",
     "postcss": "^8.5.28",
+    "prettier": "3.9.9",
     "tailwindcss": "~3.4.19",
     "typescript": "~5.9.3",
     "unplugin-auto-import": "^21.1.0",

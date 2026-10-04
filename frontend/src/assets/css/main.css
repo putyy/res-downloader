@@ -1,30 +1,30 @@
-@import 'base.css';
+@import "base.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-    color-scheme: light;
-    --app-background: #f3f5f4;
-    --app-text: #252b27;
-    --app-danger: #bd4055;
-    --app-danger-soft: #f9e5e9;
-    --app-card-shadow: 0 2px 8px rgba(28, 36, 32, 0.035);
+  color-scheme: light;
+  --app-background: #f3f5f4;
+  --app-text: #252b27;
+  --app-danger: #bd4055;
+  --app-danger-soft: #f9e5e9;
+  --app-card-shadow: 0 2px 8px rgba(28, 36, 32, 0.035);
 }
 
 /* Apply the initial theme without animating from the webview's default colors. */
 .app-starting *,
 .app-starting *::before,
 .app-starting *::after {
-    transition: none !important;
+  transition: none !important;
 }
 
-:root[data-app-theme='darkTheme'] {
-    color-scheme: dark;
-    --app-danger: #f08a98;
-    --app-danger-soft: #482a31;
-    --app-card-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+:root[data-app-theme="darkTheme"] {
+  color-scheme: dark;
+  --app-danger: #f08a98;
+  --app-danger-soft: #482a31;
+  --app-card-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
 }
 
 /* Wails checks the event target's inherited value, including icon/text children.
@@ -36,7 +36,7 @@ textarea,
 select,
 label,
 summary,
-[contenteditable='true'],
+[contenteditable="true"],
 .n-button,
 .n-input,
 .n-input-number,
@@ -48,7 +48,7 @@ summary,
 .n-menu-item-content,
 .n-layout-toggle-button,
 .n-collapse-item__header {
-    --wails-draggable: no-drag;
+  --wails-draggable: no-drag;
 }
 
 /* Teleported overlays do not inherit no-drag from their trigger containers. */
@@ -61,154 +61,158 @@ summary,
 .n-message,
 .n-notification,
 .n-image-preview-container {
-    --wails-draggable: no-drag;
+  --wails-draggable: no-drag;
 }
 
 .n-popover:not(.n-popover--raw) {
-    -webkit-user-select: text;
-    user-select: text;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .app-sidebar .n-layout,
 .app-sidebar .n-layout-sider,
 .app-sidebar .n-layout-footer {
-    --n-color: transparent !important;
-    background-color: transparent !important;
+  --n-color: transparent !important;
+  background-color: transparent !important;
 }
 
 .app-sidebar .n-menu-item-content--selected::before {
-    box-shadow: var(--app-menu-selection-shadow);
+  box-shadow: var(--app-menu-selection-shadow);
 }
 
-:root[data-menu-inset='false'] .app-sidebar .n-menu-item-content--selected::before {
-    left: 0;
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
+:root[data-menu-inset="false"] .app-sidebar .n-menu-item-content--selected::before {
+  left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .app-sidebar .n-menu-item-content--selected .n-menu-item-content-header {
-    font-weight: 500;
+  font-weight: 500;
 }
 
 .app-sidebar .n-layout-toggle-button:hover {
-    color: var(--app-sidebar-accent);
+  color: var(--app-sidebar-accent);
 }
 
 .app-sidebar .n-menu-item-content:focus-visible {
-    outline: 2px solid var(--app-sidebar-accent);
-    outline-offset: -2px;
+  outline: 2px solid var(--app-sidebar-accent);
+  outline-offset: -2px;
 }
 
-:root[data-app-theme='sakuraTheme'] .app-sidebar::before,
-:root[data-app-theme='sakuraTheme'] .app-workspace::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    pointer-events: none;
-    background: url('../image/sakura-branch.svg') no-repeat right top / contain;
+:root[data-app-theme="sakuraTheme"] .app-sidebar::before,
+:root[data-app-theme="sakuraTheme"] .app-workspace::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  background: url("../image/sakura-branch.svg") no-repeat right top / contain;
 }
 
-:root[data-app-theme='sakuraTheme'] .app-sidebar::before {
-    left: 0;
-    bottom: 164px;
-    width: 100%;
-    height: 190px;
-    transform: rotate(180deg);
-    opacity: 0.72;
+:root[data-app-theme="sakuraTheme"] .app-sidebar::before {
+  left: 0;
+  bottom: 164px;
+  width: 100%;
+  height: 190px;
+  transform: rotate(180deg);
+  opacity: 0.72;
 }
 
-:root[data-app-theme='sakuraTheme'] .app-workspace {
-    isolation: isolate;
+:root[data-app-theme="sakuraTheme"] .app-workspace {
+  isolation: isolate;
 }
 
-:root[data-app-theme='sakuraTheme'] .app-workspace::before {
-    top: 0;
-    right: 0;
-    width: min(360px, 46%);
-    height: 280px;
-    opacity: 0.3;
+:root[data-app-theme="sakuraTheme"] .app-workspace::before {
+  top: 0;
+  right: 0;
+  width: min(360px, 46%);
+  height: 280px;
+  opacity: 0.3;
 }
 
 @media (max-height: 640px) {
-    :root[data-app-theme='sakuraTheme'] .app-sidebar::before {
-        display: none;
-    }
+  :root[data-app-theme="sakuraTheme"] .app-sidebar::before {
+    display: none;
+  }
 }
 
 .app-card.n-card {
-    --n-color: var(--app-surface) !important;
-    @apply relative overflow-hidden shadow-app-card transition-[box-shadow,background-color] duration-[180ms] ease-[ease];
-    background-color: var(--app-surface) !important;
+  --n-color: var(--app-surface) !important;
+  @apply relative overflow-hidden shadow-app-card transition-[box-shadow,background-color] duration-[180ms] ease-[ease];
+  background-color: var(--app-surface) !important;
 }
 
 .app-card--interactive.n-card {
-    box-shadow: inset 0 0 0 1px transparent, var(--app-card-shadow);
+  box-shadow:
+    inset 0 0 0 1px transparent,
+    var(--app-card-shadow);
 }
 
 @media (hover: hover) {
-    .app-card--interactive.n-card:hover {
-        background-color: color-mix(in srgb, var(--app-surface) 65%, var(--app-surface-hover)) !important;
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-border) 65%, transparent), var(--app-card-shadow);
-    }
+  .app-card--interactive.n-card:hover {
+    background-color: color-mix(in srgb, var(--app-surface) 65%, var(--app-surface-hover)) !important;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--app-border) 65%, transparent),
+      var(--app-card-shadow);
+  }
 }
 
 .app-card--selected.n-card {
-    --n-color: var(--app-accent-soft) !important;
-    background-color: var(--app-accent-soft) !important;
+  --n-color: var(--app-accent-soft) !important;
+  background-color: var(--app-accent-soft) !important;
 }
 
 .resource-table.n-data-table {
-    @apply overflow-hidden bg-app-surface shadow-app-card;
+  @apply overflow-hidden bg-app-surface shadow-app-card;
 }
 
 .resource-table .n-data-table-tr.resource-row--checked .n-data-table-td {
-    background-color: var(--app-accent-soft) !important;
+  background-color: var(--app-accent-soft) !important;
 }
 
 .resource-child-table.n-data-table {
-    @apply overflow-hidden bg-app-surface-muted;
+  @apply overflow-hidden bg-app-surface-muted;
 }
 
 /* Popovers are teleported outside page containers, so keep text sizing global.
    Raw popovers (such as component-owned menus) retain their own layout. */
 .n-popover:not(.n-popover--raw) {
-    max-width: min(400px, calc(100vw - 32px));
-    white-space: normal;
-    overflow-wrap: anywhere;
+  max-width: min(400px, calc(100vw - 32px));
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .n-popover:not(.n-popover--raw) > .n-popover__content,
 .n-popover .n-popconfirm__body > :not(.n-popconfirm__icon) {
-    min-width: 0;
-    max-width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .n-popover .n-popconfirm__body {
-    align-items: flex-start;
+  align-items: flex-start;
 }
 
 .n-popover .n-popconfirm__icon {
-    flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 .n-popover.n-tooltip > .n-popover__content {
-    max-height: min(360px, calc(100vh - 80px));
-    overflow-y: auto;
-    overscroll-behavior: contain;
+  max-height: min(360px, calc(100vh - 80px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ellipsis-2 {
-    display: -webkit-box;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .ellipsis-3 {
-    display: -webkit-box;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }

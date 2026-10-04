@@ -1,245 +1,266 @@
-import {defineStore} from 'pinia'
+import {defineStore} from "pinia"
 import {ref} from "vue"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
 import {Environment} from "../../wailsjs/runtime"
 import * as bind from "../../wailsjs/go/app/Bind"
 import {httpapi} from "../../wailsjs/go/models"
-import {frontendErrorDetails, reportFrontendError} from '@/services/diagnostics'
-import axios from 'axios'
-import i18n from '@/i18n'
-import {waitForInitialRoute} from '@/router'
+import {frontendErrorDetails, reportFrontendError} from "@/services/diagnostics"
+import axios from "axios"
+import i18n from "@/i18n"
+import {waitForInitialRoute} from "@/router"
 
 export const DEFAULT_FILENAME_TEMPLATE = "{{title|default:resource|sanitize|truncate:80}}_{{date:20060102_150405}}.{{ext}}"
 
-export type StartupState = 'loading' | 'ready' | 'failed'
-type ConfigField = 'SaveDirectory' | 'FilenameTemplate' | 'Host' | 'Port' | 'UpstreamProxy' | 'FFmpegPath' | 'FFprobePath'
+export type StartupState = "loading" | "ready" | "failed"
+type ConfigField = "SaveDirectory" | "FilenameTemplate" | "Host" | "Port" | "UpstreamProxy" | "FFmpegPath" | "FFprobePath"
 
 class ConfigSubmissionError extends Error {
-    constructor(message: string, readonly field?: ConfigField) {
-        super(message)
-    }
+  constructor(
+    message: string,
+    readonly field?: ConfigField,
+  ) {
+    super(message)
+  }
 }
 
 type ConfigSaveError = {field?: ConfigField; message: string; submittedValue?: string}
 
 export const useIndexStore = defineStore("index-store", () => {
-	let configSaveTimer: ReturnType<typeof setTimeout> | undefined
-	let configSaveChain: Promise<boolean> = Promise.resolve(true)
-	let pendingConfig: appType.Config | undefined
-	let pendingRevision = 0
-	let configRevision = 0
-	let savedConfig: appType.Config | undefined
-	let configLoaded = false
-    const configSaveError = ref<ConfigSaveError | null>(null)
-    const cloneConfig = (value: appType.Config): appType.Config => JSON.parse(JSON.stringify(value))
-    const appInfo = ref<appType.App>({
-        AppName: "",
-        Version: "",
-        Description: "",
-        Copyright: "",
-    })
+  let configSaveTimer: ReturnType<typeof setTimeout> | undefined
+  let configSaveChain: Promise<boolean> = Promise.resolve(true)
+  let pendingConfig: appType.Config | undefined
+  let pendingRevision = 0
+  let configRevision = 0
+  let savedConfig: appType.Config | undefined
+  let configLoaded = false
+  const configSaveError = ref<ConfigSaveError | null>(null)
+  const cloneConfig = (value: appType.Config): appType.Config => JSON.parse(JSON.stringify(value))
+  const appInfo = ref<appType.App>({
+    AppName: "",
+    Version: "",
+    Description: "",
+    Copyright: "",
+  })
 
-    const globalConfig = ref<appType.Config>({
-        Theme: "lightTheme",
-        Locale: "en",
-        Host: "0.0.0.0",
-        Port: "8899",
-        SaveDirectory: "",
-        UpstreamProxy: "",
-        FilenameTemplate: DEFAULT_FILENAME_TEMPLATE,
-        FilenameConflict: "rename",
-        OpenProxy: false,
-        DownloadProxy: false,
-        FFmpegPath: "",
-        FFprobePath: "",
-        AutoProxy: false,
-        TaskNumber: 8,
-        DownNumber: 3,
-        UserAgent: "",
-        UseHeaders: "",
-        InsertTail: true,
-        InterceptionPolicies: [{
-            id: 'default', name: 'Default', enabled: true, domains: ['*'], exclude: [], action: 'mitm'
-        }]
-    })
+  const globalConfig = ref<appType.Config>({
+    Theme: "lightTheme",
+    Locale: "en",
+    Host: "0.0.0.0",
+    Port: "8899",
+    SaveDirectory: "",
+    UpstreamProxy: "",
+    FilenameTemplate: DEFAULT_FILENAME_TEMPLATE,
+    FilenameConflict: "rename",
+    OpenProxy: false,
+    DownloadProxy: false,
+    FFmpegPath: "",
+    FFprobePath: "",
+    AutoProxy: false,
+    TaskNumber: 8,
+    DownNumber: 3,
+    UserAgent: "",
+    UseHeaders: "",
+    InsertTail: true,
+    InterceptionPolicies: [
+      {
+        id: "default",
+        name: "Default",
+        enabled: true,
+        domains: ["*"],
+        exclude: [],
+        action: "mitm",
+      },
+    ],
+  })
 
-    const envInfo = ref({
-        buildType: "",
-        platform: "",
-        arch: "",
-    });
+  const envInfo = ref({
+    buildType: "",
+    platform: "",
+    arch: "",
+  })
 
-    const isProxy = ref(false)
-    const baseUrl = ref("")
-    const startupState = ref<StartupState>('loading')
-    const startupError = ref("")
-    const startupHint = ref("")
-    const startupPortUnavailable = ref(false)
+  const isProxy = ref(false)
+  const baseUrl = ref("")
+  const startupState = ref<StartupState>("loading")
+  const startupError = ref("")
+  const startupHint = ref("")
+  const startupPortUnavailable = ref(false)
 
-    const loadConfig = async () => {
-        let timeout: ReturnType<typeof setTimeout> | undefined
-        try {
-            const configuration = await Promise.race([
-                bind.Config(),
-                new Promise<never>((_, reject) => {
-                    timeout = setTimeout(() => reject(new Error('Configuration initialization timed out')), 5000)
-                }),
-            ]) as httpapi.ResponseData
-            if (configuration.code !== 1) throw new Error(configuration.message || 'Configuration initialization failed')
-            globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
-            savedConfig = cloneConfig(globalConfig.value)
-            configLoaded = true
-        } finally {
-            if (timeout !== undefined) clearTimeout(timeout)
+  const loadConfig = async () => {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+      const configuration = (await Promise.race([
+        bind.Config(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Configuration initialization timed out")), 5000)
+        }),
+      ])) as httpapi.ResponseData
+      if (configuration.code !== 1) throw new Error(configuration.message || "Configuration initialization failed")
+      globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
+      savedConfig = cloneConfig(globalConfig.value)
+      configLoaded = true
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout)
+    }
+  }
+
+  const init = async () => {
+    startupState.value = "loading"
+    startupError.value = ""
+    startupHint.value = ""
+    startupPortUnavailable.value = false
+    let stage = "configuration"
+    try {
+      if (!configLoaded) await loadConfig()
+      stage = "environment"
+      envInfo.value = await Environment()
+
+      stage = "application-info"
+      const info = (await bind.AppInfo()) as httpapi.ResponseData
+      if (info.code !== 1) throw new Error(info.message || "Application information initialization failed")
+      appInfo.value = Object.assign({}, appInfo.value, info.data)
+      isProxy.value = info.data.IsProxy
+
+      stage = "backend-startup"
+      const session = (await bind.APISession()) as httpapi.ResponseData
+      if (session.code !== 1) {
+        startupPortUnavailable.value = session.data?.portUnavailable === true
+        if (startupPortUnavailable.value) {
+          startupHint.value = i18n.global.t("startup.port_unavailable_tip")
+        } else if (session.data?.restartRequired) {
+          startupHint.value = i18n.global.t("startup.backend_failed_tip")
         }
+        throw new Error(session.message || "API session initialization failed")
+      }
+      stage = "api-session"
+      window.$apiToken = String((session.data as {token?: string})?.token ?? "")
+      if (!window.$apiToken) throw new Error("API session token is empty")
+
+      stage = "local-service-health"
+      baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
+      window.$baseUrl = baseUrl.value
+      const health = (await appApi.appInfo()) as appType.Res
+      if (health.code !== 1) throw new Error(health.message || "Local service health check failed")
+      stage = "initial-page"
+      await waitForInitialRoute()
+      startupState.value = "ready"
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        startupHint.value = i18n.global.t("startup.unauthorized_tip")
+      }
+      startupError.value = `stage: ${stage}\n${frontendErrorDetails(error)}`
+      startupState.value = "failed"
+      void reportFrontendError("startup", startupError.value)
     }
+  }
 
-    const init = async () => {
-		startupState.value = 'loading'
-		startupError.value = ''
-		startupHint.value = ''
-		startupPortUnavailable.value = false
-		let stage = 'configuration'
-		try {
-			if (!configLoaded) await loadConfig()
-			stage = 'environment'
-			envInfo.value = await Environment()
-
-			stage = 'application-info'
-			const info = await bind.AppInfo() as httpapi.ResponseData
-			if (info.code !== 1) throw new Error(info.message || 'Application information initialization failed')
-			appInfo.value = Object.assign({}, appInfo.value, info.data)
-			isProxy.value = info.data.IsProxy
-
-			stage = 'backend-startup'
-			const session = await bind.APISession() as httpapi.ResponseData
-			if (session.code !== 1) {
-				startupPortUnavailable.value = session.data?.portUnavailable === true
-				if (startupPortUnavailable.value) {
-					startupHint.value = i18n.global.t('startup.port_unavailable_tip')
-				} else if (session.data?.restartRequired) {
-					startupHint.value = i18n.global.t('startup.backend_failed_tip')
-				}
-				throw new Error(session.message || 'API session initialization failed')
-			}
-			stage = 'api-session'
-			window.$apiToken = String((session.data as { token?: string })?.token ?? '')
-			if (!window.$apiToken) throw new Error('API session token is empty')
-
-			stage = 'local-service-health'
-			baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
-			window.$baseUrl = baseUrl.value
-			const health = await appApi.appInfo() as appType.Res
-			if (health.code !== 1) throw new Error(health.message || 'Local service health check failed')
-			stage = 'initial-page'
-			await waitForInitialRoute()
-			startupState.value = 'ready'
-		} catch (error) {
-			if (axios.isAxiosError(error) && error.response?.status === 401) {
-				startupHint.value = i18n.global.t('startup.unauthorized_tip')
-			}
-			startupError.value = `stage: ${stage}\n${frontendErrorDetails(error)}`
-			startupState.value = 'failed'
-			void reportFrontendError('startup', startupError.value)
-		}
-    }
-
-    const savePendingConfig = () => {
-        if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
-        configSaveTimer = undefined
-        if (!pendingConfig) return
-        const snapshot = pendingConfig
-        const revision = pendingRevision
-        pendingConfig = undefined
-        configSaveChain = configSaveChain
-            .then(async () => {
-                const response = await appApi.setConfig(snapshot) as appType.Res
-                if (response.code !== 1) {
-                    const field = (response.data as {field?: string} | null)?.field
-                    throw new ConfigSubmissionError(response.message || 'save config failed',
-                        field === 'SaveDirectory' || field === 'FilenameTemplate' || field === 'Host' ||
-                        field === 'Port' || field === 'UpstreamProxy' || field === 'FFmpegPath' ||
-                        field === 'FFprobePath' ? field : undefined)
-                }
-                savedConfig = cloneConfig(snapshot)
-                if (revision === configRevision && configSaveError.value) {
-                    const previousError = configSaveError.value
-                    if (!previousError.field || snapshot[previousError.field] === previousError.submittedValue) {
-                        configSaveError.value = null
-                    }
-                }
-                return true
-            })
-            .catch(error => {
-                const message = String(error?.message ?? error)
-                if (revision === configRevision) {
-                    if (savedConfig) globalConfig.value = cloneConfig(savedConfig)
-                    const field = error instanceof ConfigSubmissionError ? error.field : undefined
-                    configSaveError.value = {field, message, submittedValue: field ? snapshot[field] : undefined}
-                }
-                window.$message?.error(message)
-                return false
-            })
-    }
-
-    const setConfig = (formValue: Partial<appType.Config>) => {
-        const previousError = configSaveError.value
-        // Partial updates (such as changing the theme) must not dismiss an
-        // error for a field that is still invalid in the settings form.
-        if (previousError?.field && Object.prototype.hasOwnProperty.call(formValue, previousError.field) &&
-            formValue[previousError.field] !== previousError.submittedValue) {
+  const savePendingConfig = () => {
+    if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
+    configSaveTimer = undefined
+    if (!pendingConfig) return
+    const snapshot = pendingConfig
+    const revision = pendingRevision
+    pendingConfig = undefined
+    configSaveChain = configSaveChain
+      .then(async () => {
+        const response = (await appApi.setConfig(snapshot)) as appType.Res
+        if (response.code !== 1) {
+          const field = (response.data as {field?: string} | null)?.field
+          throw new ConfigSubmissionError(
+            response.message || "save config failed",
+            field === "SaveDirectory" ||
+              field === "FilenameTemplate" ||
+              field === "Host" ||
+              field === "Port" ||
+              field === "UpstreamProxy" ||
+              field === "FFmpegPath" ||
+              field === "FFprobePath"
+              ? field
+              : undefined,
+          )
+        }
+        savedConfig = cloneConfig(snapshot)
+        if (revision === configRevision && configSaveError.value) {
+          const previousError = configSaveError.value
+          if (!previousError.field || snapshot[previousError.field] === previousError.submittedValue) {
             configSaveError.value = null
+          }
         }
-        globalConfig.value = Object.assign({}, globalConfig.value, formValue)
-		pendingConfig = cloneConfig(globalConfig.value)
-		pendingRevision = ++configRevision
-        if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
-        configSaveTimer = setTimeout(savePendingConfig, 500)
-    }
-
-    const flushConfig = async (): Promise<boolean> => {
-        // Include edits queued while an earlier save is still in flight.
-        while (true) {
-            savePendingConfig()
-            const saving = configSaveChain
-            const saved = await saving
-            if (saving === configSaveChain && !pendingConfig) return saved
+        return true
+      })
+      .catch((error) => {
+        const message = String(error?.message ?? error)
+        if (revision === configRevision) {
+          if (savedConfig) globalConfig.value = cloneConfig(savedConfig)
+          const field = error instanceof ConfigSubmissionError ? error.field : undefined
+          configSaveError.value = {
+            field,
+            message,
+            submittedValue: field ? snapshot[field] : undefined,
+          }
         }
-    }
+        window.$message?.error(message)
+        return false
+      })
+  }
 
-    const openProxy = async (password = '') => {
-        return appApi.openSystemProxy({password}).then(handleProxy)
+  const setConfig = (formValue: Partial<appType.Config>) => {
+    const previousError = configSaveError.value
+    // Partial updates (such as changing the theme) must not dismiss an
+    // error for a field that is still invalid in the settings form.
+    if (previousError?.field && Object.prototype.hasOwnProperty.call(formValue, previousError.field) && formValue[previousError.field] !== previousError.submittedValue) {
+      configSaveError.value = null
     }
+    globalConfig.value = Object.assign({}, globalConfig.value, formValue)
+    pendingConfig = cloneConfig(globalConfig.value)
+    pendingRevision = ++configRevision
+    if (configSaveTimer !== undefined) clearTimeout(configSaveTimer)
+    configSaveTimer = setTimeout(savePendingConfig, 500)
+  }
 
-    const unsetProxy = async (password = '') => {
-        return appApi.unsetSystemProxy({password}).then(handleProxy)
+  const flushConfig = async (): Promise<boolean> => {
+    // Include edits queued while an earlier save is still in flight.
+    while (true) {
+      savePendingConfig()
+      const saving = configSaveChain
+      const saved = await saving
+      if (saving === configSaveChain && !pendingConfig) return saved
     }
+  }
 
-    const handleProxy = (res: appType.Res) => {
-        isProxy.value = res.data.value
-        if (res.code === 0) {
-            window?.$message?.error(res.message)
-        }
-        return res
-    }
+  const openProxy = async (password = "") => {
+    return appApi.openSystemProxy({password}).then(handleProxy)
+  }
 
-    return {
-        appInfo,
-        globalConfig,
-        configSaveError,
-        isProxy,
-        envInfo,
-        baseUrl,
-        startupState,
-        startupError,
-        startupHint,
-        startupPortUnavailable,
-        init,
-        loadConfig,
-        setConfig,
-        flushConfig,
-        openProxy,
-        unsetProxy
+  const unsetProxy = async (password = "") => {
+    return appApi.unsetSystemProxy({password}).then(handleProxy)
+  }
+
+  const handleProxy = (res: appType.Res) => {
+    isProxy.value = res.data.value
+    if (res.code === 0) {
+      window?.$message?.error(res.message)
     }
+    return res
+  }
+
+  return {
+    appInfo,
+    globalConfig,
+    configSaveError,
+    isProxy,
+    envInfo,
+    baseUrl,
+    startupState,
+    startupError,
+    startupHint,
+    startupPortUnavailable,
+    init,
+    loadConfig,
+    setConfig,
+    flushConfig,
+    openProxy,
+    unsetProxy,
+  }
 })

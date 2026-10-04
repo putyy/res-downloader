@@ -18,6 +18,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+var errPluginArchiveToken = errors.New("invalid or expired plugin package token")
+
 func (h *Server) pluginsAPI(w http.ResponseWriter, _ *http.Request) {
 	h.success(w, respData{
 		"plugins":  h.plugins.Statuses(),
@@ -105,6 +107,9 @@ func (h *Server) inspectPluginFile(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
+	if h.logger != nil {
+		h.logger.Info().Str("plugin", manifest.ID).Msg("local plugin package ready for confirmation")
+	}
 	match := h.plugins.LocalArchiveStoreMatch(manifest)
 	var installed interface{}
 	for _, status := range h.plugins.Statuses() {
@@ -137,8 +142,11 @@ func (h *Server) installPluginFile(w http.ResponseWriter, r *http.Request) {
 	}
 	pending, err := h.takePluginArchive(data.Token)
 	if err != nil {
-		h.error(w, err.Error())
+		h.error(w, err.Error(), respData{"errorCode": "plugin_package_token_expired"})
 		return
+	}
+	if h.logger != nil {
+		h.logger.Info().Str("plugin", pending.manifest.ID).Msg("local plugin installation started")
 	}
 	manifest, err := h.plugins.InstallLocalArchiveApproved(
 		pending.data, data.Replace, pending.manifest.ID, pending.manifest.Version, pending.digest, data.ApprovePermissions,
@@ -202,16 +210,29 @@ func (h *Server) rememberPluginArchive(data []byte, manifest shared.PluginManife
 
 func (h *Server) takePluginArchive(token string) (pendingPluginArchive, error) {
 	if len(token) != 48 {
-		return pendingPluginArchive{}, errors.New("invalid or expired plugin package token")
+		h.logPluginArchiveTokenFailure("invalid_format")
+		return pendingPluginArchive{}, errPluginArchiveToken
 	}
 	h.pluginArchiveMu.Lock()
 	defer h.pluginArchiveMu.Unlock()
 	pending, exists := h.pluginArchives[token]
 	delete(h.pluginArchives, token)
-	if !exists || time.Now().After(pending.expiresAt) {
-		return pendingPluginArchive{}, errors.New("invalid or expired plugin package token")
+	if !exists {
+		h.logPluginArchiveTokenFailure("missing")
+		return pendingPluginArchive{}, errPluginArchiveToken
+	}
+	if !time.Now().Before(pending.expiresAt) {
+		h.logPluginArchiveTokenFailure("expired")
+		return pendingPluginArchive{}, errPluginArchiveToken
 	}
 	return pending, nil
+}
+
+func (h *Server) logPluginArchiveTokenFailure(reason string) {
+	if h.logger != nil {
+		// Do not log the bearer credential or the selected local file path.
+		h.logger.Warn().Str("reason", reason).Msg("local plugin package confirmation unavailable")
+	}
 }
 
 func (h *Server) uninstallPlugin(w http.ResponseWriter, r *http.Request) {

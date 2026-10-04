@@ -252,11 +252,8 @@ func validateManifestForSource(manifest shared.PluginManifest, trustedBundled bo
 		}
 		switch action.Kind {
 		case shared.PluginActionProcessFile:
-			if action.TrackProgress {
-				return fmt.Errorf("action %q trackProgress requires page-command", id)
-			}
-			if action.PageScript != "" {
-				return fmt.Errorf("action %q process-file cannot reference a page script", id)
+			if action.Operation != "" {
+				return fmt.Errorf("file action cannot reference an operation")
 			}
 			if _, exists := manifest.Processors[action.Processor]; !exists {
 				return fmt.Errorf("action %q references unknown processor %q", id, action.Processor)
@@ -269,29 +266,20 @@ func validateManifestForSource(manifest shared.PluginManifest, trustedBundled bo
 					return fmt.Errorf("action %q has invalid input extension %q", id, extension)
 				}
 			}
-		case shared.PluginActionPageCommand:
+		case shared.PluginActionOperation:
 			if action.Processor != "" || len(action.InputExtensions) > 0 || action.OutputExtension != "" {
-				return fmt.Errorf("action %q page-command cannot declare file processor fields", id)
+				return fmt.Errorf("operation action cannot declare file fields")
 			}
-			if !manifest.Permissions.Has("page-bridge") {
-				return fmt.Errorf("action %q page-command requires page-bridge", id)
+			if _, ok := manifest.Operations[action.Operation]; !ok {
+				return fmt.Errorf("action references unknown operation")
 			}
-			if action.PageScript == "" {
-				return fmt.Errorf("action %q page-command requires pageScript", id)
-			}
-			found := false
-			for _, script := range manifest.PageScripts {
-				if script.ID == action.PageScript && script.Bridge {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("action %q references unknown or unbridged page script %q", id, action.PageScript)
-			}
+
 		default:
 			return fmt.Errorf("action %q has unsupported kind %q", id, action.Kind)
 		}
+	}
+	if err := validateOperations(manifest); err != nil {
+		return err
 	}
 	seenKinds := make(map[string]struct{}, len(manifest.ResourceKinds))
 	for _, kind := range manifest.ResourceKinds {

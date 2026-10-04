@@ -64,6 +64,10 @@ func (h *Server) HandleAPI(w http.ResponseWriter, r *http.Request) bool {
 	if r.Body != nil && r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, defaultAPIRequestBodyLimit)
 	}
+	if operationPath(r.URL.Path) {
+		h.operationsAPI(w, r)
+		return true
+	}
 	switch r.URL.Path {
 	case "/api/preview":
 		h.preview(w, r)
@@ -113,8 +117,6 @@ func (h *Server) HandleAPI(w http.ResponseWriter, r *http.Request) bool {
 		h.updateResource(w, r)
 	case "/api/resources/action":
 		h.resourceAction(w, r)
-	case "/api/resources/page-commands":
-		h.success(w, h.plugins.PageCommandStatuses())
 	case "/api/resources/import":
 		h.importResources(w, r)
 	case "/api/resources/export":
@@ -168,6 +170,9 @@ func (h *Server) HandleAPI(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func knownAPIPath(path string) bool {
+	if operationPath(path) {
+		return true
+	}
 	switch path {
 	case "/api/preview", "/api/preview/hls", "/api/proxy-open", "/api/proxy-unset",
 		"/api/open-directory", "/api/open-file", "/api/open-folder", "/api/is-proxy",
@@ -176,7 +181,6 @@ func knownAPIPath(path string) bool {
 		"/api/certificate/cleanup", "/api/certificate/download", "/api/resources",
 		"/api/resources/filter", "/api/resources/clear", "/api/resources/delete",
 		"/api/resources/update", "/api/resources/action", "/api/resources/import", "/api/resources/export",
-		"/api/resources/page-commands",
 		"/api/download/create", "/api/download/tasks", "/api/download/retry",
 		"/api/download/pause", "/api/download/resume", "/api/download/cancel",
 		"/api/download/stop-recording", "/api/download/delete", "/api/download/batch",

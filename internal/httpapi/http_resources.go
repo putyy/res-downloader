@@ -2,10 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	shared "res-downloader/internal/model"
-	"res-downloader/internal/plugin"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -93,8 +91,9 @@ func (h *Server) importResources(w http.ResponseWriter, r *http.Request) {
 
 func (h *Server) resourceAction(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		ID       string `json:"id"`
-		ActionID string `json:"actionId"`
+		ID            string `json:"id"`
+		ActionID      string `json:"actionId"`
+		PageSessionID string `json:"pageSessionId,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		h.error(w, err.Error())
@@ -113,18 +112,19 @@ func (h *Server) resourceAction(w http.ResponseWriter, r *http.Request) {
 	switch definition.Kind {
 	case shared.PluginActionProcessFile:
 		h.processFileResourceAction(w, candidate, data.ActionID)
-	case shared.PluginActionPageCommand:
-		result, err := h.plugins.DispatchPageCommand(candidate, data.ActionID)
+	case shared.PluginActionOperation:
+		service := h.plugins.OperationService()
+		if service == nil {
+			h.error(w, "operation storage unavailable")
+			return
+		}
+		result, err := service.Submit(shared.OperationRequest{PluginID: candidate.Source.PluginID, OperationID: definition.Operation, ResourceID: candidate.ID, ActionID: data.ActionID, PageSessionID: data.PageSessionID}, "desktop")
 		if err != nil {
-			code := "page_command_start_failed"
-			var commandError *plugin.PageCommandError
-			if errors.As(err, &commandError) {
-				code = commandError.Code
-			}
-			h.error(w, err.Error(), respData{"errorCode": code})
+			h.operationError(w, err)
 			return
 		}
 		h.success(w, result)
+
 	default:
 		h.error(w, "resource action kind is unsupported")
 	}

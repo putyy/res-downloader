@@ -1,22 +1,8 @@
 <template>
-  <div
-      class="min-h-6"
-      @click="handleOnClick"
-  >
-    <n-input
-        v-if="isEdit"
-        ref="inputRef"
-        :value="inputValue"
-        @update:value="(v: string) => inputValue = v"
-        @change="handleChange"
-        @blur="handleChange"
-    />
+  <div class="min-h-6" @click="handleOnClick">
+    <n-input v-if="isEdit" ref="inputRef" :value="inputValue" @update:value="(v: string) => (inputValue = v)" @change="handleChange" @blur="handleChange" />
 
-    <n-tooltip
-        v-else
-        trigger="hover"
-        placement="top"
-    >
+    <n-tooltip v-else trigger="hover" placement="top">
       <template #trigger>
         <div class="ellipsis-2">{{ inputValue }}</div>
       </template>
@@ -26,8 +12,8 @@
 </template>
 
 <script setup lang="ts">
-import {nextTick, ref, watch} from 'vue'
-import type {InputInst} from 'naive-ui'
+import {nextTick, ref, watch} from "vue"
+import type {InputInst} from "naive-ui"
 
 interface OnUpdateValue {
   (value: string): void
@@ -43,8 +29,8 @@ const inputRef = ref<InputInst | null>(null)
 const inputValue = ref(String(props.value))
 
 watch(
-    () => props.value,
-    v => inputValue.value = String(v)
+  () => props.value,
+  (v) => (inputValue.value = String(v)),
 )
 
 function handleOnClick() {

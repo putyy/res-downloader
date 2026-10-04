@@ -29,6 +29,7 @@ type Scheduler struct {
 	cancel       context.CancelFunc
 	store        *Store
 	queue        chan string
+	enqueueReady map[string]chan struct{}
 	mu           sync.RWMutex
 	tasks        map[string]shared.DownloadTaskRecord
 	byResource   map[string]string
@@ -238,6 +239,23 @@ func isCancelledDownload(err error) bool {
 }
 
 func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadTaskRecord, error) {
+	return s.EnqueueContext(s.ctx, resource)
+}
+
+// EnqueueContext bounds preparation by the caller's deadline. Once a task is
+// committed, it belongs to the scheduler and survives caller cancellation.
+// A nonempty returned task must be retained even when an error accompanies it.
+func (s *Scheduler) EnqueueContext(ctx context.Context, resource shared.ResourceCandidate) (shared.DownloadTaskRecord, error) {
+	if err := ctx.Err(); err != nil {
+		return shared.DownloadTaskRecord{}, err
+	}
+	if s.ctx.Err() != nil {
+		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
+	}
+	planningCtx, cancelPlanning := context.WithCancel(ctx)
+	stopSchedulerCancellation := context.AfterFunc(s.ctx, cancelPlanning)
+	defer stopSchedulerCancellation()
+	defer cancelPlanning()
 	if resource.ID == "" {
 		return shared.DownloadTaskRecord{}, errors.New("resource id is required")
 	}
@@ -276,10 +294,13 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 	children := s.resources.ChildrenOf(resource)
 	if resource.Kind == shared.ResourceKindCollection || len(children) > 0 {
 		for _, child := range children {
+			if err := planningCtx.Err(); err != nil {
+				return shared.DownloadTaskRecord{}, err
+			}
 			item := shared.DownloadTaskItem{Resource: child, State: shared.DownloadTaskPending}
 			if child.State != shared.ResourceStatePartial && contains(child.Capabilities, shared.ResourceCapabilityDownload) &&
 				child.Lifecycle.Availability != shared.ResourceAvailabilityNeedsRefresh {
-				if plan, planErr := s.plugins.CreateDownloadPlan(s.ctx, child, shared.DownloadOptions{}); planErr == nil {
+				if plan, planErr := s.plugins.CreateDownloadPlan(planningCtx, child, shared.DownloadOptions{}); planErr == nil {
 					item.Plan = plan
 				}
 			}
@@ -287,7 +308,7 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 		}
 		task.Resumable = collectionIsResumable(task.Items)
 	} else if resource.Lifecycle.Availability != shared.ResourceAvailabilityNeedsRefresh {
-		plan, err := s.plugins.CreateDownloadPlan(s.ctx, resource, shared.DownloadOptions{})
+		plan, err := s.plugins.CreateDownloadPlan(planningCtx, resource, shared.DownloadOptions{})
 		if err != nil {
 			return shared.DownloadTaskRecord{}, err
 		}
@@ -296,6 +317,10 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 		task.Recording = planIsRecording(plan)
 	}
 	s.mu.Lock()
+	if err := planningCtx.Err(); err != nil {
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, err
+	}
 	if s.ctx.Err() != nil || s.updateReserved {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
@@ -305,19 +330,44 @@ func (s *Scheduler) Enqueue(resource shared.ResourceCandidate) (shared.DownloadT
 		s.mu.Unlock()
 		return existing, nil
 	}
+	// Reserve a real queue slot while holding the same lock execute uses to
+	// read tasks. A worker can receive the ID now, but cannot observe an
+	// uncommitted record. Failed persistence leaves only an inert queue ID.
+	select {
+	case s.queue <- id:
+	default:
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, errors.New("download queue is full")
+	}
+	if err := planningCtx.Err(); err != nil {
+		s.mu.Unlock()
+		return shared.DownloadTaskRecord{}, err
+	}
 	if err := s.persist(task); err != nil {
 		s.mu.Unlock()
 		return shared.DownloadTaskRecord{}, err
 	}
 	s.tasks[id], s.byResource[resource.ID] = task, id
-	s.mu.Unlock()
-	s.resources.EmitDownloadTaskEvent(task)
-	select {
-	case s.queue <- id:
-		return task, nil
-	case <-s.ctx.Done():
-		return shared.DownloadTaskRecord{}, errors.New("download scheduler is stopped")
+	if s.enqueueReady == nil {
+		s.enqueueReady = make(map[string]chan struct{})
 	}
+	ready := make(chan struct{})
+	s.enqueueReady[id] = ready
+	s.mu.Unlock()
+	// Prevent a worker's running event from overtaking the initial pending
+	// event, without holding s.mu across a resource event callback.
+	s.resources.EmitDownloadTaskEvent(task)
+	s.mu.Lock()
+	delete(s.enqueueReady, id)
+	close(ready)
+	s.mu.Unlock()
+	if err := planningCtx.Err(); err != nil {
+		return task, err
+	}
+	if err := s.ctx.Err(); err != nil {
+		return task, err
+	}
+	return task, nil
 }
 
 func (s *Scheduler) worker(stop <-chan struct{}) {
@@ -336,6 +386,15 @@ func (s *Scheduler) worker(stop <-chan struct{}) {
 
 func (s *Scheduler) execute(id string) {
 	s.mu.Lock()
+	if ready := s.enqueueReady[id]; ready != nil {
+		s.mu.Unlock()
+		select {
+		case <-ready:
+		case <-s.ctx.Done():
+			return
+		}
+		s.mu.Lock()
+	}
 	task, exists := s.tasks[id]
 	if !exists || task.State != shared.DownloadTaskPending || s.cancelFuncs[id] != nil || s.ctx.Err() != nil || s.updateReserved {
 		s.mu.Unlock()
@@ -952,3 +1011,7 @@ func (s *Scheduler) ReleaseUpdate() {
 	s.updateReserved = false
 	s.mu.Unlock()
 }
+
+// DurableAvailable lets operation adapters reject downloads that could not be
+// recovered after restart. Passive desktop downloads retain their own policy.
+func (s *Scheduler) DurableAvailable() bool { return s != nil && s.store != nil }

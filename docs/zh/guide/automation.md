@@ -1,10 +1,10 @@
 ---
-description: 使用 res-downloader CLI 与 MCP 查询已抓取资源、创建下载和管理任务，了解客户端配置、连接方式及常见故障。
+description: 使用 res-downloader CLI 与 MCP 管理资源和下载、调用插件业务操作，并配置 Agent 连接。
 ---
 
 # CLI 与 MCP
 
-CLI 和 MCP 用于控制**正在运行的桌面应用**，支持查询已抓取资源、创建下载和管理下载任务。命令执行完或 Agent 断开后，任务继续由桌面应用运行；退出桌面应用会停止后台下载。
+CLI 和 MCP 用于控制**正在运行的桌面应用**，支持查询已抓取资源、创建下载、管理下载任务和调用插件业务操作。命令执行完或 Agent 断开后，任务继续由桌面应用运行；退出桌面应用会停止后台下载。
 
 使用前先启动更新后的桌面应用，按[快速开始](getting-started.md)开启抓取并访问目标内容。CLI / MCP 不会自动打开网页、登录网站或把任意网页链接解析为视频。
 
@@ -81,6 +81,23 @@ res-downloader cli downloads retry --id TASK_ID --json
 
 每次请求默认超时 15 秒，可在具体命令后添加 `--timeout 30s`，最大为 `5m`。超时不等于操作没有发生；创建下载或修改任务后遇到连接错误，应先查询任务状态，再决定是否重试。客户端不会自动重试操作。
 
+## 发现和执行插件业务操作
+
+可用操作由已安装插件决定。先在插件卡片的“高级操作”中启用所需的自动化调用，打开对应网页并按需登录；多个匹配页面时选择目标页面。
+
+```bash
+res-downloader cli operations list --args '{}' --json
+res-downloader cli operations get --args '{"pluginId":"com.example.operations","operationId":"search"}' --json
+res-downloader cli operations sessions --args '{}' --json
+res-downloader cli operations invoke --args '{"pluginId":"com.example.operations","operationId":"search","pageSessionId":"PAGE_ID","input":{"query":"example"},"limit":2,"idempotencyKey":"search-example-1"}' --json
+res-downloader cli operations execution --args '{"id":"EXECUTION_ID"}' --json
+res-downloader cli operations history --args '{"offset":0,"limit":50}' --json
+```
+
+上例使用仓库中的演示插件，请替换为实际插件、操作和页面 ID。提交立即返回 `executionId`，通过后续查询的 `data.state`、`data.resultStatus` 和 `data.result` 查看执行结果。请求超时后先查询历史，再决定是否重试。
+
+批量、取消和产物读取的参数见 `cli --help`，完整规则见[业务操作契约](../development/operations.md)。
+
 ## 配置 MCP
 
 MCP 把相同操作提供为 Agent 可以发现和调用的工具。使用 **stdio** 连接，启动命令为：
@@ -108,26 +125,13 @@ Windows 的 `command` 可填写 `C:\\实际安装目录\\res-downloader.exe`；L
 
 无需复制 Token。客户端与桌面应用应使用同一操作系统用户；沙箱中的 Agent 需要能够读取该用户的连接文件并访问本机控制端口。
 
-| MCP 工具 | 参数 | 用途 |
-| --- | --- | --- |
-| `list_resources` | 可选 `offset`、`limit` | 分页查询已抓取资源 |
-| `create_download` | `resourceId` | 创建下载，返回任务 |
-| `list_downloads` | 无 | 查询全部任务 |
-| `get_download` | `id` | 查询单个任务 |
-| `pause_download` | `id` | 暂停任务 |
-| `resume_download` | `id` | 恢复任务 |
-| `cancel_download` | `id` | 取消任务 |
-| `retry_download` | `id` | 重试任务 |
-
 例如，对 Agent 说“查询刚才抓到的视频，下载其中标题为 XXX 的资源，然后告诉我进度”。Agent 可以依次调用 `list_resources`、`create_download` 和 `get_download`。
 
-工具成功时返回 JSON 文本及同样内容的 `structuredContent`；业务错误使用 MCP 的 `isError` 标记。查询工具标记为只读，任务操作标记为会修改状态，客户端可据此展示操作确认。
-
-MCP 可以在桌面应用启动前完成连接和工具发现，但实际调用需要桌面应用运行。每次工具调用都会重新读取当前连接信息，因此桌面应用重启后通常无需重启 MCP 进程。标准输出仅用于 MCP 消息，诊断信息写入标准错误。
+实际调用需要桌面应用运行；应用重启后通常无需重启 MCP 进程。
 
 ## 连接与排查
 
-桌面应用启动后，在用户配置目录的 `control/session.json` 中写入本次连接信息，正常退出时删除。控制服务仅监听 `127.0.0.1` 上的动态端口，独立于抓取代理的 Host / Port 设置。连接凭据每次启动随机生成，只允许上述资源和任务操作，不能用于修改设置、安装证书或控制系统代理。
+桌面应用通过用户配置目录的 `control/session.json` 提供本次连接信息，正常退出时删除。控制连接使用独立的本机端口，无需修改抓取代理的 Host / Port。
 
 默认连接文件位置：
 
@@ -137,7 +141,7 @@ MCP 可以在桌面应用启动前完成连接和工具发现，但实际调用�
 | macOS | `~/Library/Preferences/res-downloader/control/session.json` |
 | Linux | `${XDG_CONFIG_HOME:-$HOME/.config}/res-downloader/control/session.json` |
 
-macOS / Linux 的控制目录仅供当前用户访问；Windows 使用仅允许当前用户与 SYSTEM 的访问控制。不要共享连接文件或把其中内容提交到仓库。
+连接文件包含本次会话凭据，不要共享或提交到仓库。
 
 需要指定连接文件位置时，在具体 CLI 命令或 MCP 命令后添加 `--session-file PATH`。这只改变客户端查找位置，不会改变桌面应用的数据目录。
 

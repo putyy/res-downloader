@@ -12,6 +12,7 @@ import (
 	"res-downloader/internal/control"
 	"res-downloader/internal/events"
 	shared "res-downloader/internal/model"
+	"res-downloader/internal/operation"
 	"res-downloader/internal/plugin"
 	desktopsystem "res-downloader/internal/system"
 	"res-downloader/internal/updates"
@@ -34,21 +35,22 @@ type Runtime struct {
 	closeOnce     sync.Once
 	closeErr      error
 
-	Updates   *updates.Manager
-	App       *App
-	Config    *Config
-	Logger    *Logger
-	System    *SystemSetup
-	Rules     *RuleSet
-	Resources *Resource
-	Plugins   *PluginManager
-	Downloads *DownloadScheduler
-	Media     *mediaEngine
-	Events    *events.Emitter
-	Proxy     *Proxy
-	HTTP      *HttpServer
-	Captures  *capture.Store
-	Control   *control.Server
+	Updates    *updates.Manager
+	App        *App
+	Config     *Config
+	Logger     *Logger
+	System     *SystemSetup
+	Rules      *RuleSet
+	Resources  *Resource
+	Plugins    *PluginManager
+	Downloads  *DownloadScheduler
+	Media      *mediaEngine
+	Events     *events.Emitter
+	Proxy      *Proxy
+	HTTP       *HttpServer
+	Captures   *capture.Store
+	Operations *operation.Service
+	Control    *control.Server
 }
 
 func NewRuntime(assets embed.FS, wailsConfig string) (*Runtime, error) {
@@ -136,6 +138,9 @@ func (r *Runtime) initialise(ctx context.Context) error {
 		_, err := downloads.Enqueue(candidate)
 		return err
 	})
+	if err := r.initialiseOperations(); err != nil {
+		logger.Esg(err, "operation storage unavailable")
+	}
 	resources.SetPlugins(plugins)
 	resources.SetDownloads(downloads)
 	proxy := NewProxy(app, config, rules, plugins, logger)
@@ -286,6 +291,11 @@ func (r *Runtime) closeServices(ctx context.Context) error {
 	if r.HTTP != nil {
 		if err := r.HTTP.Close(ctx); err != nil && first == nil {
 			first = fmt.Errorf("close HTTP gateway: %w", err)
+		}
+	}
+	if r.Operations != nil {
+		if err := r.Operations.Close(); err != nil && first == nil {
+			first = err
 		}
 	}
 	r.logShutdownStage("close download scheduler")

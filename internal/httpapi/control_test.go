@@ -16,6 +16,7 @@ func TestControlTokenIsScopedToAutomation(t *testing.T) {
 		{"/api/download/tasks", http.MethodPost, "", http.StatusUnauthorized},
 		{"/api/download/tasks", http.MethodPost, "desktop-token", http.StatusUnauthorized},
 		{"/api/set-config", http.MethodPost, "control-token", http.StatusNotFound},
+		{"/api/operations/resources", http.MethodPost, "control-token", http.StatusNotFound},
 		{"/api/certificate/install", http.MethodPost, "control-token", http.StatusNotFound},
 		{"/api/resources", http.MethodGet, "control-token", http.StatusMethodNotAllowed},
 		{"/api/download/tasks", http.MethodPost, "control-token", http.StatusOK},

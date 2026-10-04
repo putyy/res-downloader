@@ -9,7 +9,7 @@ description: 下载 res-downloader 插件 SDK v1 的 Manifest JSON Schema 与 Ty
 ## 文件
 
 - [Manifest Schema](/plugin-sdk/plugin-v1.schema.json)：`plugin.json` 的 JSON Schema，覆盖权限、匹配规则、页面脚本、资源类型、设置、声明式提取器、WASM 处理器和资源操作。
-- [`plugin-v1.d.ts`](/plugin-sdk/plugin-v1.d.ts)：JavaScript 插件 API 的 TypeScript 声明，覆盖 Observation、运行时 API、资源、页面命令、刷新结果和下载计划。
+- [`plugin-v1.d.ts`](/plugin-sdk/plugin-v1.d.ts)：JavaScript 插件 API 的 TypeScript 声明，覆盖 Observation、运行时 API、资源、业务操作与页面执行、刷新结果和下载计划。
 
 在支持 JSON Schema 的编辑器中，可以把 `plugin.json` 与 Schema 地址关联：
 
@@ -31,3 +31,5 @@ go run main.go plugin replay <插件目录> <fixture 文件>
 新增或调整插件协议时，应同步更新 Schema、类型声明、示例、fixture 和插件开发文档。
 
 JSON Schema 负责字段提示，无法证明插件包的分发来源。`plugin lint`、`plugin replay` 和 `plugin pack` 也不授予官方身份；它们允许开发阶段处理 `official.` 插件。安装时的来源判定、`builtin.` / `official.` 保留前缀限制见[插件来源与保留 ID](extension-store.md#插件来源与保留-id)。
+
+业务操作的声明、页面执行与结果规则见[业务操作契约](operations.md)。

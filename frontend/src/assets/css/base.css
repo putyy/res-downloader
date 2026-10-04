@@ -1,28 +1,29 @@
 @layer base {
-    *,
-    *::before,
-    *::after {
-        @apply box-border m-0 font-normal;
-    }
+  *,
+  *::before,
+  *::after {
+    @apply box-border m-0 font-normal;
+  }
 
-    body {
-        @apply min-h-screen bg-app-background text-app-text text-[15px] leading-[1.6] antialiased transition-[color,background-color] duration-500 ease-[ease];
-        font-family: Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        'Segoe UI',
-        Roboto,
-        Oxygen,
-        Ubuntu,
-        Cantarell,
-        'Fira Sans',
-        'Droid Sans',
-        'Helvetica Neue',
-        sans-serif;
-        text-rendering: optimizeLegibility;
-    }
+  body {
+    @apply min-h-screen bg-app-background text-app-text text-[15px] leading-[1.6] antialiased transition-[color,background-color] duration-500 ease-[ease];
+    font-family:
+      Inter,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Oxygen,
+      Ubuntu,
+      Cantarell,
+      "Fira Sans",
+      "Droid Sans",
+      "Helvetica Neue",
+      sans-serif;
+    text-rendering: optimizeLegibility;
+  }
 
-    #app {
-        @apply h-screen w-screen;
-    }
+  #app {
+    @apply h-screen w-screen;
+  }
 }
