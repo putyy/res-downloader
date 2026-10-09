@@ -35,7 +35,15 @@
     </template>
 
     <div class="text-app-muted text-xs">
-      {{ extension.repository }}<span v-if="extension.license"> · {{ extension.license }}</span>
+      <button
+        type="button"
+        class="cursor-pointer rounded-sm border-0 bg-transparent p-0 text-left text-xs hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        :title="t('plugin.store_repository')"
+        @click="openRepository"
+      >
+        {{ extension.repository }}
+      </button>
+      <span v-if="extension.license"> · {{ extension.license }}</span>
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>

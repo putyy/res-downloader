@@ -9,13 +9,11 @@ const copy = computed(() => lang.value.startsWith('zh') ? {
   flow: ['发现资源', '即时预览', '保存精彩'],
   audio: '留住此刻的声音',
   image: '收集灵感碎片',
-  hint: '按住卡片左右拖动 · 点击或按 Enter 翻面',
 } : {
   label: 'Illustration of video, audio and images flowing into the download center',
   flow: ['DISCOVER', 'PREVIEW', 'KEEP'],
   audio: 'Sounds of the moment',
   image: 'A little inspiration',
-  hint: 'Drag the card · Click or press Enter to flip',
 })
 
 const waveform = [24, 42, 30, 65, 90, 52, 76, 100, 58, 84, 40, 66, 92, 48, 72, 34, 54, 24]
@@ -57,7 +55,6 @@ const waveform = [24, 42, 30, 65, 90, 52, 76, 100, 58, 84, 40, 66, 92, 48, 72, 3
         </template>
       </div>
     </div>
-    <figcaption class="resd-art-hint">↔ {{ copy.hint }}</figcaption>
   </figure>
 </template>
 
@@ -121,8 +118,6 @@ const waveform = [24, 42, 30, 65, 90, 52, 76, 100, 58, 84, 40, 66, 92, 48, 72, 3
 .resd-art-flow { position: absolute; right: 3%; bottom: -6%; display: flex; align-items: center; gap: 10px; color: var(--vp-c-text-2); font-size: 9px; letter-spacing: 0.03em; }
 .resd-art-flow i { margin-right: 5px; color: #fb923c; font: normal 9px/1 var(--vp-font-family-mono); }
 .resd-art-flow-arrow { color: var(--art-muted); }
-figcaption { margin: 40px 3% 0 0; text-align: right; color: var(--art-muted); font-size: 10px; letter-spacing: 0.08em; }
-.resd-art-hint { color: var(--vp-c-text-2); letter-spacing: 0; }
 
 @keyframes resd-art-float {
   0%, 100% { translate: 0 0; }
@@ -142,7 +137,6 @@ figcaption { margin: 40px 3% 0 0; text-align: right; color: var(--art-muted); fo
   .resd-art-image { bottom: -3%; padding: 8px 10px; }
   .resd-art-image-icon { width: 34px; height: 34px; }
   .resd-art-flow { bottom: -9%; gap: 6px; }
-  figcaption { margin-top: 42px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

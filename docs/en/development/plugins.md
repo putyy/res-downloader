@@ -49,7 +49,7 @@ For a simple JSON API, copy `declarative-basic`. The WASM example is `wasm-xor`.
 go run main.go plugin create
 ```
 
-Press Enter at each prompt to use the default parent directory `./plugins` and set both the plugin ID and display name to `com.example.my-plugin`. This creates `./plugins/com.example.my-plugin`. You can also provide arguments directly:
+Press Enter at every prompt to create `./plugins/com.example.my-plugin`, with both the ID and display name set to `com.example.my-plugin`. You can also provide arguments directly:
 
 ```bash
 go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plugin "Example Video"
@@ -57,11 +57,9 @@ go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plug
 
 The scaffold contains `plugin.json`, `main.js`, `README.md`, `.gitignore`, an empty `fixtures/` directory, and `.github/workflows/release.yml` calling the shared release workflow.
 
-Plugins include an **Enable logging** setting named `enableLog`, with type `boolean` and default `false`. Manually created plugins should also declare this setting and provide Chinese and English labels.
-
 ### 2. Edit the Manifest and entry point
 
-At minimum, change the plugin `id`, name, version, permitted domains, and matching rules. Use a stable reverse-domain ID such as `com.example.video`. Community plugins cannot use the host-reserved `builtin.` or `official.` prefixes, including case variants. See [Plugin sources and reserved IDs](extension-store.md#plugin-sources-and-reserved-ids) for how official plugins and local ZIPs are classified.
+Change the plugin `id`, name, version, domains, and matching rules. Use a stable reverse-domain ID such as `com.example.video`. Community plugins cannot use the case-insensitive `builtin.` or `official.` prefixes; see [Plugin sources and reserved IDs](extension-store.md#plugin-sources-and-reserved-ids).
 
 JavaScript plugins can implement `onObservation` in `main.js`. Start by matching one response and reporting one resource, then add correlation, refresh, or download processing as needed.
 
@@ -84,20 +82,7 @@ go run main.go plugin replay ./plugins/com.example.my-plugin ./plugins/com.examp
 go run main.go plugin pack ./plugins/com.example.my-plugin
 ```
 
-The default output is `<plugin-directory>/dist/plugin.zip`. To save it elsewhere, add an output path at the end of the command.
-
-The packer excludes:
-
-- Directories: `.git/`, `.github/`, `.idea/`, `.vscode/`, `dist/`, and `tests/`.
-- Files: the output ZIP itself, plus `.gitignore`, `.DS_Store`, `README.md`, and `LICENSE`.
-
-These are the packer's own rules; it does not read `.gitignore`. Git's rules determine whether `dist/plugin.zip` can be committed to the plugin repository.
-
-To test the package, select the generated ZIP under **Plugins** in the app and install it. During development, you can also place the plugin directory in the `plugins` subdirectory of res-downloader's data directory, then click **Reload**.
-
-For local ZIP source labels, reserved IDs, and replacement conditions, see [Plugin sources and reserved IDs](extension-store.md#plugin-sources-and-reserved-ids) and [Other distribution methods](extension-store.md#other-distribution-methods).
-
-Keep your own JavaScript tests in `tests/` at the plugin repository root, preferably named `*.test.js`. This directory is excluded from the package. Sanitized data used by `plugin replay` stays in `fixtures/`.
+The default output is `<plugin-directory>/dist/plugin.zip`; append another output path if needed. Install the ZIP under **Plugins** in the app. During development, you can also place the plugin directory in the app data directory's `plugins/` folder and click **Reload**. See [Other distribution methods](extension-store.md#other-distribution-methods) for local ZIP installation rules.
 
 ## Development requirements
 
@@ -131,11 +116,16 @@ Plugins load when the app starts. During development, click **Reload** to load c
 
 App upgrades overwrite official plugins. To customize one, copy it with a new plugin ID.
 
+Keep JavaScript tests in `tests/` at the plugin repository root, preferably named `*.test.js`, and offline replay data in `fixtures/`.
+
+The packer applies these fixed exclusions without reading `.gitignore`:
+
+- Directories: `.git/`, `.github/`, `.idea/`, `.vscode/`, `dist/`, and `tests/`.
+- Files: the output ZIP itself, plus `.gitignore`, `.DS_Store`, `README.md`, and `LICENSE`.
+
 ## Manifest
 
-The Manifest file can be `plugin.json`, `plugin.yaml`, or `plugin.yml`:
-
-For JSON, use the [Manifest Schema and editor declarations](plugin-sdk.md) for field assistance. After making changes, run `plugin lint` to check the configuration and entry files. Installation still performs validation according to the plugin's source.
+For JSON, use the [Manifest Schema and editor declarations](plugin-sdk.md) for field assistance:
 
 ```yaml
 id: com.example.video
@@ -199,27 +189,27 @@ settingsSchema:
 
 Main fields:
 
-| Field | Required | Description |
-| --- | --- | --- |
+| Field | Required | Description                                                                                                                                                                                                  |
+| --- | --- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `id` | Yes | Up to 64 characters: letters, digits, dots, hyphens, and underscores only. Reserved prefixes are case-insensitive; see [Plugin sources and reserved IDs](extension-store.md#plugin-sources-and-reserved-ids) |
-| `name` | Yes | Plugin name shown when localized text is unavailable |
-| `author` | No | `name` appears on the plugin card; `url` must be an HTTP/HTTPS address |
-| `version` | Yes | Semantic version, for example `1.2.0` |
-| `apiVersion` | Yes | Must currently be `1` |
-| `runtime` | Yes | `javascript` or `declarative` |
-| `entry` | For JavaScript | A `.js` entry inside the plugin directory, up to 1 MiB |
-| `priority` | No | Higher values run first; multiple plugins may process the same request |
-| `permissions` | Yes | Permitted domains, capabilities, and body size limit |
-| `match` | Yes | Request or response matching rules; an empty array matches all permitted stages within the permitted domains |
-| `locales` | No | Translations of the plugin name and description |
-| `resourceKinds` | No | Site-specific resource kinds and display labels |
-| `settingsSchema` | No | Plugin setting structure, defaults, and form hints |
-| `pageScripts` | No | Scripts injected by the host into matching HTML pages |
-| `extractors` | For declarative | Rules for extracting resources from JSON bodies |
-| `processors` | No | Plugin-provided WASM processors |
-| `operations` | No | Independent business capabilities and schemas; see [Operations](operations.md) |
-| `actions` | No | Local file processing or business operation references displayed by the host |
-| `requires` | No | Optional host tool requirements, such as `ffmpeg: ">=6.0"` |
+| `name` | Yes | Plugin name shown when localized text is unavailable                                                                                                                                                         |
+| `author` | No | `name` appears on the plugin card; `url` must be an HTTP/HTTPS address                                                                                                                                       |
+| `version` | Yes | Semantic version, for example `1.0.0`                                                                                                                                                                        |
+| `apiVersion` | Yes | Must currently be `1`                                                                                                                                                                                        |
+| `runtime` | Yes | `javascript` or `declarative`                                                                                                                                                                                |
+| `entry` | For JavaScript | A `.js` entry inside the plugin directory, up to 1 MiB                                                                                                                                                       |
+| `priority` | No | Higher values run first; multiple plugins may process the same request                                                                                                                                       |
+| `permissions` | Yes | Permitted domains, capabilities, and body size limit                                                                                                                                                         |
+| `match` | Yes | Request or response matching rules; an empty array matches all permitted stages within the permitted domains                                                                                                 |
+| `locales` | No | Translations of the plugin name and description                                                                                                                                                              |
+| `resourceKinds` | No | Site-specific resource kinds and display labels                                                                                                                                                              |
+| `settingsSchema` | No | Plugin setting structure, defaults, and form hints                                                                                                                                                           |
+| `pageScripts` | No | Scripts injected by the host into matching HTML pages                                                                                                                                                        |
+| `extractors` | For declarative | Rules for extracting resources from JSON bodies                                                                                                                                                              |
+| `processors` | No | Plugin-provided WASM processors                                                                                                                                                                              |
+| `operations` | No | Independent business capabilities and schemas; see [Operations](operations.md)                                                                                                                               |
+| `actions` | No | Local file processing or business operation references displayed by the host                                                                                                                                 |
+| `requires` | No | Optional host tool requirements, such as `ffmpeg: ">=6.0"`                                                                                                                                                   |
 
 In `match`, `host`, `path`, and the full `url` support `*` wildcards; `method` is case-insensitive. `contentTypes` matches the response Content-Type. `readBody` determines whether a matching rule needs the body. Set `readBody: false` explicitly when only the URL or response headers are needed.
 
@@ -275,7 +265,7 @@ Each JavaScript hook call runs in an independent environment. The main limits ar
 | Total time including queuing | Up to 10 seconds, including time waiting for other calls to finish |
 | Concurrent calls | Up to 4 per plugin |
 
-Cancelling a request also interrupts its JavaScript execution. A call that has timed out but has not yet exited still counts toward the concurrency limit until it ends. The app records slow calls and suspends plugin execution after consecutive failures.
+Cancelling a request interrupts its execution. Timed-out calls still occupy a concurrency slot until they exit. Consecutive failures suspend plugin execution; fix the issue and reload.
 
 The plugin environment provides no Node.js, `fetch`, filesystem, or system-command APIs, and cannot wait for Promises. Use the app's correlation APIs to retain associations across requests. JavaScript globals are not retained between calls.
 
@@ -283,7 +273,7 @@ The plugin environment provides no Node.js, `fetch`, filesystem, or system-comma
 
 JavaScript plugins declare scripts to inject into pages through `pageScripts`. The app's MITM proxy performs the injection, so TLS interception must be enabled for the target domain.
 
-Page script injection does not go through `onObservation` and is not subject to that hook's `bodyLimit` or 5-second execution limit. Only `document-start` is currently supported. Set `frames` to `top` (the default, top-level pages only) or `all` (including subframes).
+Page scripts are not subject to plugin hook body or execution limits and can use browser async APIs, subject to CSP, same-origin policy, and bridge restrictions. Only `document-start` is supported. Set `frames` to `top` (the default, top-level pages only) or `all` (including subframes).
 
 ```json
 {
@@ -334,9 +324,9 @@ The four methods serve these purposes:
 
 The page script must order segments for playback and remove duplicates. The app does not parse the site's private streaming protocol. A segment may be at most 32 MiB. Each page session may use up to 4 capture keys simultaneously and write up to 16 GiB in total.
 
-Writes are checked against the page Origin, session token, and plugin permissions. A page can access only capture caches permitted for the current plugin, not arbitrary files or another plugin's caches.
+Writes require a valid page Origin, session token, and plugin permissions, and can access only the current plugin's cache.
 
-With the bridge enabled, page-to-plugin messages use same-origin POST, and plugin-to-page messages use SSE. The proxy answers internal addresses directly instead of forwarding them to the website. Each page load receives its own `pageSessionId`. Closing the page or reloading, disabling, or uninstalling the plugin invalidates the session.
+Each page load receives its own `pageSessionId`. Closing the page or reloading, disabling, or uninstalling the plugin invalidates the session.
 
 Plugins handle page messages through a synchronous top-level hook:
 
@@ -350,7 +340,7 @@ function onPageMessage(message, context, api) {
 }
 ```
 
-Plugins with `enqueue-download` can return `autoDownload: true` in a page message result. The app creates tasks only for resources in that same result that passed validation, were successfully published, and have stable `groupKey` values, up to 4 per call. Missing permissions, incomplete resources, or invalid download plans prevent queuing:
+With `enqueue-download`, return `autoDownload: true` in a page message result to create tasks for resources in that same result that passed validation, were published, and have stable `groupKey` values, up to 4 per call. Incomplete resources or invalid plans prevent queuing. Webpages cannot specify file paths or control other tasks:
 
 ```javascript
 return {
@@ -371,8 +361,6 @@ Ordinary messages and replies must be JSON, up to 64 KiB each. Use `pageApi.capt
 Use `pageApi.operations` to register handlers and business readiness. The host selects an explicit page and manages execution, results and cancellation; see [Plugin operations](operations.md).
 
 Page scripts and website code run in the same webpage JavaScript environment. Website code may read or imitate bridge requests, so plugins must validate incoming page messages.
-
-By default, the bridge does not allow webpages to access files, shell, databases, the downloader, or other plugins. With `enqueue-download`, a plugin can create download tasks for resources just reported and validated in the current call. The webpage still cannot specify file paths or arbitrarily control download tasks.
 
 ### Writing and reporting a file from a page
 
@@ -473,8 +461,20 @@ Resource fields:
 - `coverUrl`: an optional cover URL. Do not put large Base64 images into resources.
 - `technical`: optional MIME, container, codec, and duration information for display or naming.
 - `lifecycle.expiresAt`: an optional millisecond timestamp for the expected URL expiration time.
-- `metadata`: namespace site-private fields. The generic `author` field is available to filename templates.
+- `metadata`: namespace site-private fields. The generic `author`, `createdAt`, and `publishedAt` fields are available to filename templates.
 - `actions`: references host actions declared in the Manifest, such as WASM local file processing or business operations. Dynamic arguments are stored in the action's `data`.
+
+Use `metadata.createdAt` for creation time and `metadata.publishedAt` for publication time. Both are optional Unix millisecond timestamps: finite integer `number` values greater than 0 and no greater than `253402300799999`. Convert site timestamps in seconds to milliseconds, and parse date strings using the site's explicit time zone. Do not use strings, seconds, capture time, or publication time as a substitute for creation time.
+
+```javascript
+metadata: {
+  author: "Example author",
+  createdAt: 1788220800000,   // 2026-09-01T00:00:00Z
+  publishedAt: 1788307200000 // 2026-09-02T00:00:00Z
+}
+```
+
+Both fields can be used in filenames; see [Filename template](../guide/settings.md#filename-template).
 
 Resource output must also meet these constraints:
 
@@ -495,7 +495,7 @@ A collection parent should use `media.collection`, a stable `groupKey`, and the 
 
 ### Incremental aggregation and correlation
 
-`api.upsert(resource)` and `api.emit(resource)` have the same submission behavior. When the same plugin reports the same `groupKey` multiple times, the app combines those reports into one resource and updates tracks by `track.id`. Other concurrent updates cannot interrupt the merge. Once complete, the app notifies the UI to update.
+`api.upsert(resource)` and `api.emit(resource)` behave the same way. Reports from the same plugin with the same `groupKey` merge into one resource, updating tracks by `track.id`.
 
 Do not pair audio and video by request arrival order. First obtain the content ID and download addresses from the site's API, then register URLs that may refer to the same resource or track as aliases:
 
@@ -562,7 +562,7 @@ The API argument for each hook is:
 | `createDownloadPlan(input, api)` | Basic `PluginBaseAPI`, containing only `log` and `pluginVersion` |
 | `refreshResource(input, api)` | Basic `PluginBaseAPI`, containing only `log` and `pluginVersion` |
 
-The basic API needs no additional permission. Submit download plans and refresh results through return values. Every hook call runs in an independent environment, so API objects cannot be retained between calls.
+The basic API needs no additional permission. Submit download plans and refresh results through return values.
 
 ### Observation structure
 
@@ -611,10 +611,25 @@ interface PluginResult {
 }
 ```
 
-- `handled: true` means the site plugin has recognized the response. The app skips the final generic detector.
+- `handled: true` means the site plugin has taken responsibility for the response. Other site plugins still run, but the final `builtin.generic-detector` is skipped to avoid duplicate generic resources. Leave it unset when only logging diagnostics or modifying a response.
 - `decision: "stop"` immediately stops subsequent plugins. Use it only when exclusive handling is needed.
 - `patch` requires `modify-response`; `syntheticResponse` requires `intercept-request`.
 - `diagnostics` is for sanitized development diagnostics and must not contain request credentials or complete private URLs.
+
+### Response modification and request interception
+
+Modifying a response requires `modify-response`. Truncated bodies cannot be modified:
+
+```javascript
+return {
+  patch: {
+    body: modifiedBody,
+    headers: {"X-Plugin": "com.example.video"}
+  }
+}
+```
+
+Request interception uses `syntheticResponse` and requires `intercept-request`.
 
 ### Runtime API
 
@@ -633,21 +648,35 @@ interface PluginResult {
 | `api.page.broadcast(filter, message)` | `number` | Broadcast to matching pages and return the number of recipient sessions |
 | `api.page.sessions(filter?)` | `PageMessageContext[]` | List page sessions visible to the current plugin |
 
-Calling `emit` adds the resource to the current call's pending output. The app then validates its fields, size, URLs, tracks, processors, and actions. Resources must meet these requirements to work correctly.
+Reported resources must pass host validation; see [Resource model](#resource-model) for field constraints.
 
-The app controls `api.log()` in all four hooks using the current call's settings. These come from `observation.settings`, page message `context.settings`, or `input.options.settings`.
+Declare `enableLog` in `settingsSchema.properties` as a boolean with default `false` and Chinese and English labels. Only `true` enables `api.log()`; plugins need not check the switch themselves. Plugin load and execution errors are still logged. See [application logs](../guide/troubleshooting.md#find-application-logs) for log locations.
 
-- Plugin logs are written only when `enableLog` is boolean `true`. Missing, `false`, or incorrectly typed values disable them.
-- Plugins can call `api.log()` directly without checking the switch again.
-- App errors such as plugin load failures or hook exceptions are unaffected by this setting.
+### Resource refresh
 
-To show the log switch in plugin management, declare `enableLog` in `settingsSchema.properties`. Saved settings are still validated against the Manifest. See [application logs](../guide/troubleshooting.md#find-application-logs) for log locations.
+Implement `refreshResource(input, api)` when URLs or request credentials expire. Like `createDownloadPlan`, it receives `{resource, options}` and the base API:
+
+```javascript
+return {
+  status: "refreshed",
+  resource: updatedResource,
+  message: ""
+}
+```
+
+| status | Returned resource |
+| --- | --- |
+| `refreshed` | Complete updated resource |
+| `authenticationRequired` | Original resource; sign-in required |
+| `recaptureRequired` | Original resource; reopen the page to capture again |
+
+Use `message` for an optional sanitized hint. An absent implementation or `null` result means refresh is unsupported. Plugins cannot make their own network requests; typically obtain new data through page scripts or fresh network observations and update the resource with a stable `groupKey`.
 
 ### Saving files directly from plugins
 
 `onObservation` and `onPageMessage` can call `api.capture.save(data)` to synchronously save text or binary files. The `capture-response-body` permission is required; otherwise `api.capture` is absent.
 
-The following `onObservation` example saves a sample caption after a successful response, then uses the returned cache key in a file resource. Declare `observe-response`, `capture-response-body` and `emit-resource` in the Manifest, with the target domains and matching rules. A real plugin should extract content from the matched response and generate a stable `groupKey` for each resource.
+This example requires `observe-response`, `capture-response-body`, and `emit-resource`, with target domains and matching rules. A real plugin should extract content from the response and generate a stable `groupKey` per resource:
 
 ```javascript
 function onObservation(observation, api) {
@@ -670,13 +699,13 @@ This single-track file resource can use the host's default download plan without
 
 Strings are encoded as UTF-8; byte views preserve their exact view bounds and bytes. Empty data, ordinary arrays, objects and other numeric TypedArrays are rejected. Each hook may save up to eight files and 32 MiB in total, counting failed writes. Time spent saving counts toward the hook execution time limit. Invalid inputs, exceeded limits, unavailable storage and I/O failures throw. Incomplete writes are aborted on a best-effort basis and produce no successful result.
 
-The returned `captureKey` is generated by the host and scoped to the plugin; `size` is the actual byte count. The file is complete when the call returns. Use the key unchanged in capture-file tracks and download inputs, without adding a plugin prefix. Every save creates a fresh key, preserving files already in use. Completed files left unreferenced when a later hook operation fails or reports no resource follow the [cache expiry rules](#previewing-captured-files); the entire hook is not a file transaction.
+The returned `captureKey` is random and scoped to the plugin; use it unchanged in `capture-file` tracks and download inputs. `size` is the actual byte count, and the file is complete when the call returns. Each save creates a new key. If the hook later fails or reports no resource, saved files are not rolled back and follow the [cache expiry rules](#previewing-captured-files).
 
-`createDownloadPlan` and `refreshResource` receive only the base API and cannot call `api.capture.save`. CLI fixture replay uses a temporary capture store and removes it afterward without touching the running application's cache.
+CLI fixture replay uses a temporary capture store and removes it afterward without touching the app's cache.
 
 ### Capturing response bodies
 
-To reuse data the browser successfully received but cannot request again using the same URL, return a capture instruction from the response hook. The app caches the current response bytes without interpreting the site's protocol. Capture keys are automatically limited to the current plugin:
+To reuse response bodies already received by the browser, return a capture instruction from the response hook. Cache keys are scoped to the plugin:
 
 ```javascript
 return {
@@ -698,38 +727,7 @@ return {
 }
 ```
 
-`range-file` combines byte ranges using the response `Content-Range`, request `Range`, or `range` and `clen` in the URL. If the browser has not loaded every range, `capture-file` refuses to produce an incomplete file and asks the user to load more and retry. See [Previewing captured files](#previewing-captured-files) for cache size and expiry rules. This capability does not bypass login, CSP, proxies, or site access controls.
-
-The supported functions are `onObservation`, `onPageMessage`, `createDownloadPlan`, and `refreshResource`. All are optional synchronous top-level functions; Goja hooks cannot wait for Promises. Page scripts run in the browser and can use its asynchronous APIs, subject to the page's CSP, same-origin policy, and bridge restrictions.
-
-When a site plugin takes responsibility for a response, it should return `handled: true`. Other high-priority site plugins still run, but the final `builtin.generic-detector` is skipped, avoiding an additional generic MIME/HLS resource. `decision: "stop"` immediately stops the remaining plugin chain and should be used only for exclusive handling. Do not set `handled` when only producing diagnostics or modifying a response while still expecting the generic detector to run.
-
-If resource URLs, headers, or signatures expire, implement `refreshResource(input, api)`. It receives the same `{resource, options}` and basic API as `createDownloadPlan`, can use `api.log` for refresh diagnostics, and returns:
-
-```javascript
-return {
-  status: "refreshed",
-  resource: updatedResource,
-  message: ""
-}
-```
-
-`status` can be `refreshed`, `authenticationRequired`, or `recaptureRequired`. On success, return the complete updated resource. If sign-in or reopening the page is needed, return the original resource with the corresponding status and optionally a nonsensitive `message`. An absent implementation or a `null` result means refresh is unsupported.
-
-Refresh logic can calculate new values only from existing information such as resource IDs, page URLs, and current settings. Plugins have no `fetch` and cannot generate login credentials. Usually, obtain new data through page scripts or fresh network observations, then update the resource using a stable `groupKey`.
-
-Modifying a response requires `modify-response`:
-
-```javascript
-return {
-  patch: {
-    body: modifiedBody,
-    headers: {"X-Plugin": "com.example.video"}
-  }
-}
-```
-
-Request interception uses `syntheticResponse` and requires `intercept-request`.
+`range-file` merges byte ranges using the response `Content-Range`, request `Range`, or `range` and `clen` in the URL. If data is incomplete, `capture-file` refuses the download; load the remaining data and retry. See [Previewing captured files](#previewing-captured-files) for cache size and expiry rules.
 
 ### Previewing captured files
 
@@ -751,7 +749,7 @@ Preview supports GET, HEAD, single/multiple and suffix byte ranges, using the de
 
 Captured previews with input or output processors transform the complete file before serving ranges of the resulting representation. This path accepts at most 4 MiB of input and returns 422 above that limit; normal processed downloads remain available. Unprocessed files have no such preview input limit.
 
-Each cached object may be at most 16 GiB; individual write APIs also have file count, segment size or total byte limits. On startup, the app clears capture caches older than 24 hours. Preview requests use a resource ID, and the host resolves the cache key from a validated download plan. Requests cannot specify arbitrary file paths or another plugin's cache.
+Each cached object may be at most 16 GiB, with additional count and byte limits on write APIs. On startup, the app clears caches older than 24 hours. Previews use resource IDs, not arbitrary file paths or another plugin's cache.
 
 ## Download plans
 
@@ -772,7 +770,7 @@ return {
 }
 ```
 
-The app downloads `inputs` in parallel, runs the `pipeline` steps in order, and then runs output processors. Only after all processing succeeds does it save the temporary result to the final path. The app manages progress, temporary files, cancellation, and cleanup after failures.
+The app downloads `inputs` in parallel, runs `pipeline` steps and output processors in order, and saves the final file only after all steps succeed.
 
 Pause and stop behavior depends on the current stage:
 
@@ -855,7 +853,7 @@ processors: [{
 
 ### Process local files
 
-Plugins can expose a declared WASM processor as a resource action. For example, a user can copy a link, download the encrypted file with another tool, then return to the resource's action menu to decrypt it:
+A `process-file` resource action lets users select a local file for a declared WASM processor:
 
 ```json
 {
@@ -883,11 +881,11 @@ actions: [{
 }]
 ```
 
-The app displays and executes `process-file` actions. After the user chooses a file through a system dialog, the app invokes the WASM processor declared by the current plugin. The plugin does not receive file paths or arbitrary file access. The result is saved in the original directory with `.decrypted` added to the filename; the original file is preserved.
+The plugin does not receive file paths or arbitrary file access. The result is saved in the original directory with `.decrypted` added to the filename; the original file is preserved.
 
 ### Resource operation references
 
-Resource buttons use `kind: "operation"` and `operation` to reference a manifest operation. Inputs come from saved resource `action.data`; the host validates ownership and invokes the unified execution service. See [Plugin operations](operations.md).
+Use `kind: "operation"` and `operation` to reference a Manifest operation, with input from the resource's `action.data`. See [Plugin operations](operations.md).
 
 ### ABI v1
 
@@ -970,10 +968,8 @@ Each selector uses `{path: "$.field"}` to read data or `{value: "constant"}` for
 Validate plugins without starting the proxy:
 
 ```bash
-go run main.go plugin create
 go run main.go plugin lint ./plugins/com.example.my-plugin
 go run main.go plugin replay ./examples/plugins/javascript-basic ./examples/plugins/javascript-basic/fixtures/video.json
-go run main.go plugin pack ./plugins/com.example.my-plugin
 ```
 
 A fixture contains a sanitized `observation` and expected results:
@@ -1007,26 +1003,11 @@ A fixture can contain one `observation` or use `observations` to replay several 
 
 Expected results support `resourceCount`, `resourceUrls`, `processorTypes`, `decision`, and `patchBodyContains`. Templates live in `examples/plugins/`. See [Plugin SDK v1](plugin-sdk.md) for JSON Schema and TypeScript declarations.
 
-Fixture guidelines:
-
-- Keep only headers and body fields needed to match requests and generate resources.
-- Retain real domains, but replace private paths, account details, and resource IDs with stable example values.
-- Remove or replace cookies, Authorization headers, device identifiers, and temporary signatures.
-- Use `observations` for a fixed replay order when testing correlation, while keeping the plugin independent of live request arrival order.
-- Assert at least resource count and URLs. Processor plugins should also assert `processorTypes`.
+Keep only fields needed to match requests and generate resources. Retain real domains, but replace private paths, account details, and resource IDs with stable example values. Remove or replace cookies, Authorization headers, device identifiers, and temporary signatures. Assert at least resource count and URLs; processor plugins should also assert `processorTypes`.
 
 ## Debugging and common errors
 
-Plugin cards show Manifest validation, entry compilation, and runtime errors. Troubleshoot in this order:
-
-1. Run `plugin lint` and resolve directory, field, permission, and entry-file errors first.
-2. Run `plugin replay` and confirm that the fixture consistently produces the expected resources.
-3. Reload the plugin in the app and check the latest errors on its card and in the logs.
-4. Confirm that the page generated new requests and that their domains and paths match `permissions.domains` and `match`.
-5. Check body permissions, `readBody`, Content-Type, and `truncated`.
-6. Finally, check whether site APIs, login state, or signatures have changed.
-
-Common issues:
+Run `plugin lint` and `plugin replay` first, then reload the plugin in the app and trigger new page requests. Check the plugin card and logs for errors:
 
 | Symptom | Common causes |
 | --- | --- |
@@ -1039,29 +1020,21 @@ Common issues:
 | Page script is not injected | No TLS interception, compressed response, restrictive CSP, or no suitable injection point |
 | Fixture passes but live traffic fails | Missing fixture branches, changed site data, expired credentials, or a different request order |
 
-Each JavaScript hook may run for up to 5 seconds, including initialization and conversion of the returned result. Including queuing, the total limit is 10 seconds. Scripts running in webpages are not subject to that hook limit, but operations still have limits on waiting for execution, progress reporting, and total running time.
-
-Avoid processing oversized objects in loops. Do not log complete responses, cookies, or signed URLs. Prepare sanitized fixtures for issues that need repeated investigation.
+Avoid processing oversized objects in loops or logging complete responses and sensitive URLs. Prepare sanitized fixtures for recurring issues. See [Plugin operations](operations.md) for operation time limits.
 
 ## Pre-release checks
 
-Before publishing, complete these recommended checks. See [Publishing requirements and recommendations](extension-store.md#publishing-requirements-and-recommendations) for the conditions required for store listing.
+- ID, version, and permissions meet the requirements; names, descriptions, resource kinds, and settings have Chinese and English text.
+- Logs, fixtures, README, and example settings are sanitized.
+- `plugin lint`, `plugin replay`, and `plugin pack` succeed, with fixtures covering major branches and multi-request correlation.
+- The package includes JavaScript, WASM, page scripts, and other runtime files.
+- Installation and basic operations are verified using the final ZIP in the current stable app.
 
-- The plugin has a stable ID following the [reserved ID rules](extension-store.md#plugin-sources-and-reserved-ids), and uses semantic versioning.
-- Domains and capabilities are limited to actual needs.
-- Manifest names, author information, descriptions, resource kinds, and settings have appropriate translations.
-- At least one sanitized fixture passes offline replay. Complex branches and multi-request correlation have multiple fixtures.
-- JavaScript, WASM, page scripts, and other runtime files are included in the plugin directory.
-- Logs, fixtures, README, and example settings contain no account details, cookies, Authorization headers, or private URLs.
-- `go run main.go plugin lint ...`, `go run main.go plugin replay ...`, and `go run main.go plugin pack ...` all succeed.
-- For extension store releases providing a `dist/plugin.zip` acceleration package, it has been rebuilt and committed before tagging.
-- Installation and basic operations have been checked with the final ZIP in the current stable app.
-
-See [Publishing to the Extension Store](extension-store.md) for public repository structure, GitHub topic, release tag, and version requirements.
+See [Extension Store](extension-store.md) for listing requirements, repository configuration, and publishing steps.
 
 ## Maintaining bundled plugins (project maintainers only)
 
-This section covers the plugin snapshots shipped with the app. Independent plugin authors need only the development, packaging, and publishing steps above.
+These commands maintain plugin snapshots shipped with the app. Independent plugin authors do not need them.
 
 From the `res-downloader` source root, run `go run main.go plugin sync-bundled <plugin-directory>` to validate the source plugin and replace the old snapshot with the same ID under `internal/plugin/bundled/`, using the source directory's name.
 

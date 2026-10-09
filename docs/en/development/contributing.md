@@ -12,6 +12,8 @@ This project is built with [Go](https://go.dev/doc/), [Wails](https://wails.io/d
 
 Code contributors need a working knowledge of the relevant programming languages, development tools, and Git, and should be able to read existing code and independently perform basic builds, debugging, and validation. Maintainers focus on project issues and PR reviews. Their time and capacity are limited, so they cannot provide programming lessons from scratch or guidance throughout the entire development process. Please use relevant documentation and tutorials to learn the fundamentals. Thank you for your understanding.
 
+`You may use AI to contribute, but describe the problem and explain the implementation yourself, including in issue and pull request titles and descriptions.`
+
 ## Before opening a PR
 
 Bug fixes and documentation updates can be submitted directly. For new features, architecture changes, or large refactors, open an issue and agree on the approach before starting development. Large PRs without prior discussion may not be reviewed or may need to be split and resubmitted.
@@ -46,6 +48,8 @@ The PR description should explain:
 - **Problem and purpose:** Link an existing issue and describe the trigger, current behavior, and expected result.
 - **Resulting behavior:** Explain what changes and which platforms or features are affected. For UI changes, include before-and-after screenshots when helpful.
 - **Validation:** List the checks and test commands you actually ran, their results, and anything still unverified. A successful compilation does not establish that every feature works.
+
+Use the repository's [PR template](https://github.com/putyy/res-downloader/blob/master/.github/pull_request_template.md) as a guide.
 
 ## Before submitting
 

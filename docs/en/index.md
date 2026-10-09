@@ -53,7 +53,7 @@ Windows 7 only supports version `2.3.0` in the [legacy archive](https://github.c
 ## How to use it
 
 1. **Install and launch**: allow the network access requested by your operating system.
-2. **Install the certificate**: open **Setting → Certificate** and install this device's certificate.
+2. **Install the certificate**: on first launch, follow the instructions to install this computer's certificate and approve the system authorization request.
 3. **Start capturing**: return to **Intercept** and click **Start Grabbing**.
 4. **Open the content**: select resource types, then open the content in a browser, phone, or desktop app.
 5. **Preview and download**: create downloads from the resource list and track their progress in **Downloads**.

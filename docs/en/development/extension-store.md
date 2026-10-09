@@ -2,7 +2,7 @@
 description: Publish res-downloader plugins to the extension store using GitHub topics, versions, tags, and releases. Learn package structure and installation validation requirements.
 ---
 
-# Publish Plugins to the Extension Store
+# Extension Store
 
 This guide is for plugin authors and project maintainers. For installing, updating, or uninstalling plugins as a user, see [Plugin Management](../guide/plugin-management.md).
 
@@ -17,12 +17,10 @@ To be listed in the extension store and available for installation, a plugin nee
 1. A public, non-archived GitHub repository that is not a fork, with the `res-downloader-ext` topic.
 2. One plugin per repository, with `plugin.json` at the repository root.
 3. All runtime files, including JavaScript, WASM, and page scripts, committed to the repository. Do not depend on uncommitted local build output.
-4. A GitHub release that is neither a draft nor a prerelease, for example with tag `v1.2.0`.
-5. A `plugin.json.version` of `1.2.0`, exactly matching the tag after removing an optional `v` prefix.
+4. A GitHub release that is neither a draft nor a prerelease, for example with tag `v1.0.0`.
+5. A `plugin.json.version` of `1.0.0`, exactly matching the tag after removing an optional `v` prefix.
 
-Before release, prepare at least one sanitized fixture and run `plugin lint` and `plugin replay` as recommended author checks. Fixtures help validate behavior but are not required for store listing.
-
-We recommend committing a package at `dist/plugin.zip` to improve download speeds for users in mainland China. The store downloads this package first; if it is unavailable, it automatically downloads the GitHub source archive for the tag. You can publish without this optional package, and no separate release asset is required.
+Fixtures are not required for store listing, but sanitized data is recommended for validating behavior; see [Release checks](#recommended-release-checks).
 
 ## Plugin sources and reserved IDs
 
@@ -33,38 +31,37 @@ We recommend committing a package at `dist/plugin.zip` to improve download speed
 
 For local ZIPs, the source label comes from the author URL supplied in the package. It does not prove that the files came from that repository or passed official review.
 
-Plugin IDs have the following restrictions. Changing letter case does not bypass them:
+Reserved plugin ID prefixes are case-insensitive:
 
 - `builtin.` is reserved for built-in app features. No plugin package may use it.
 - `official.` is limited to bundled official plugins and store or local ZIP packages labeled **Official** under the rules above.
-- Community plugins cannot use either prefix.
 
-`plugin lint`, `plugin replay`, and `plugin pack` allow you to check, replay, and package `official.` plugins. These commands do not grant official status. During installation, the app also checks whether the plugin's source permits it to use that ID.
+`plugin lint`, `plugin replay`, and `plugin pack` accept `official.` plugins but do not grant official status. Installation still validates the source and ID.
 
 ## Versions and tags
 
-The store uses the latest stable release. `plugin.json.version` must exactly match its tag after removing an optional `v` prefix.
+The store uses the latest stable release. Versions and tags must follow the [publishing requirements](#publishing-requirements-and-recommendations) above.
 
 When publishing an update to plugin content, follow these steps in order:
 
 1. Update the Manifest version.
-2. Commit all runtime files. Include fixtures if you provide them.
+2. Commit all runtime files and any fixtures. If providing `dist/plugin.zip`, rebuild and commit it too.
 3. Create a new tag and release.
 4. Wait for the store index to refresh.
 
-Do not change an existing tag to point to another commit. Commit WASM, `dist/plugin.zip`, and other build files before creating the tag. Files committed afterward will not be included in that version's downloads, because jsDelivr and GitHub source archives both use the commit referenced by the tag.
+Use a new tag for each version; do not move existing tags. Downloads use the commit referenced by the tag, so WASM, acceleration packages, or other build files committed afterward are not included in that version.
 
 ## Automated releases with GitHub Actions
 
 Each official plugin's `.github/workflows/release.yml` calls the shared release workflow on the host repository's `master` branch.
 
-1. Update `plugin.json`, rebuild the package, and commit the source and `dist/plugin.zip`.
-2. Push the matching `vMAJOR.MINOR.PATCH` tag.
-3. Actions checks the version and ZIP contents, then creates a stable release with the package attached.
+After updating the version, rebuilding, and committing the source and `dist/plugin.zip` as above, push the matching `vMAJOR.MINOR.PATCH` tag. Actions checks the version and ZIP contents, then creates a stable release with the package attached.
 
 ## Package structure and download acceleration
 
-Store releases require `plugin.json` at the repository root. Recommended structure:
+A `dist/plugin.zip` acceleration package is recommended to improve download speeds in mainland China. The store tries it first, then falls back to the GitHub source ZIP for the tag. The package is optional; no separate release asset is required.
+
+Recommended structure:
 
 ```text
 repository-root/
@@ -83,13 +80,7 @@ Run this command from the `res-downloader` source root to generate `<plugin-dire
 go run main.go plugin pack <plugin-directory>
 ```
 
-Use `tests/` for the plugin's JavaScript tests, preferably named `*.test.js`.
-
-When packaging:
-
-- The packer excludes `.git/`, `.github/`, `dist/`, `tests/`, and the output file itself, but retains `fixtures/`.
-- Place `plugin.json` at the root of `plugin.zip`.
-- Rebuild the package for each release and commit `dist/plugin.zip` before creating the tag, so its runtime files and version match that tag.
+Place `plugin.json` at the root of `plugin.zip`. See [Plugin directories and loading](plugins.md#plugin-directories-and-loading) for test conventions and packaging exclusions. The package retains `fixtures/`.
 
 Do not include account details, capture logs, cookies, Authorization headers, fixtures containing real user data, or unrelated large files.
 
@@ -105,15 +96,9 @@ The store index does not provide a content digest, so the app only compares the 
 
 ## Other distribution methods
 
-Developers can share the source ZIP that GitHub automatically generates for the version's tag through cloud storage or other channels. When a user selects it under **Plugins → Install ZIP**, the app first shows:
+Share the GitHub source ZIP for the tag through cloud storage or other channels. Users import it through **Plugins → Install ZIP**, then confirm the plugin information, permissions, content digest, and replacement notice.
 
-- Plugin ID, name, author, version, and API version.
-- Requested domains and capabilities.
-- The local ZIP's content digest.
-- Whether its plugin ID and version match a locally cached store entry.
-- Whether it will replace an installed version.
-
-Installation starts only after the user confirms. Updating or replacing an external plugin preserves its settings and the previous version, allowing the user to roll back after an update.
+Updating or replacing an external plugin preserves its settings and the previous version for rollback.
 
 Updating a bundled JavaScript plugin also requires:
 
@@ -124,12 +109,7 @@ All updates and replacements must pass version and permission checks.
 
 ## Recommended release checks
 
-- `plugin.json` is at the repository root, with a stable ID associated with the repository that follows the [reserved ID rules](#plugin-sources-and-reserved-ids).
-- The version follows semantic versioning and matches the release tag.
-- Permissions and domains are limited to what is actually needed.
-- The README describes supported sites, main features, required settings, and known limitations.
-- Fixtures, logs, and examples are sanitized.
-- The final commit passes `go run main.go plugin lint <plugin-directory>` and all fixture replays.
-- Installation checks succeed using GitHub's generated source ZIP for the tag.
-- If you provide an acceleration package, `go run main.go plugin pack <plugin-directory>` succeeds, its `dist/plugin.zip` output is committed before tagging, and installation from that package is checked.
-- The new version uses a new tag without moving or overwriting an old one.
+- The repository follows the publishing rules, its plugin ID is stable, and the semantic version matches the tag; permissions and domains are limited to actual needs.
+- The README describes supported sites, main features, required settings, and known limitations; fixtures, logs, and examples are sanitized.
+- The final commit passes `plugin lint` and `plugin replay` for every fixture.
+- Installation succeeds from the tag's GitHub source ZIP. If providing an acceleration package, also verify that its contents match the tag and that it installs correctly.

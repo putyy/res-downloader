@@ -4,7 +4,7 @@ description: Configure res-downloader resource and download settings, including 
 
 # Settings
 
-Settings are saved automatically. Invalid listen addresses, ports, upstream proxy URLs, and manually entered media tool paths show an error beside the field and are not saved. Restart the app after changing the listen address or port.
+Settings are saved automatically. Follow the prompts to correct invalid values. Restart the app after changing the listen address or port.
 
 ## Basic settings
 
@@ -12,14 +12,14 @@ Settings are saved automatically. Invalid listen addresses, ports, upstream prox
 - **Filename Template**: controls download filenames and subdirectories. See [Filename template](#filename-template) for variables and examples.
 - **Name Conflicts**: choose automatic numbering, overwrite, or skip. Automatic numbering is recommended.
 - **Auto Intercept**: starts capturing automatically when the app launches.
-- **Insert tail**: controls whether newly captured resources appear at the top or bottom of the list.
+- **Resource Position**: controls whether newly captured resources appear at the top or bottom of the list.
 - **Clear cache and restart**: use this to recover from app problems. It clears certificates, settings, captured resources, task history, operation history and results, capture cache, and download temporary files in the current save directory. It keeps downloaded files, installed plugins, and temporary files in other save directories.
 - **Open log folder**: opens the directory containing `app.log` on your system for diagnosing startup, capture, and download issues. Remove private information before sharing logs.
 - **Check for updates**: checks for updates or retries a failed check at any time. See [In-app updates](installation.md#in-app-updates).
 
 ## Filename template
 
-During a download, res-downloader replaces template variables with the resource information.
+During a download, the app replaces template variables with the resource information.
 
 A template can contain literal text, <code v-pre>{{variables}}</code>, and `/` to create subdirectories within the save directory. Variable names are case-sensitive; use the lowercase names listed below.
 
@@ -141,7 +141,7 @@ Switch between light, dark, and other built-in themes. Changes take effect immed
 
 On first launch with no existing configuration, the app reads the system's preferred language: Chinese locales use Chinese; other locales, or a failed detection, use English. The choice is saved with the configuration and retained across launches and upgrades. Later changes to the system language or time zone do not switch it automatically.
 
-Use the language button in the left menu to switch between Chinese and English. The change takes effect immediately and is saved automatically.
+Use the language button in the left menu to switch between Chinese and English. The change takes effect immediately.
 
 ## Generic resource rules
 
@@ -154,23 +154,23 @@ Merging separate audio and video tracks, remuxing, format conversion, audio extr
 FFmpeg is not bundled with the app; install it yourself. The two tools serve different purposes:
 
 - **FFmpeg**: downloads, merges, remuxes, and processes media.
-- **ffprobe**: reads media formats, tracks, and durations. It is usually distributed with FFmpeg.
+- **FFprobe**: reads media formats, tracks, and durations. It is usually distributed with FFmpeg.
 
 #### Automatic detection
 
-When the FFmpeg and ffprobe paths are empty, the app looks for `ffmpeg` and `ffprobe` in its process's `PATH` environment variable. The app inherits its environment when it starts, so restart it after installing FFmpeg or changing `PATH`, then click **Detect FFmpeg**.
+When the FFmpeg and FFprobe paths are empty, the app looks for `ffmpeg` and `ffprobe` in its process's `PATH` environment variable. The app inherits its environment when it starts, so restart it after installing FFmpeg or changing `PATH`, then click **Detect FFmpeg**.
 
-Both FFmpeg and ffprobe must show **Available** to confirm that both tools are configured correctly.
+Both FFmpeg and FFprobe must show **Available** to confirm that both tools are configured correctly.
 
 #### Select executables manually
 
-If you prefer not to configure `PATH`, or automatic detection fails, click **Choose file** beside each field and select the actual FFmpeg and ffprobe executables.
+If you prefer not to configure `PATH`, or automatic detection fails, click **Choose file** beside each field and select the actual FFmpeg and FFprobe executables.
 
 On Windows:
 
 1. Choose a Windows distribution from the [official FFmpeg download page](https://ffmpeg.org/download.html) and extract it.
 2. For FFmpeg, select `bin\ffmpeg.exe` inside the extracted directory.
-3. For ffprobe, select `bin\ffprobe.exe` in the same directory.
+3. For FFprobe, select `bin\ffprobe.exe` in the same directory.
 4. Click **Detect FFmpeg** and confirm that both show **Available**.
 
 On macOS and Linux, select the actual `ffmpeg` and `ffprobe` executables in your installation.

@@ -49,7 +49,7 @@ cp -R examples/plugins/javascript-basic ./plugins/com.example.my-plugin
 go run main.go plugin create
 ```
 
-在各项提示中直接回车，会使用默认父目录 `./plugins`，并将插件 ID 和显示名称设为 `com.example.my-plugin`。最终创建的目录为 `./plugins/com.example.my-plugin`。也可以直接指定参数：
+全部回车使用默认值，生成 `./plugins/com.example.my-plugin`，ID 和显示名称均为 `com.example.my-plugin`。也可以直接指定参数：
 
 ```bash
 go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plugin "Example Video"
@@ -57,11 +57,9 @@ go run main.go plugin create ./plugins/com.example.my-plugin com.example.my-plug
 
 脚手架包含 `plugin.json`、`main.js`、`README.md`、`.gitignore`、空的 `fixtures/` 目录，以及调用共享发布流程的 `.github/workflows/release.yml`。
 
-插件默认包含“启用日志”设置 `enableLog`，类型为 `boolean`、默认值为 `false`，手动创建插件时也应声明该设置，并提供中英文本地化名称。
-
 ### 2. 修改 Manifest 和入口
 
-至少修改插件 `id`、名称、版本、允许访问的域名和匹配规则。插件 ID 建议使用反向域名格式，并保持长期稳定，例如 `com.example.video`。社区插件不能使用宿主保留的 `builtin.` 或 `official.` 前缀，大小写变体同样会被拒绝。官方插件及本地 ZIP 的判定方式见[插件来源与保留 ID](extension-store.md#插件来源与保留-id)。
+修改插件 `id`、名称、版本、域名和匹配规则。ID 建议使用稳定的反向域名格式，如 `com.example.video`；社区插件不能使用 `builtin.` 或 `official.` 前缀（忽略大小写），详见[插件来源与保留 ID](extension-store.md#插件来源与保留-id)。
 
 JavaScript 插件可在 `main.js` 中实现 `onObservation`，先完成“匹配一个响应并输出一个资源”的最小流程，再逐步加入关联、刷新或下载处理。
 
@@ -84,20 +82,7 @@ go run main.go plugin replay ./plugins/com.example.my-plugin ./plugins/com.examp
 go run main.go plugin pack ./plugins/com.example.my-plugin
 ```
 
-默认生成 `<插件目录>/dist/plugin.zip`。如需保存到其他位置，可以在命令末尾指定输出路径。
-
-打包时会排除以下内容：
-
-- 目录：`.git/`、`.github/`、`.idea/`、`.vscode/`、`dist/`、`tests/`；
-- 文件：输出的 ZIP 本身，以及 `.gitignore`、`.DS_Store`、`README.md`、`LICENSE`。
-
-这些是打包器自身的规则，不读取 `.gitignore`。是否将 `dist/plugin.zip` 提交到插件仓库，由 Git 的规则决定。
-
-测试时，在应用“插件管理”中选择生成的 ZIP 安装。开发期间也可以把插件目录放入 res-downloader 数据目录的 `plugins` 子目录，再点击“重新加载”。
-
-本地 ZIP 的来源标记、保留 ID 和替换条件见[插件来源与保留 ID](extension-store.md#插件来源与保留-id)及[其他分发方式](extension-store.md#其他分发方式)。
-
-开发者自己的 JavaScript 测试统一放在仓库根目录的 `tests/`，测试文件建议命名为 `*.test.js`。该目录不会进入安装包；用于 `plugin replay` 的脱敏数据仍放在 `fixtures/`。
+默认生成 `<插件目录>/dist/plugin.zip`，可在命令末尾指定其他输出路径。在应用“插件管理”中选择 ZIP 安装；开发期间也可将插件目录放入应用数据目录的 `plugins/`，再点击“重新加载”。本地 ZIP 的安装规则见[其他分发方式](extension-store.md#其他分发方式)。
 
 ## 开发时必须注意
 
@@ -131,11 +116,16 @@ Manifest 可使用 `plugin.json`、`plugin.yaml` 或 `plugin.yml`。ZIP 中的 M
 
 官方插件随应用升级覆盖。需要二次开发时应复制为新的插件 ID。
 
+JavaScript 测试放在插件仓库根目录的 `tests/`，建议命名为 `*.test.js`；离线回放数据放在 `fixtures/`。
+
+打包固定排除以下内容，不读取 `.gitignore`：
+
+- 目录：`.git/`、`.github/`、`.idea/`、`.vscode/`、`dist/`、`tests/`；
+- 文件：输出的 ZIP 本身，以及 `.gitignore`、`.DS_Store`、`README.md`、`LICENSE`。
+
 ## Manifest
 
-Manifest 文件可使用 `plugin.json`、`plugin.yaml` 或 `plugin.yml`：
-
-使用 JSON 时，可以通过 [Manifest Schema 和编辑器类型声明](plugin-sdk.md)获得字段提示。完成修改后，运行 `plugin lint` 检查配置和入口文件；安装时仍会按插件来源进行校验。
+使用 JSON 时，可通过 [Manifest Schema 和编辑器类型声明](plugin-sdk.md)获得字段提示：
 
 ```yaml
 id: com.example.video
@@ -199,27 +189,27 @@ settingsSchema:
 
 主要字段：
 
-| 字段 | 必填 | 说明 |
-| --- | --- | --- |
+| 字段 | 必填 | 说明                                                                                       |
+| --- | --- |------------------------------------------------------------------------------------------|
 | `id` | 是 | 最长 64 个字符，只能包含字母、数字、点、短横线和下划线；保留前缀忽略大小写，使用条件见[插件来源与保留 ID](extension-store.md#插件来源与保留-id) |
-| `name` | 是 | 无本地化文案时显示的插件名称 |
-| `author` | 否 | `name` 显示在插件卡片；`url` 只能是 HTTP/HTTPS 地址 |
-| `version` | 是 | 语义化版本，例如 `1.2.0` |
-| `apiVersion` | 是 | 当前必须为 `1` |
-| `runtime` | 是 | `javascript` 或 `declarative` |
-| `entry` | JavaScript 必填 | 插件目录内的 `.js` 入口，最大 1 MiB |
-| `priority` | 否 | 数值越大越先执行；同一个请求可以由多个插件处理 |
-| `permissions` | 是 | 允许访问的域名、能力和 Body 上限 |
-| `match` | 是 | 请求或响应匹配规则；空数组表示匹配权限域名内的所有允许阶段 |
-| `locales` | 否 | 插件名称和描述的多语言文案 |
-| `resourceKinds` | 否 | 插件提供的站点细分类和展示文案 |
-| `settingsSchema` | 否 | 插件设置的结构、默认值和表单提示 |
-| `pageScripts` | 否 | 由宿主注入匹配 HTML 页面的脚本 |
-| `extractors` | 声明式必填 | 从 JSON Body 提取资源的规则 |
-| `processors` | 否 | 插件自带的 WASM 处理器 |
-| `operations` | 否 | 独立业务能力及输入输出契约，见[业务操作](operations.md) |
-| `actions` | 否 | 由宿主渲染的本地文件处理或业务操作引用 |
-| `requires` | 否 | 可选宿主工具要求，例如 `ffmpeg: ">=6.0"` |
+| `name` | 是 | 无本地化文案时显示的插件名称                                                                           |
+| `author` | 否 | `name` 显示在插件卡片；`url` 只能是 HTTP/HTTPS 地址                                                   |
+| `version` | 是 | 语义化版本，例如 `1.0.0`                                                                         |
+| `apiVersion` | 是 | 当前必须为 `1`                                                                                |
+| `runtime` | 是 | `javascript` 或 `declarative`                                                             |
+| `entry` | JavaScript 必填 | 插件目录内的 `.js` 入口，最大 1 MiB                                                                 |
+| `priority` | 否 | 数值越大越先执行；同一个请求可以由多个插件处理                                                                  |
+| `permissions` | 是 | 允许访问的域名、能力和 Body 上限                                                                      |
+| `match` | 是 | 请求或响应匹配规则；空数组表示匹配权限域名内的所有允许阶段                                                            |
+| `locales` | 否 | 插件名称和描述的多语言文案                                                                            |
+| `resourceKinds` | 否 | 插件提供的站点细分类和展示文案                                                                          |
+| `settingsSchema` | 否 | 插件设置的结构、默认值和表单提示                                                                         |
+| `pageScripts` | 否 | 由宿主注入匹配 HTML 页面的脚本                                                                       |
+| `extractors` | 声明式必填 | 从 JSON Body 提取资源的规则                                                                      |
+| `processors` | 否 | 插件自带的 WASM 处理器                                                                           |
+| `operations` | 否 | 独立业务能力及输入输出契约，见[业务操作](operations.md)                                                     |
+| `actions` | 否 | 由宿主渲染的本地文件处理或业务操作引用                                                                      |
+| `requires` | 否 | 可选宿主工具要求，例如 `ffmpeg: ">=6.0"`                                                            |
 
 `match` 中的 `host`、`path` 和完整 `url` 支持 `*` 通配符；`method` 忽略大小写。`contentTypes` 匹配响应 Content-Type，`readBody` 决定命中该规则时是否需要 Body。只依赖 URL 或响应头时应明确设置 `readBody: false`。
 
@@ -275,7 +265,7 @@ Body 只有在域名、规则和读取权限同时满足时才会进入插件。
 | 含排队的总时间 | 最多 10 秒，包含等待其他调用结束的时间 |
 | 并发调用数 | 每个插件最多同时执行 4 次 |
 
-请求取消时，应用也会中断对应的 JavaScript 执行。已经超时但尚未退出的调用，仍计入并发数量，直到它实际结束。应用会记录耗时较长的调用，并在连续失败时暂停插件执行。
+请求取消会中断对应执行；已超时但尚未退出的调用仍占用并发名额。连续失败会暂停插件执行，修复后需重新加载。
 
 插件运行环境不提供 Node.js、`fetch`、文件系统或系统命令 API，也不能等待 Promise。需要在多个请求之间保留关联信息时，使用应用提供的关联接口；JavaScript 全局变量不会在不同调用之间保留。
 
@@ -283,7 +273,7 @@ Body 只有在域名、规则和读取权限同时满足时才会进入插件。
 
 JavaScript 插件通过 `pageScripts` 声明要注入网页的脚本。应用的 MITM 代理负责注入，目标域名需要开启 TLS 拦截。
 
-页面脚本注入不经过 `onObservation`，不受该钩子的 `bodyLimit` 和 5 秒执行时间限制。注入时机目前只支持 `document-start`；`frames` 可设为 `top`（默认，仅顶层页面）或 `all`（包括子框架）。
+页面脚本不受插件钩子的 Body 和执行时限限制，可使用浏览器异步 API，但仍受 CSP、同源策略和桥接限制。注入时机只支持 `document-start`；`frames` 可设为 `top`（默认，仅顶层页面）或 `all`（包括子框架）。
 
 ```json
 {
@@ -334,9 +324,9 @@ await pageApi.capture.complete("video:123:video")
 
 页面脚本负责按播放顺序排列分片并去重，应用不解析网站自己的流媒体协议。单个分片最大 32 MiB；每个页面会话最多同时使用 4 个捕获键，累计写入最多 16 GiB。
 
-写入时会检查页面 Origin、会话令牌和插件权限。页面只能访问当前插件允许的捕获缓存，不能借此访问任意文件或其他插件的缓存。
+写入需通过页面 Origin、会话令牌和插件权限校验，只能访问当前插件的缓存。
 
-启用桥后，页面到插件使用同源 POST，插件到页面使用 SSE。内部地址由代理直接响应，不会发往目标网站。页面每次加载获得独立 `pageSessionId`；页面关闭、插件重载、禁用或卸载后会话失效。
+页面每次加载获得独立 `pageSessionId`；页面关闭、插件重载、禁用或卸载后会话失效。
 
 插件使用同步顶层钩子处理页面消息：
 
@@ -350,7 +340,7 @@ function onPageMessage(message, context, api) {
 }
 ```
 
-声明了 `enqueue-download` 的插件可以在页面消息结果中返回 `autoDownload: true`。宿主只会对同一结果中通过校验、成功发布且具有稳定 `groupKey` 的资源创建任务；单次最多 4 个。未声明权限、资源不完整或下载计划无效时不会入队：
+声明 `enqueue-download` 后，可在页面消息结果中返回 `autoDownload: true`。仅为同一结果中已通过校验、成功发布且具有稳定 `groupKey` 的资源创建任务，单次最多 4 个；资源不完整或下载计划无效时不会入队，网页不能指定文件路径或控制其他任务：
 
 ```javascript
 return {
@@ -371,8 +361,6 @@ return {
 业务操作通过 `pageApi.operations` 登记处理器与业务就绪状态，由宿主选择明确页面并统一管理执行、结果和取消。接口契约见[插件业务操作](operations.md)。
 
 页面脚本与网站代码在同一个网页 JavaScript 环境中运行，网站代码可能读取或模拟桥接请求，因此插件必须校验收到的页面消息。
-
-默认情况下，消息桥不允许网页访问文件、Shell、数据库、下载器或其他插件。声明 `enqueue-download` 后，插件可以为本次刚上报且通过校验的资源创建下载任务，但网页仍不能指定文件路径或任意控制下载任务。
 
 ### 页面写入文件并上报资源
 
@@ -486,7 +474,7 @@ metadata: {
 }
 ```
 
-宿主命名变量 `created_at`、`published_at` 默认按本地时区输出 `20060102`，支持冒号指定日期格式及 `prefix`、`suffix` 非空前后缀。缺失或无效值在命名时按空处理，不阻断资源下载、不自动猜测秒/毫秒单位、不回退到下载时间；元数据仍按现有机制保存。具体模板见[文件命名模板](../guide/settings.md#文件命名模板)。
+这两个字段可用于文件命名，具体用法见[文件命名模板](../guide/settings.md#文件命名模板)。
 
 资源输出还需满足以下约束：
 
@@ -507,7 +495,7 @@ metadata: {
 
 ### 增量聚合和关联
 
-`api.upsert(resource)` 与 `api.emit(resource)` 的提交行为相同。同一插件多次上报相同 `groupKey` 时，应用会将它们合并为一条资源，并按 `track.id` 更新轨道。合并过程不会被其他并发更新打断，完成后会通知界面更新。
+`api.upsert(resource)` 与 `api.emit(resource)` 行为相同。同一插件上报相同 `groupKey` 时，合并为一条资源，并按 `track.id` 更新轨道。
 
 不要按请求到达的先后顺序配对音视频。插件应先从网站接口取得作品 ID 和下载地址，再将可能指向同一资源或轨道的 URL 登记为别名：
 
@@ -574,7 +562,7 @@ function createDownloadPlan(input, api) {
 | `createDownloadPlan(input, api)` | 基础 `PluginBaseAPI`，仅包含 `log` 和 `pluginVersion` |
 | `refreshResource(input, api)` | 基础 `PluginBaseAPI`，仅包含 `log` 和 `pluginVersion` |
 
-基础 API 不需要额外权限。下载计划和刷新结果通过返回值提交。每次钩子调用使用独立运行时，不能跨调用保存 API 对象。
+基础 API 不需要额外权限，下载计划和刷新结果通过返回值提交。
 
 ### Observation 结构
 
@@ -623,10 +611,25 @@ interface PluginResult {
 }
 ```
 
-- `handled: true` 表示平台插件已经识别该响应，宿主会跳过最后的通用探测器。
+- `handled: true` 表示平台插件已接管该响应；其他平台插件仍会执行，但会跳过最后的 `builtin.generic-detector`，避免重复生成通用资源。仅记录诊断或修改响应时，无需设置。
 - `decision: "stop"` 会立即终止后续插件，仅在确实需要排他处理时使用。
 - `patch` 需要 `modify-response`；`syntheticResponse` 需要 `intercept-request`。
 - `diagnostics` 用于脱敏后的开发诊断，不应包含请求凭据或完整私人 URL。
+
+### 修改响应与拦截请求
+
+修改响应需要 `modify-response`，截断 Body 不可修改：
+
+```javascript
+return {
+  patch: {
+    body: modifiedBody,
+    headers: {"X-Plugin": "com.example.video"}
+  }
+}
+```
+
+请求拦截使用 `syntheticResponse`，需要 `intercept-request`。
 
 ### 运行时 API
 
@@ -645,21 +648,35 @@ interface PluginResult {
 | `api.page.broadcast(filter, message)` | `number` | 向匹配页面广播，返回接收会话数 |
 | `api.page.sessions(filter?)` | `PageMessageContext[]` | 列出当前插件可见的页面会话 |
 
-调用 `emit` 后，资源先进入本次调用的待处理列表。应用随后会校验字段、大小、URL、轨道、处理器和操作。插件输出的资源必须符合这些要求，否则无法正常使用。
+上报的资源需通过宿主校验，字段约束见[资源模型](#资源模型)。
 
-四个钩子的 `api.log()` 都由应用根据本次调用的设置控制。设置分别来自 `observation.settings`、页面消息的 `context.settings` 或 `input.options.settings`。
+在 `settingsSchema.properties` 中声明布尔设置 `enableLog`，默认 `false`，并提供中英文名称。仅当其值为 `true` 时，`api.log()` 才写入日志，插件无需重复判断。插件加载和执行错误仍会记录，日志位置见[如何查看软件日志](../guide/troubleshooting.md#如何查看软件日志)。
 
-- 只有 `enableLog` 为布尔值 `true` 时才写入插件日志；未配置、设为 `false` 或类型错误时均不写入。
-- 插件可以直接调用 `api.log()`，无需重复判断开关。
-- 插件加载失败、钩子执行异常等应用错误日志不受该开关影响。
+### 资源刷新
 
-要在插件管理页显示日志开关，需在 `settingsSchema.properties` 中声明 `enableLog`。保存设置时仍会按 Manifest 校验。日志位置见[如何查看软件日志](../guide/troubleshooting.md#如何查看软件日志)。
+链接或请求凭据会过期时，可实现 `refreshResource(input, api)`。参数与 `createDownloadPlan` 相同，为 `{resource, options}` 和基础 API：
+
+```javascript
+return {
+  status: "refreshed",
+  resource: updatedResource,
+  message: ""
+}
+```
+
+| status | 返回内容 |
+| --- | --- |
+| `refreshed` | 完整的更新资源 |
+| `authenticationRequired` | 原资源，提示重新登录 |
+| `recaptureRequired` | 原资源，提示重新访问页面捕获 |
+
+`message` 可提供脱敏提示；未实现或返回 `null` 表示不支持刷新。插件不能自行发起网络请求，通常需通过页面脚本或新的网络观察取得数据，再以稳定的 `groupKey` 更新资源。
 
 ### 插件直接保存文件
 
 `onObservation` 和 `onPageMessage` 可调用 `api.capture.save(data)`，同步保存文本或二进制文件。需要 `capture-response-body` 权限；未声明时不提供 `api.capture`。
 
-下面的 `onObservation` 示例在收到成功响应时保存一份示例文案，再将返回的缓存键用于文件资源。Manifest 需声明 `observe-response`、`capture-response-body` 和 `emit-resource`，并配置目标域名和匹配规则。实际插件应从匹配响应中提取内容，并按资源生成稳定的 `groupKey`。
+以下示例需声明 `observe-response`、`capture-response-body` 和 `emit-resource`，并配置目标域名和匹配规则。实际插件应从响应中提取内容，并按资源生成稳定的 `groupKey`：
 
 ```javascript
 function onObservation(observation, api) {
@@ -682,13 +699,13 @@ function onObservation(observation, api) {
 
 字符串自动编码为 UTF-8；二进制视图只保存其有效区间，字节不作转换。数据必须非空，不接受普通数组、对象或其他数字类型的 TypedArray。每次钩子最多写入 8 个文件，合计最多 32 MiB（写入失败也计入额度）。保存操作计入钩子执行时限。参数错误、超限、缓存不可用或 I/O 失败都会抛出异常；未完成写入会尝试中止清理，不生成成功结果。
 
-返回的 `captureKey` 由宿主随机生成并按插件隔离，`size` 是实际字节数，返回时文件已经完整可读。把键原样用于 `capture-file` 轨道及下载计划，不要自行拼接插件前缀。重复保存得到新键，不会覆盖正在预览或下载的文件。保存成功后若钩子又失败或未上报资源，未引用的完整文件按[缓存过期规则](#捕获文件预览)清理，整个钩子不是文件事务。
+返回的 `captureKey` 是插件隔离的随机键，原样用于 `capture-file` 轨道及下载计划；`size` 为实际字节数，返回时文件已完整可读。每次保存生成新键；若后续钩子失败或未上报资源，已保存文件不回滚，按[缓存过期规则](#捕获文件预览)清理。
 
-`createDownloadPlan` 和 `refreshResource` 只获得基础 API，不能调用 `api.capture.save`。CLI fixture replay 使用临时捕获缓存，结束后删除，不访问正在运行的应用缓存。
+CLI fixture replay 使用临时捕获缓存，结束后删除，不访问应用缓存。
 
 ### 缓存响应正文
 
-需要复用浏览器已经成功取得、但无法用同一 URL 再次请求的数据时，插件可以在响应钩子中返回通用捕获指令。宿主只负责缓存当前响应字节，不理解站点协议；捕获键会自动限定在当前插件内：
+需要复用浏览器已取得的响应正文时，可在响应钩子中返回捕获指令；缓存键按插件隔离：
 
 ```javascript
 return {
@@ -710,38 +727,7 @@ return {
 }
 ```
 
-`range-file` 根据响应的 `Content-Range`、请求的 `Range` 或 URL 中的 `range` 与 `clen` 信息合并区间。浏览器未实际加载全部区间时，`capture-file` 会拒绝生成残缺文件并提示继续加载后重试。缓存大小与清理规则见[捕获文件预览](#捕获文件预览)；该能力不会绕过登录、CSP、代理或站点访问控制。
-
-支持的函数为 `onObservation`、`onPageMessage`、`createDownloadPlan` 和 `refreshResource`。它们都是可选的同步顶层函数；Goja 钩子中不能等待 Promise。页面脚本运行在浏览器页面中，可以使用页面环境提供的异步 API，但仍受页面 CSP、同源策略和桥接限制。
-
-平台插件确认自己已经接管当前响应时应返回 `handled: true`。插件管理器仍会让其他高优先级平台插件完成处理，但会跳过最后的 `builtin.generic-detector`，因此不会再生成一条通用 MIME/HLS 资源。`decision: "stop"` 则会立即终止整个后续插件链，只有确实需要排他处理时才使用。仅输出诊断、修改响应但仍希望通用探测器运行时，不要设置 `handled`。
-
-资源 URL、Header 或签名会过期时，可实现 `refreshResource(input, api)`。它接收与 `createDownloadPlan` 相同的 `{resource, options}` 和基础 API，可用 `api.log` 记录刷新诊断，并返回：
-
-```javascript
-return {
-  status: "refreshed",
-  resource: updatedResource,
-  message: ""
-}
-```
-
-`status` 可为 `refreshed`、`authenticationRequired` 或 `recaptureRequired`。成功时返回完整的更新资源；需要重新登录或重新访问页面时返回原资源和对应状态，并可在 `message` 中提供不含敏感信息的提示。没有实现或返回 `null` 表示不支持刷新。
-
-刷新逻辑只能依据资源中的业务 ID、页面 URL、当前设置等已有信息重新计算；插件没有 `fetch`，也不能生成登录凭据。通常应通过页面脚本或新的网络 observation 获得最新数据，再用稳定 `groupKey` 更新资源。
-
-修改响应需要 `modify-response`：
-
-```javascript
-return {
-  patch: {
-    body: modifiedBody,
-    headers: {"X-Plugin": "com.example.video"}
-  }
-}
-```
-
-请求拦截使用 `syntheticResponse`，并需要 `intercept-request`。
+`range-file` 根据响应的 `Content-Range`、请求的 `Range` 或 URL 中的 `range` 与 `clen` 合并区间。未加载完整时，`capture-file` 会拒绝下载，需继续加载后重试。缓存大小与清理规则见[捕获文件预览](#捕获文件预览)。
 
 ### 捕获文件预览
 
@@ -763,7 +749,7 @@ return {
 
 带输入或输出处理器的缓存预览先处理完整文件，再对处理后的结果提供 Range；为限制预览开销，此路径仅接受不超过 4 MiB 的输入，超限返回 422，仍可走正常下载处理。无处理器的文件不受此预览输入限制。
 
-单个缓存对象最大 16 GiB，具体写入接口还各有文件数量、分片大小或累计字节限制。应用启动时清理超过 24 小时的捕获缓存。预览请求使用资源 ID，由宿主从校验后的下载计划中取得缓存键；不能指定任意文件路径或其他插件的缓存。
+单个缓存对象最大 16 GiB，写入接口另有数量和字节限制。应用启动时清理超过 24 小时的缓存。预览通过资源 ID 访问，不能指定任意文件路径或其他插件的缓存。
 
 ## 下载计划
 
@@ -784,7 +770,7 @@ return {
 }
 ```
 
-应用并行下载 `inputs`，依次执行 `pipeline` 中的处理步骤，再执行输出处理器。全部处理成功后，才将临时结果保存到最终路径。应用统一管理进度、临时文件、取消操作和失败后的清理。
+应用并行下载 `inputs`，依次执行 `pipeline` 和输出处理器，全部成功后保存最终文件。
 
 暂停或停止方式取决于当前阶段：
 
@@ -867,7 +853,7 @@ processors: [{
 
 ### 处理本地文件
 
-插件可以把声明过的 WASM 处理器作为资源操作提供给用户。例如用户复制链接并用其他工具下载加密文件后，再回到资源右侧菜单执行解密：
+通过 `process-file` 资源操作，可让用户选择本地文件交给声明的 WASM 处理器：
 
 ```json
 {
@@ -895,11 +881,11 @@ actions: [{
 }]
 ```
 
-应用负责显示并执行 `process-file` 操作。用户通过系统对话框选择文件后，应用调用当前插件声明的 WASM 处理器。插件不会取得文件路径或任意读写文件的权限。处理结果保存到原目录，文件名增加 `.decrypted`，原文件保留。
+插件不会取得文件路径或任意文件读写权限。处理结果保存到原目录，文件名增加 `.decrypted`，原文件保留。
 
 ### 资源引用业务操作
 
-资源按钮通过 `kind: "operation"` 和 `operation` 引用 Manifest 中的业务操作。输入来自已保存资源的 `action.data`，宿主校验归属后交给统一执行服务。详见[插件业务操作](operations.md)。
+通过 `kind: "operation"` 和 `operation` 引用 Manifest 中的业务操作，输入来自资源的 `action.data`，详见[插件业务操作](operations.md)。
 
 ### ABI v1
 
@@ -982,10 +968,8 @@ JSON Path 子集支持 `$.a.b`、数组数字下标和结尾的 `[*]`。多请�
 无需启动代理即可校验插件：
 
 ```bash
-go run main.go plugin create
 go run main.go plugin lint ./plugins/com.example.my-plugin
 go run main.go plugin replay ./examples/plugins/javascript-basic ./examples/plugins/javascript-basic/fixtures/video.json
-go run main.go plugin pack ./plugins/com.example.my-plugin
 ```
 
 fixture 包含脱敏的 `observation` 和预期结果：
@@ -1019,26 +1003,11 @@ fixture 可以包含单个 `observation`，也可以通过 `observations` 按顺
 
 预期结果支持 `resourceCount`、`resourceUrls`、`processorTypes`、`decision` 和 `patchBodyContains`。模板位于 `examples/plugins/`，JSON Schema 和 TypeScript 声明见 [插件 SDK v1](plugin-sdk.md)。
 
-fixture 编写建议：
-
-- 只保留触发匹配和生成资源所需的 Header 与 Body 字段；
-- 将真实域名之外的私人路径、账号和资源 ID 替换为稳定示例值；
-- Cookie、Authorization、设备标识和临时签名必须删除或替换；
-- 多请求关联使用 `observations` 固定回放顺序，但插件本身仍不能依赖线上到达顺序；
-- 至少断言资源数量和 URL；处理器插件还应断言 `processorTypes`。
+fixture 只保留匹配和生成资源所需的字段。保留真实域名，私人路径、账号和资源 ID 使用稳定示例值；Cookie、Authorization、设备标识和临时签名需删除或替换。至少断言资源数量和 URL，处理器插件还应断言 `processorTypes`。
 
 ## 调试与常见错误
 
-插件卡片会显示 Manifest 校验、入口编译和运行时错误。开发时建议按以下顺序排查：
-
-1. 运行 `plugin lint`，先解决目录、字段、权限和入口文件错误；
-2. 运行 `plugin replay`，确认 fixture 能稳定输出预期结果；
-3. 在应用中重新加载插件，查看插件卡片和日志中的最后错误；
-4. 确认页面产生了新的请求，域名和路径确实命中 `permissions.domains` 与 `match`；
-5. 检查 Body 权限、`readBody`、Content-Type 和 `truncated`；
-6. 最后再检查站点接口、登录状态或签名是否变化。
-
-常见问题：
+先运行 `plugin lint` 和 `plugin replay`，再在应用中重新加载插件并触发新的页面请求，查看插件卡片和日志中的错误：
 
 | 现象 | 常见原因 |
 | --- | --- |
@@ -1051,29 +1020,21 @@ fixture 编写建议：
 | 页面脚本未注入 | 页面未经过 TLS 拦截、响应被压缩、CSP 不允许或未找到可注入位置 |
 | fixture 通过但线上失败 | fixture 遗漏分支、站点数据变化、凭据过期或线上请求顺序不同 |
 
-每次 JavaScript 钩子最多执行 5 秒，包含初始化和返回结果转换；算上排队时间后，总共最多 10 秒。网页中的脚本不受这个钩子时限限制，但业务操作仍有等待执行、进度报告和总运行时长的限制。
-
-避免在循环中处理超大对象，不要将完整响应、Cookie 或带签名的 URL 写入日志。需要重复排查的问题，应准备脱敏 fixture。
+避免循环处理超大对象或记录完整响应和敏感 URL。需要重复排查的问题，应准备脱敏 fixture。业务操作的时限见[插件业务操作](operations.md)。
 
 ## 发布前检查
 
-建议发布插件前完成以下自检；商店收录的必要条件见[发布要求与建议](extension-store.md#发布要求与建议)：
+- ID、版本和权限符合要求，名称、说明、资源类型及设置项提供中英文文案；
+- 日志、fixture、README 和示例配置已脱敏；
+- `plugin lint`、`plugin replay` 和 `plugin pack` 均成功，fixture 覆盖主要分支和多请求关联；
+- 安装包包含 JavaScript、WASM 和页面脚本等运行文件；
+- 在当前稳定版应用中使用最终 ZIP 验证安装和基本操作。
 
-- 插件 ID 稳定且符合[保留 ID 规则](extension-store.md#插件来源与保留-id)，版本符合语义化版本；
-- 域名和 capability 已缩减到实际需要的范围；
-- Manifest 中的名称、作者、说明、资源类型和设置项包含合适的本地化文案；
-- 至少一个脱敏 fixture 通过离线回放；复杂分支和多请求关联应提供多个 fixture；
-- JavaScript、WASM 和页面脚本等运行文件已经包含在插件目录中；
-- 日志、fixture、README 和示例配置不含账号、Cookie、Authorization 或私人地址；
-- `go run main.go plugin lint ...`、`go run main.go plugin replay ...` 和 `go run main.go plugin pack ...` 均成功；
-- 发布到扩展商店且提供 `dist/plugin.zip` 加速包时，已重新打包并在创建 Tag 前提交；
-- 在当前稳定版应用中从最终 ZIP 完成一次安装和基本操作检查。
-
-公开发布到扩展商店的仓库结构、GitHub Topic、Release Tag 和版本要求见[发布到扩展商店](extension-store.md)。
+商店收录条件、仓库配置及发布流程见[扩展商店](extension-store.md)。
 
 ## 维护应用内嵌插件（仅项目维护者）
 
-本节用于更新随应用发布的插件快照。独立插件作者完成上述开发、打包和发布流程即可，无需执行这些命令。
+以下命令用于维护随应用发布的插件快照，独立插件作者无需使用。
 
 在 `res-downloader` 源码根目录运行 `go run main.go plugin sync-bundled <插件目录>`，可校验源插件，并以源目录名称替换 `internal/plugin/bundled/` 中同 ID 的旧快照。
 

@@ -183,7 +183,7 @@ The app first generates a name from the filename template, removing incompatible
 
 ## Live recording does not work
 
-Install FFmpeg, then run detection under **Setting → Media Processing**.
+Install FFmpeg, then click **Detect FFmpeg** under **Setting → Media Processing** and confirm that both FFmpeg and FFprobe show **Available**.
 
 ## Still need help
 
