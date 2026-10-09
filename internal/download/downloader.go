@@ -272,8 +272,14 @@ func (fd *FileDownloader) init() error {
 	var resp *http.Response
 	for retries := 0; retries < MaxRetries; retries++ {
 		resp, err = fd.buildClient().Do(request)
-		if err == nil && !successfulHTTPStatus(resp.StatusCode) {
-			_ = resp.Body.Close()
+		if err != nil || !successfulHTTPStatus(resp.StatusCode) {
+			if resp != nil && resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+			if ctxErr := fd.ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			// A HEAD connection failure does not establish that GET is unavailable.
 			resp, err = fd.rangeProbe()
 		}
 		if err == nil && !successfulHTTPStatus(resp.StatusCode) {

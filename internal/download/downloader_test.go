@@ -8,6 +8,8 @@ import (
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -339,5 +342,147 @@ func TestDownloaderDoesNotRetryPermanentHTTPStatus(t *testing.T) {
 	}
 	if getCount != 1 {
 		t.Fatalf("GET request count = %d, want 1", getCount)
+	}
+}
+
+func TestDownloaderFallsBackToRangeProbeWhenHeadConnectionFails(t *testing.T) {
+	cfg, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("range-probe-data"), 256*1024)
+	var headCount, probeCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			headCount.Add(1)
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Errorf("hijack HEAD: %v", err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
+		if r.Header.Get("Range") == "bytes=0-0" {
+			probeCount.Add(1)
+		}
+		http.ServeContent(w, r, "video.bin", time.Time{}, bytes.NewReader(body))
+	}))
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	output := filepath.Join(t.TempDir(), "video.bin")
+	fd := NewFileDownloaderContext(ctx, srv.URL, output, "", 2, nil, cfg, logger)
+	if err := fd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(output)
+	if err != nil || !bytes.Equal(got, body) {
+		t.Fatalf("downloaded %d bytes, want %d; err=%v", len(got), len(body), err)
+	}
+	if headCount.Load() != 1 || probeCount.Load() != 1 {
+		t.Fatalf("HEAD=%d probe=%d; want 1 each", headCount.Load(), probeCount.Load())
+	}
+}
+
+func TestDownloaderResumesCheckpointAfterHeadConnectionFails(t *testing.T) {
+	cfg, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("resumable-video-data"), 128*1024)
+	const pauseAfter = 128 * 1024
+	var headCount, probeCount, downloadCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			headCount.Add(1)
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Errorf("hijack HEAD: %v", err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
+		w.Header().Set("ETag", "\"resume-fixture\"")
+		if r.Header.Get("Range") == "bytes=0-0" {
+			probeCount.Add(1)
+			http.ServeContent(w, r, "video.bin", time.Time{}, bytes.NewReader(body))
+			return
+		}
+		if downloadCount.Add(1) == 1 {
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-%d/%d", len(body)-1, len(body)))
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(body[:pauseAfter])
+			w.(http.Flusher).Flush()
+			// Hold the response after a fixed prefix until the download is paused.
+			<-r.Context().Done()
+			return
+		}
+		wantRange := fmt.Sprintf("bytes=%d-%d", pauseAfter, len(body)-1)
+		if got := r.Header.Get("Range"); got != wantRange {
+			t.Errorf("resumed Range=%q, want %q", got, wantRange)
+		}
+		http.ServeContent(w, r, "video.bin", time.Time{}, bytes.NewReader(body))
+	}))
+	defer srv.Close()
+	output := filepath.Join(t.TempDir(), "input.part")
+	checkpoint := output + ".json"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	first := NewFileDownloaderContext(ctx, srv.URL, output, checkpoint, 1, nil, cfg, logger)
+	first.progressCallback = func(downloaded, _ float64, _ int, _ float64) {
+		if downloaded >= pauseAfter {
+			cancel()
+		}
+	}
+	if err := first.Start(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("first download error=%v, want context.Canceled", err)
+	}
+	raw, err := os.ReadFile(checkpoint)
+	if err != nil {
+		t.Fatalf("checkpoint was not preserved: %v", err)
+	}
+	var saved fileDownloadCheckpoint
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.TotalSize != int64(len(body)) || len(saved.Tasks) != 1 || saved.Tasks[0].DownloadedSize != pauseAfter || saved.Tasks[0].Completed {
+		t.Fatalf("unexpected paused checkpoint: %+v", saved)
+	}
+	resumeCtx, resumeCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer resumeCancel()
+	second := NewFileDownloaderContext(resumeCtx, srv.URL, output, checkpoint, 1, nil, cfg, logger)
+	if err := second.Start(); err != nil {
+		t.Fatalf("resume failed: %v", err)
+	}
+	got, err := os.ReadFile(output)
+	if err != nil || !bytes.Equal(got, body) {
+		t.Fatalf("resumed content differs: got %d bytes, want %d; err=%v", len(got), len(body), err)
+	}
+	if headCount.Load() != 2 || probeCount.Load() != 2 || downloadCount.Load() != 2 {
+		t.Fatalf("HEAD=%d probe=%d download=%d; want 2 each", headCount.Load(), probeCount.Load(), downloadCount.Load())
+	}
+}
+
+func TestDownloaderCanceledHeadDoesNotStartRangeProbe(t *testing.T) {
+	cfg, logger := setupDownloaderTest()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var getCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			cancel()
+			<-r.Context().Done()
+			return
+		}
+		getCount.Add(1)
+	}))
+	defer srv.Close()
+	output := filepath.Join(t.TempDir(), "out")
+	fd := NewFileDownloaderContext(ctx, srv.URL, output, "", 1, nil, cfg, logger)
+	if err := fd.init(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("init error=%v, want context.Canceled", err)
+	}
+	if getCount.Load() != 0 {
+		t.Fatalf("GET count=%d, want 0", getCount.Load())
+	}
+	if _, err := os.Stat(output); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("canceled initialization created output: %v", err)
 	}
 }
