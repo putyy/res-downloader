@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,6 +25,7 @@ const (
 	jsDelivrDefault      = "https://cdn.jsdelivr.net"
 	rawGitHubDefault     = "https://raw.githubusercontent.com"
 	officialGitHubOwner  = "putyy"
+	githubSearchLimit    = 1000 // GitHub's per-query limit, not a store entry limit.
 	maxManifestSize      = int64(512 * 1024)
 	maxArchiveSize       = int64(25 * 1024 * 1024)
 	indexConcurrency     = 12
@@ -34,20 +34,17 @@ const (
 const repositorySearchQuery = `
 query($query: String!, $first: Int!, $after: String) {
   search(query: $query, type: REPOSITORY, first: $first, after: $after) {
+    repositoryCount
     pageInfo { hasNextPage endCursor }
     nodes {
       ... on Repository {
         name
         nameWithOwner
         description
-        url
-        homepageUrl
         stargazerCount
-        forkCount
         updatedAt
-        owner { login avatarUrl }
         licenseInfo { spdxId }
-        latestRelease { tagName url publishedAt }
+        latestRelease { tagName publishedAt }
       }
     }
   }
@@ -55,7 +52,6 @@ query($query: String!, $first: Int!, $after: String) {
 
 type release struct {
 	TagName     string `json:"tagName"`
-	URL         string `json:"url"`
 	PublishedAt string `json:"publishedAt"`
 }
 
@@ -63,17 +59,10 @@ type repository struct {
 	Name          string   `json:"name"`
 	FullName      string   `json:"nameWithOwner"`
 	Description   string   `json:"description"`
-	HTMLURL       string   `json:"url"`
-	Homepage      string   `json:"homepageUrl"`
 	Stars         int      `json:"stargazerCount"`
-	Forks         int      `json:"forkCount"`
 	UpdatedAt     string   `json:"updatedAt"`
 	LatestRelease *release `json:"latestRelease"`
-	Owner         struct {
-		Login     string `json:"login"`
-		AvatarURL string `json:"avatarUrl"`
-	} `json:"owner"`
-	License *struct {
+	License       *struct {
 		SPDXID string `json:"spdxId"`
 	} `json:"licenseInfo"`
 }
@@ -81,8 +70,9 @@ type repository struct {
 type graphQLResponse struct {
 	Data struct {
 		Search struct {
-			Nodes    []repository `json:"nodes"`
-			PageInfo struct {
+			RepositoryCount int          `json:"repositoryCount"`
+			Nodes           []repository `json:"nodes"`
+			PageInfo        struct {
 				HasNextPage bool   `json:"hasNextPage"`
 				EndCursor   string `json:"endCursor"`
 			} `json:"pageInfo"`
@@ -102,9 +92,8 @@ type githubClient struct {
 }
 
 type options struct {
-	output   string
-	topic    string
-	maxRepos int
+	output string
+	topic  string
 }
 
 type lockedWriter struct {
@@ -123,16 +112,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	flags.SetOutput(stderr)
 	output := flags.String("output", "dist/extensions/index.json", "output index JSON path")
 	topic := flags.String("topic", shared.PluginStoreTopic, "GitHub repository topic")
-	maxRepos := flags.Int("max-repositories", 1000, "maximum repositories to scan")
 	graphqlURL := flags.String("github-graphql", githubGraphQLDefault, "GitHub GraphQL API URL")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if *topic != shared.PluginStoreTopic {
 		return fmt.Errorf("topic must be %q for schema v%d", shared.PluginStoreTopic, shared.PluginStoreSchemaVersion)
-	}
-	if *maxRepos <= 0 || *maxRepos > 1000 {
-		return errors.New("max-repositories must be between 1 and 1000")
 	}
 	token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
 	if token == "" {
@@ -145,7 +130,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		rawURL:      rawGitHubDefault,
 		token:       token,
 	}
-	configuration := options{output: *output, topic: *topic, maxRepos: *maxRepos}
+	configuration := options{output: *output, topic: *topic}
 	index, err := buildIndex(ctx, github, configuration, stderr)
 	if err != nil {
 		return err
@@ -158,7 +143,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	for _, extension := range index.Extensions {
 		if extension.Status == shared.PluginStoreAvailable {
 			available++
-			if extension.Release != nil && extension.Release.AcceleratedURL != "" {
+			if extension.Release != nil && extension.Release.Accelerated {
 				accelerated++
 			}
 		}
@@ -168,7 +153,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 }
 
 func buildIndex(ctx context.Context, github *githubClient, configuration options, stderr io.Writer) (shared.PluginStoreIndex, error) {
-	repositories, err := github.searchRepositories(ctx, configuration.topic, configuration.maxRepos)
+	repositories, err := github.searchRepositories(ctx, configuration.topic)
 	if err != nil {
 		return shared.PluginStoreIndex{}, err
 	}
@@ -178,10 +163,10 @@ func buildIndex(ctx context.Context, github *githubClient, configuration options
 	var wait sync.WaitGroup
 	for position, repo := range repositories {
 		position, repo := position, repo
+		semaphore <- struct{}{}
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 			entries[position] = buildRepositoryEntry(ctx, github, repo, safeStderr)
 		}()
@@ -211,20 +196,17 @@ func buildIndex(ctx context.Context, github *githubClient, configuration options
 
 func buildRepositoryEntry(ctx context.Context, github *githubClient, repo repository, stderr io.Writer) shared.PluginStoreEntry {
 	source := shared.PluginSourceCommunity
-	if strings.EqualFold(repo.Owner.Login, officialGitHubOwner) {
+	owner, _, _ := strings.Cut(repo.FullName, "/")
+	if strings.EqualFold(owner, officialGitHubOwner) {
 		source = shared.PluginSourceOfficial
 	}
 	entry := shared.PluginStoreEntry{
 		Name: repo.Name, Description: repo.Description, Repository: repo.FullName,
-		RepositoryURL: repo.HTMLURL, Owner: repo.Owner.Login, OwnerAvatarURL: repo.Owner.AvatarURL,
-		Stars: repo.Stars, Forks: repo.Forks, UpdatedAt: repo.UpdatedAt, Source: source,
+		Stars: repo.Stars, UpdatedAt: repo.UpdatedAt, Source: source,
 		Status: shared.PluginStoreUnavailable, StatusMessage: "No installable GitHub Release was found",
 	}
 	if repo.License != nil && repo.License.SPDXID != "NOASSERTION" {
 		entry.License = repo.License.SPDXID
-	}
-	if secureHTTPSURL(repo.Homepage) {
-		entry.Homepage = repo.Homepage
 	}
 	latest := repo.LatestRelease
 	if latest == nil || latest.TagName == "" {
@@ -250,32 +232,38 @@ func buildRepositoryEntry(ctx context.Context, github *githubClient, repo reposi
 
 	entry.ID = manifest.ID
 	entry.Name = manifest.Name
-	entry.Manifest = &manifest
+	entry.Author = manifest.Author.Name
+	entry.Locales = manifest.Locales
+	entry.Capabilities = manifest.Permissions.Capabilities
 	entry.Release = &shared.PluginStoreRelease{
-		Version: manifest.Version, Tag: latest.TagName, PublishedAt: latest.PublishedAt,
-		NotesURL: latest.URL, ArchiveURL: githubTagArchiveURL(repo.FullName, latest.TagName),
+		Tag: latest.TagName, PublishedAt: latest.PublishedAt,
 	}
 	if ok, headErr := github.jsDelivrArchiveExists(ctx, repo.FullName, latest.TagName); headErr != nil {
 		_, _ = fmt.Fprintf(stderr, "jsDelivr unavailable for %s@%s: %v\n", repo.FullName, latest.TagName, headErr)
 	} else if ok {
-		entry.Release.AcceleratedURL = jsDelivrArchiveURL(repo.FullName, latest.TagName)
+		entry.Release.Accelerated = true
 	}
 	entry.Status = shared.PluginStoreAvailable
 	entry.StatusMessage = ""
 	return entry
 }
 
-func (g *githubClient) searchRepositories(ctx context.Context, topic string, maximum int) ([]repository, error) {
-	repositories := make([]repository, 0, maximum)
+func (g *githubClient) searchRepositories(ctx context.Context, topic string) ([]repository, error) {
+	repositories := make([]repository, 0)
+	seen := make(map[string]bool)
+	err := g.searchRepositoryRange(ctx, topic, time.Unix(0, 0).UTC(), time.Now().UTC().Truncate(time.Second), &repositories, seen)
+	return repositories, err
+}
+
+// Split crowded creation-time ranges before paginating: GitHub only exposes
+// the first 1,000 matches for a single search, even when more matches exist.
+func (g *githubClient) searchRepositoryRange(ctx context.Context, topic string, start, end time.Time, repositories *[]repository, seen map[string]bool) error {
+	query := fmt.Sprintf("topic:%s archived:false fork:false sort:updated-desc created:%s..%s", topic, start.Format(time.RFC3339), end.Format(time.RFC3339))
 	after := ""
-	for len(repositories) < maximum {
-		first := maximum - len(repositories)
-		if first > 100 {
-			first = 100
-		}
+	for {
 		variables := map[string]interface{}{
-			"query": "topic:" + topic + " archived:false fork:false sort:updated-desc",
-			"first": first,
+			"query": query,
+			"first": 100,
 			"after": nil,
 		}
 		if after != "" {
@@ -283,23 +271,37 @@ func (g *githubClient) searchRepositories(ctx context.Context, topic string, max
 		}
 		var response graphQLResponse
 		if err := g.graphQL(ctx, repositorySearchQuery, variables, &response); err != nil {
-			return nil, fmt.Errorf("search GitHub repositories: %w", err)
+			return fmt.Errorf("search GitHub repositories: %w", err)
 		}
 		if len(response.Errors) > 0 {
-			return nil, fmt.Errorf("search GitHub repositories: %s", response.Errors[0].Message)
+			return fmt.Errorf("search GitHub repositories: %s", response.Errors[0].Message)
+		}
+		if response.Data.Search.RepositoryCount > githubSearchLimit {
+			if !start.Before(end) {
+				return fmt.Errorf("GitHub search has more than %d repositories created at %s; cannot retrieve a complete index", githubSearchLimit, start.Format(time.RFC3339))
+			}
+			middle := start.Add(time.Duration(int64(end.Sub(start)/time.Second)/2) * time.Second)
+			if err := g.searchRepositoryRange(ctx, topic, start, middle, repositories, seen); err != nil {
+				return err
+			}
+			return g.searchRepositoryRange(ctx, topic, middle.Add(time.Second), end, repositories, seen)
 		}
 		for _, repo := range response.Data.Search.Nodes {
-			if repo.FullName != "" {
-				repositories = append(repositories, repo)
+			key := strings.ToLower(repo.FullName)
+			if key != "" && !seen[key] {
+				seen[key] = true
+				*repositories = append(*repositories, repo)
 			}
 		}
 		page := response.Data.Search.PageInfo
-		if !page.HasNextPage || page.EndCursor == "" || len(response.Data.Search.Nodes) == 0 {
-			break
+		if !page.HasNextPage {
+			return nil
+		}
+		if page.EndCursor == "" || page.EndCursor == after || len(response.Data.Search.Nodes) == 0 {
+			return errors.New("GitHub search pagination did not advance; cannot retrieve a complete index")
 		}
 		after = page.EndCursor
 	}
-	return repositories, nil
 }
 
 func (g *githubClient) graphQL(ctx context.Context, query string, variables map[string]interface{}, destination interface{}) error {
@@ -404,14 +406,6 @@ func joinURL(base, suffix string) string {
 	return parsed.String()
 }
 
-func githubTagArchiveURL(repository, tag string) string {
-	return (&url.URL{Scheme: "https", Host: "github.com", Path: "/" + repository + "/archive/refs/tags/" + tag + ".zip"}).String()
-}
-
-func jsDelivrArchiveURL(repository, tag string) string {
-	return (&url.URL{Scheme: "https", Host: "cdn.jsdelivr.net", Path: "/gh/" + repository + "@" + tag + "/dist/plugin.zip"}).String()
-}
-
 func markDuplicatePluginIDs(entries []shared.PluginStoreEntry) {
 	positions := make(map[string][]int)
 	for index, entry := range entries {
@@ -425,7 +419,6 @@ func markDuplicatePluginIDs(entries []shared.PluginStoreEntry) {
 		}
 		for _, position := range duplicates {
 			entries[position].ID = ""
-			entries[position].Manifest = nil
 			entries[position].Release = nil
 			entries[position].Status = shared.PluginStoreUnavailable
 			entries[position].StatusMessage = fmt.Sprintf("Plugin id %q is claimed by multiple repositories", id)
@@ -434,14 +427,19 @@ func markDuplicatePluginIDs(entries []shared.PluginStoreEntry) {
 }
 
 func writeIndex(fileName string, index shared.PluginStoreIndex) error {
-	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
-		return err
+	if err := plugin.ValidatePluginStoreIndex(index); err != nil {
+		return fmt.Errorf("validate plugin store index: %w", err)
 	}
-	raw, err := json.MarshalIndent(index, "", "  ")
+	raw, err := json.Marshal(index)
 	if err != nil {
 		return err
 	}
-	raw = append(raw, '\n')
+	if len(raw) > shared.PluginStoreMaxIndexSize {
+		return errors.New("plugin store index exceeds 4 MiB")
+	}
+	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
+		return err
+	}
 	temporary, err := os.CreateTemp(filepath.Dir(fileName), ".index-*.json")
 	if err != nil {
 		return err
@@ -459,22 +457,6 @@ func writeIndex(fileName string, index shared.PluginStoreIndex) error {
 		return err
 	}
 	return os.Rename(temporary.Name(), fileName)
-}
-
-func secureHTTPSURL(rawURL string) bool {
-	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
-		return false
-	}
-	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") {
-		return false
-	}
-	if ip := net.ParseIP(host); ip != nil {
-		return ip.IsGlobalUnicast() && !ip.IsPrivate() && !ip.IsLoopback() &&
-			!ip.IsLinkLocalMulticast() && !ip.IsLinkLocalUnicast() && !ip.IsUnspecified()
-	}
-	return true
 }
 
 func conciseError(err error) string {

@@ -346,28 +346,22 @@ export namespace appType {
     name: string
     description?: string
     repository: string
-    repositoryUrl: string
-    homepage?: string
-    owner: string
-    ownerAvatarUrl?: string
     stars?: number
-    forks?: number
     license?: string
     updatedAt?: string
     source: "official" | "community"
     status: "available" | "unavailable"
     statusMessage?: string
-    manifest?: PluginManifest
+    author?: string
+    locales?: {[locale: string]: PluginLocale}
+    capabilities?: string[]
     release?: PluginStoreRelease
   }
 
   interface PluginStoreRelease {
-    version: string
     tag: string
     publishedAt?: string
-    notesUrl?: string
-    archiveUrl: string
-    acceleratedUrl?: string
+    accelerated?: boolean
   }
 
   interface Message {

@@ -179,6 +179,7 @@ import OperationPagePicker from "@/components/resource/OperationPagePicker.vue"
 import {useRouter, useRoute} from "vue-router"
 import {useResourceTableColumns} from "@/components/resource/useResourceTableColumns"
 import {exportableResource, findResourceInTree, mergeResourceRuntime, primaryURL, removeResourceFromTree, resourceSome, visitResource} from "@/services/resources"
+import {downloadTaskProgress, formatDownloadBytes} from "@/services/downloadProgress"
 import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
@@ -611,11 +612,13 @@ const updateDescription = async (id: string, value: string) => {
 
 const applyTaskStatus = (task: appType.DownloadTaskRecord) => {
   updateItem(task.resourceId, (item) => {
+    const progress = downloadTaskProgress(task)
     let message = task.error || ""
     if (!message) {
       if (task.state === "paused") message = t("tasks.paused")
-      else if ((task.items?.length ?? 0) > 0 && task.total) message = `${task.downloaded ?? 0}/${task.total}`
-      else if (task.total) message = `${Math.floor(((task.downloaded ?? 0) * 100) / task.total)}%`
+      else if ((task.items?.length ?? 0) > 0) message = `${progress.downloaded}/${progress.total}`
+      else if (progress.total > 0) message = `${Math.floor(progress.percentage)}%`
+      else message = formatDownloadBytes(progress.downloaded)
     }
     item.download = {
       createdAt: task.createdAt,

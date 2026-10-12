@@ -86,7 +86,7 @@ Do not include account details, capture logs, cookies, Authorization headers, fi
 
 ## Installation validation
 
-During installation, the app checks ZIP structure, extracted size, `plugin.json`, plugin ID, version, permissions, entry files, and runtime code. The package's `plugin.json` must match the content read by the store index from the same tag.
+During installation, the app checks ZIP structure, extracted size, `plugin.json`, plugin ID, version, permissions, entry files, and runtime code. The package's plugin ID and version must match the store entry; the full Manifest and permissions are read from the downloaded package.
 
 The installer ignores common macOS archive metadata and rejects symlinks, duplicate files, files whose extraction paths escape the plugin directory, oversized files, and invalid `plugin.json` files.
 

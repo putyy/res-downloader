@@ -6,11 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
+	"regexp"
 	"res-downloader/internal/metadata"
 	shared "res-downloader/internal/model"
 	"strings"
@@ -18,13 +17,13 @@ import (
 )
 
 const (
-	maxPluginStoreIndexSize  int64 = 4 * 1024 * 1024
-	maxPluginStoreEntries          = 1000
+	maxPluginStoreIndexSize  int64 = shared.PluginStoreMaxIndexSize
 	officialPluginStoreOwner       = "putyy"
 	pluginStoreIndexPath           = "/extensions/index.json"
 )
 
 var downloadStorePluginArchive = downloadPluginArchive
+var storeRepositoryPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$`)
 
 func (m *PluginManager) PluginStore(ctx context.Context) (shared.PluginStoreIndex, bool, string, error) {
 	var index shared.PluginStoreIndex
@@ -56,6 +55,9 @@ func (m *PluginManager) pluginStoreCacheFile() string {
 
 func decodePluginStoreIndex(raw []byte) (shared.PluginStoreIndex, error) {
 	var index shared.PluginStoreIndex
+	if int64(len(raw)) > maxPluginStoreIndexSize {
+		return index, errors.New("plugin store index is too large")
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(raw)))
 	if err := decoder.Decode(&index); err != nil {
 		return index, fmt.Errorf("decode plugin store index: %w", err)
@@ -63,7 +65,7 @@ func decodePluginStoreIndex(raw []byte) (shared.PluginStoreIndex, error) {
 	if err := ensureJSONEOF(decoder); err != nil {
 		return index, err
 	}
-	if err := validatePluginStoreIndex(index); err != nil {
+	if err := ValidatePluginStoreIndex(index); err != nil {
 		return index, err
 	}
 	return index, nil
@@ -80,7 +82,8 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 	return nil
 }
 
-func validatePluginStoreIndex(index shared.PluginStoreIndex) error {
+// ValidatePluginStoreIndex keeps generated indexes and client reads on the same contract.
+func ValidatePluginStoreIndex(index shared.PluginStoreIndex) error {
 	if index.SchemaVersion != shared.PluginStoreSchemaVersion {
 		return fmt.Errorf("unsupported plugin store schema version %d", index.SchemaVersion)
 	}
@@ -89,9 +92,6 @@ func validatePluginStoreIndex(index shared.PluginStoreIndex) error {
 	}
 	if _, err := time.Parse(time.RFC3339, index.GeneratedAt); err != nil {
 		return errors.New("plugin store generatedAt must use RFC 3339")
-	}
-	if len(index.Extensions) > maxPluginStoreEntries {
-		return fmt.Errorf("plugin store contains more than %d entries", maxPluginStoreEntries)
 	}
 	ids := make(map[string]bool)
 	for position, entry := range index.Extensions {
@@ -112,21 +112,18 @@ func validatePluginStoreEntry(entry shared.PluginStoreEntry) error {
 	if entry.Name == "" || len(entry.Name) > 200 || entry.Repository == "" || len(entry.Repository) > 200 {
 		return errors.New("name and repository are required")
 	}
-	if len(entry.Description) > 2000 || len(entry.StatusMessage) > 1000 {
+	if len(entry.Description) > 2000 || len(entry.StatusMessage) > 1000 || len(entry.Author) > 200 {
 		return errors.New("entry text is too long")
 	}
-	if err := validateGitHubRepositoryURL(entry.Repository, entry.RepositoryURL); err != nil {
-		return fmt.Errorf("invalid repository URL: %w", err)
-	}
-	if entry.Homepage != "" {
-		if err := validatePublicWebURL(entry.Homepage); err != nil {
-			return fmt.Errorf("invalid homepage: %w", err)
-		}
+	_, repositoryName, _ := strings.Cut(entry.Repository, "/")
+	if !storeRepositoryPattern.MatchString(entry.Repository) || repositoryName == "." || repositoryName == ".." {
+		return errors.New("repository must use a valid GitHub owner/repository path")
 	}
 	if entry.Source != shared.PluginSourceOfficial && entry.Source != shared.PluginSourceCommunity {
 		return fmt.Errorf("invalid plugin source %q", entry.Source)
 	}
-	officialOwner := strings.EqualFold(entry.Owner, officialPluginStoreOwner)
+	owner, _, _ := strings.Cut(entry.Repository, "/")
+	officialOwner := strings.EqualFold(owner, officialPluginStoreOwner)
 	if officialOwner != (entry.Source == shared.PluginSourceOfficial) {
 		return errors.New("plugin source does not match repository owner")
 	}
@@ -136,96 +133,40 @@ func validatePluginStoreEntry(entry shared.PluginStoreEntry) error {
 	if entry.Status == shared.PluginStoreUnavailable {
 		return nil
 	}
-	if entry.Manifest == nil || entry.Release == nil {
-		return errors.New("available entry requires manifest and release")
+	if entry.Release == nil {
+		return errors.New("available entry requires a release")
 	}
-	if !validIdentifier(entry.ID) || entry.Manifest.ID != entry.ID {
-		return errors.New("entry id does not match a valid manifest id")
+	if !validIdentifier(entry.ID) {
+		return errors.New("available entry requires a valid plugin id")
 	}
-	if err := validateManifestForSource(*entry.Manifest, entry.Source == shared.PluginSourceOfficial); err != nil {
-		return fmt.Errorf("invalid store manifest: %w", err)
-	}
-	if entry.Manifest.Version == "" || entry.Release.Version != entry.Manifest.Version {
-		return errors.New("release version does not match manifest")
+	switch reservedPluginIDPrefix(entry.ID) {
+	case "builtin.":
+		return errors.New("built-in plugin ids are reserved")
+	case "official.":
+		if !officialOwner {
+			return errors.New("official plugin ids require an official repository")
+		}
 	}
 	release := entry.Release
 	if release.Tag == "" || len(release.Tag) > 200 {
 		return errors.New("release tag is required")
 	}
-	if strings.TrimPrefix(release.Tag, "v") != release.Version {
-		return errors.New("release tag must match manifest version with an optional v prefix")
-	}
-	if err := validateGitHubTagArchiveURL(entry.Repository, release.Tag, release.ArchiveURL); err != nil {
-		return fmt.Errorf("invalid release archive URL: %w", err)
-	}
-	if release.AcceleratedURL != "" {
-		if err := validateJSDelivrArchiveURL(entry.Repository, release.Tag, release.AcceleratedURL); err != nil {
-			return fmt.Errorf("invalid accelerated archive URL: %w", err)
-		}
+	if _, err := parseSemanticVersion(release.Version()); err != nil {
+		return fmt.Errorf("invalid release tag: %w", err)
 	}
 	return nil
 }
 
-func validatePublicWebURL(rawURL string) error {
-	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || len(rawURL) > 4096 {
-		return errors.New("URL must be public HTTPS")
+func storeArchiveURLs(entry shared.PluginStoreEntry) (archive, accelerated string) {
+	archive = (&url.URL{Scheme: "https", Host: "github.com", Path: "/" + entry.Repository + "/archive/refs/tags/" + entry.Release.Tag + ".zip"}).String()
+	if entry.Release.Accelerated {
+		accelerated = (&url.URL{Scheme: "https", Host: "cdn.jsdelivr.net", Path: "/gh/" + entry.Repository + "@" + entry.Release.Tag + "/dist/plugin.zip"}).String()
 	}
-	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") {
-		return errors.New("URL cannot use a local host")
-	}
-	if ip := net.ParseIP(host); ip != nil && forbiddenPluginDownloadIP(ip) {
-		return errors.New("URL cannot use a private or local address")
-	}
-	return nil
-}
-
-func validateGitHubRepositoryURL(repository, rawURL string) error {
-	if err := validatePublicWebURL(rawURL); err != nil {
-		return err
-	}
-	parsed, _ := url.Parse(rawURL)
-	if !strings.EqualFold(parsed.Hostname(), "github.com") || strings.Trim(parsed.EscapedPath(), "/") != repository {
-		return errors.New("repository URL must match its github.com owner/repository path")
-	}
-	return nil
-}
-
-func validateGitHubTagArchiveURL(repository, tag, rawURL string) error {
-	if err := validatePublicWebURL(rawURL); err != nil {
-		return err
-	}
-	parsed, _ := url.Parse(rawURL)
-	decodedPath, err := url.PathUnescape(parsed.EscapedPath())
-	if err != nil {
-		return errors.New("archive URL path is invalid")
-	}
-	expectedPath := "/" + repository + "/archive/refs/tags/" + tag + ".zip"
-	if !strings.EqualFold(parsed.Hostname(), "github.com") || decodedPath != expectedPath || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return errors.New("archive URL must match its github.com repository and tag")
-	}
-	return nil
-}
-
-func validateJSDelivrArchiveURL(repository, tag, rawURL string) error {
-	if err := validatePublicWebURL(rawURL); err != nil {
-		return err
-	}
-	parsed, _ := url.Parse(rawURL)
-	decodedPath, err := url.PathUnescape(parsed.EscapedPath())
-	if err != nil {
-		return errors.New("accelerated archive URL path is invalid")
-	}
-	expectedPath := "/gh/" + repository + "@" + tag + "/dist/plugin.zip"
-	if !strings.EqualFold(parsed.Hostname(), "cdn.jsdelivr.net") || decodedPath != expectedPath || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return errors.New("accelerated archive URL must match its jsDelivr repository and tag")
-	}
-	return nil
+	return archive, accelerated
 }
 
 func writePluginStoreCache(fileName string, index shared.PluginStoreIndex) error {
-	raw, err := json.MarshalIndent(index, "", "  ")
+	raw, err := json.Marshal(index)
 	if err != nil {
 		return err
 	}
@@ -269,7 +210,7 @@ func (m *PluginManager) localArchiveStoreMatch(manifest shared.PluginManifest) s
 		if entry.ID != manifest.ID {
 			continue
 		}
-		if entry.Release != nil && entry.Release.Version == manifest.Version {
+		if entry.Release != nil && entry.Release.Version() == manifest.Version {
 			return "same-version"
 		}
 		return "different"
@@ -293,12 +234,12 @@ func (m *PluginManager) InstallFromStore(ctx context.Context, id, version string
 	for position := range index.Extensions {
 		candidate := &index.Extensions[position]
 		if candidate.ID == id && candidate.Status == shared.PluginStoreAvailable && candidate.Release != nil &&
-			candidate.Release.Version == version {
+			candidate.Release.Version() == version {
 			entry = candidate
 			break
 		}
 	}
-	if entry == nil || entry.Manifest == nil || entry.Release == nil {
+	if entry == nil || entry.Release == nil {
 		return shared.PluginManifest{}, "", errors.New("plugin version is not available in the cached store index")
 	}
 
@@ -315,16 +256,17 @@ func (m *PluginManager) InstallFromStore(ctx context.Context, id, version string
 	}
 
 	urls := make([]string, 0, 2)
-	if entry.Release.AcceleratedURL != "" {
-		urls = append(urls, entry.Release.AcceleratedURL)
+	archiveURL, acceleratedURL := storeArchiveURLs(*entry)
+	if acceleratedURL != "" {
+		urls = append(urls, acceleratedURL)
 	}
-	urls = append(urls, entry.Release.ArchiveURL)
+	urls = append(urls, archiveURL)
 	official := entry.Source == shared.PluginSourceOfficial
 	failures := make([]string, 0, len(urls))
 	for _, rawURL := range urls {
 		downloadContext := ctx
 		cancel := func() {}
-		if rawURL == entry.Release.AcceleratedURL {
+		if rawURL == acceleratedURL {
 			downloadContext, cancel = context.WithTimeout(ctx, 12*time.Second)
 		}
 		data, downloadErr := downloadStorePluginArchive(downloadContext, m.networkSettings(), rawURL)
@@ -338,12 +280,12 @@ func (m *PluginManager) InstallFromStore(ctx context.Context, id, version string
 			failures = append(failures, fmt.Sprintf("%s: %v", rawURL, inspectErr))
 			continue
 		}
-		if manifest.ID != entry.ID || manifest.Version != entry.Release.Version || !reflect.DeepEqual(manifest, *entry.Manifest) {
-			failures = append(failures, fmt.Sprintf("%s: package manifest does not match the store index", rawURL))
+		if manifest.ID != entry.ID || manifest.Version != entry.Release.Version() {
+			failures = append(failures, fmt.Sprintf("%s: package id or version does not match the store index", rawURL))
 			continue
 		}
 		installed, installErr := m.installArchiveApprovedForSource(
-			data, replace, entry.ID, entry.Release.Version, "", approvePermissions, entry.Source,
+			data, replace, entry.ID, entry.Release.Version(), "", approvePermissions, entry.Source,
 		)
 		if installErr != nil {
 			return shared.PluginManifest{}, rawURL, installErr

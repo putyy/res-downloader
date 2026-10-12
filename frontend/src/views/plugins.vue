@@ -194,6 +194,7 @@ import appApi from "@/api/app"
 import type {appType} from "@/types/app"
 import InstalledPluginCard from "@/components/plugin/InstalledPluginCard.vue"
 import StoreExtensionCard from "@/components/plugin/StoreExtensionCard.vue"
+import {localizedStoreEntry, storePluginOwner, storePluginVersion} from "@/components/plugin/store"
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -340,7 +341,7 @@ const toggleAdvancedSettings = () => {
 
 const openResourceRules = () => router.push({path: "/setting", query: {tab: "resource-rules"}})
 
-const storeExtensionName = (extension: appType.PluginStoreEntry) => (extension.manifest ? localizedPluginName(extension.manifest) : extension.name)
+const storeExtensionName = (extension: appType.PluginStoreEntry) => localizedStoreEntry(extension, locale.value).name || extension.name
 
 const installedPlugin = (extension: appType.PluginStoreEntry) => (extension.id ? pluginStatuses.value.find((plugin) => plugin.manifest.id === extension.id) : undefined)
 
@@ -375,11 +376,11 @@ const compareSemanticVersions = (left: string, right: string) => {
 
 const storeCanUpdate = (extension: appType.PluginStoreEntry) => {
   const installed = installedPlugin(extension)
-  return !!installed && !installed.builtin && !!extension.release && compareSemanticVersions(extension.release.version, installed.manifest.version) > 0
+  return !!installed && !installed.builtin && !!extension.release && compareSemanticVersions(storePluginVersion(extension), installed.manifest.version) > 0
 }
 
 const storeEntryPriority = (extension: appType.PluginStoreEntry) => {
-  if (extension.status !== "available" || !extension.manifest || !extension.release) return 3
+  if (extension.status !== "available" || !extension.id || !extension.release) return 3
   if (storeCanUpdate(extension)) return 0
   if (!installedPlugin(extension)) return 1
   return 2
@@ -396,7 +397,7 @@ const filteredStoreEntries = computed(() => {
   const keyword = storeSearch.value.trim().toLocaleLowerCase()
   const entries = keyword
     ? storeEntries.value.filter((extension) =>
-        [storeExtensionName(extension), extension.description, extension.repository, extension.manifest?.author?.name, extension.owner].some((value) =>
+        [storeExtensionName(extension), extension.description, extension.repository, extension.author, storePluginOwner(extension)].some((value) =>
           value?.toLocaleLowerCase().includes(keyword),
         ),
       )
@@ -417,7 +418,7 @@ const storeUpdateCount = computed(() => {
 })
 
 const storeInstallDisabled = (extension: appType.PluginStoreEntry) => {
-  if (extension.status !== "available" || !extension.manifest || !extension.release) return true
+  if (extension.status !== "available" || !extension.id || !extension.release) return true
   return !!installedPlugin(extension) && !storeCanUpdate(extension)
 }
 
@@ -494,13 +495,13 @@ const onTabChanged = (tab: PluginTab) => {
 }
 
 const installFromStore = async (extension: appType.PluginStoreEntry) => {
-  if (!extension.release || !extension.manifest || storeInstallDisabled(extension)) return
+  if (!extension.release || !extension.id || storeInstallDisabled(extension)) return
   const replacing = storeCanUpdate(extension)
   storeInstallingRepository.value = extension.repository
   try {
     const res: appType.Res = await appApi.installPlugin({
-      id: extension.manifest.id,
-      version: extension.release.version,
+      id: extension.id,
+      version: storePluginVersion(extension),
       approvePermissions: replacing,
     })
     if (res.code === 0) {

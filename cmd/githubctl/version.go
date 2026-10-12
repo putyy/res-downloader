@@ -76,7 +76,7 @@ func runVersion(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if len(manifest.Assets) == 0 {
 		return errors.New("stable release has no recognized installation assets")
 	}
-	raw, err := json.MarshalIndent(manifest, "", "  ")
+	raw, err := json.Marshal(manifest)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func runVersion(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		temporary.Close()
 		return err
 	}
-	if _, err = temporary.Write(append(raw, '\n')); err != nil {
+	if _, err = temporary.Write(raw); err != nil {
 		temporary.Close()
 		return err
 	}
