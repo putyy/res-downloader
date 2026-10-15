@@ -74,16 +74,9 @@ func TestPackPluginDirectoryAllowsOfficialID(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "main.js"), []byte(`function onObservation() { return {decision: "continue"} }`), 0640); err != nil {
 		t.Fatal(err)
 	}
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	relativeDirectory, err := filepath.Rel(workingDirectory, directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	output := filepath.Join(relativeDirectory, "dist", "plugin.zip")
-	if err := packPluginDirectory(relativeDirectory, output); err != nil {
+	t.Chdir(directory)
+	output := filepath.Join("dist", "plugin.zip")
+	if err := packPluginDirectory(".", output); err != nil {
 		t.Fatal(err)
 	}
 	archive, err := zip.OpenReader(output)
