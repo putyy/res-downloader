@@ -27,8 +27,9 @@ func TestFilenameTemplateOptionalResourceTimes(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, fields := range []map[string]interface{}{metadata, restored} {
-		got, err := ExpandFilenameTemplate("{{created_at:2006-01-02_15-04-05}}_{{published_at}}_{{date}}", nil, fields, now)
-		if err != nil || got != "2026-09-02_02-02-03_20260903_20260914" {
+		got, err := RenderResourcePath(t.TempDir(), "{{created_at:2006-01-02_15-04-05}}_{{published_at}}_{{date}}",
+			shared.ResourceCandidate{Metadata: fields}, shared.DownloadPlan{}, now)
+		if err != nil || filepath.Base(got) != "2026-09-02_02-02-03_20260903_20260914" {
 			t.Fatalf("time formatting = %q, %v", got, err)
 		}
 		path, err := RenderResourcePath(t.TempDir(), "{{title|sanitize}}{{created_at|prefix:_}}.{{ext}}",

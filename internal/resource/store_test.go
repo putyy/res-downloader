@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"res-downloader/internal/config"
 	shared "res-downloader/internal/model"
+	"runtime"
 	"testing"
 )
 
@@ -54,7 +55,9 @@ func TestResourceStorePersistsCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0077 != 0 {
+	// Windows Chmod controls the read-only attribute, not Unix group/other bits.
+	// The persistence assertions above still run on every platform.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0 {
 		t.Fatalf("database permissions = %o", info.Mode().Perm())
 	}
 }

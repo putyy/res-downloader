@@ -25,6 +25,6 @@
   "expected": {
     "resourceCount": 0,
     "decision": "continue",
-    "patchBodyContains": ".js?v=1.0.1-6-log1\""
+    "patchBodyContains": ".js?v=1.0.2-1\""
   }
 }

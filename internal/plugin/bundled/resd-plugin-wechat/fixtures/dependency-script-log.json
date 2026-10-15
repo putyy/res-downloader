@@ -3,7 +3,7 @@
     "stage": "response",
     "request": {
       "method": "GET",
-      "url": "https://res.wx.qq.com/t/wx_fed/finder/web/chunk.js?v=1.0.1-6-log1",
+      "url": "https://res.wx.qq.com/t/wx_fed/finder/web/chunk.js?v=1.0.2-1",
       "host": "res.wx.qq.com",
       "path": "/t/wx_fed/finder/web/chunk.js",
       "headers": {}
@@ -25,6 +25,6 @@
   "expected": {
     "resourceCount": 0,
     "decision": "continue",
-    "patchBodyContains": ".js?v=1.0.1-6-log1\""
+    "patchBodyContains": ".js?v=1.0.2-1\""
   }
 }
