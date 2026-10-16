@@ -169,8 +169,12 @@ summary,
   background-color: var(--app-accent-soft) !important;
 }
 
-.resource-child-table.n-data-table {
-  @apply overflow-hidden bg-app-surface-muted;
+.resource-table .n-data-table-tr.resource-row--child {
+  --n-merged-td-color-hover: var(--n-merged-td-color);
+}
+
+.resource-table .resource-tree-column .n-data-table-td__ellipsis {
+  max-width: calc(100% - 24px);
 }
 
 /* Popovers are teleported outside page containers, so keep text sizing global.

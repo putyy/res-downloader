@@ -122,18 +122,19 @@
       </NSpace>
     </div>
     <div class="min-h-0 flex-1">
-      <!-- Collections use a custom child table; do not also flatten children as tree rows. -->
       <NDataTable
         class="resource-table [--wails-draggable:no-drag]"
         :columns="columns"
         :data="filteredData"
-        children-key="__tableTreeChildren"
+        children-key="children"
+        :indent="0"
+        :cascade="false"
         :bordered="false"
         :max-height="tableHeight"
         :row-key="rowKey"
-        :virtual-scroll="expandedRowKeys.length === 0"
+        virtual-scroll
         :header-height="48"
-        :height-for-row="() => 48"
+        :min-row-height="48"
         :checked-row-keys="checkedRowKeysValue"
         :expanded-row-keys="expandedRowKeys"
         :row-class-name="resourceRowClassName"
@@ -163,7 +164,7 @@
 </template>
 
 <script lang="ts" setup>
-import type {DataTableBaseColumn, DataTableFilterState, DataTableRowKey} from "naive-ui"
+import type {DataTableFilterState, DataTableRowKey} from "naive-ui"
 import {NButton, NDataTable, NIcon, NPopover, NSpace} from "naive-ui"
 import {computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from "vue"
 import type {appType} from "@/types/app"
@@ -178,10 +179,12 @@ import type {OperationDefinition, OperationExecution, OperationSession} from "@/
 import OperationPagePicker from "@/components/resource/OperationPagePicker.vue"
 import {useRouter, useRoute} from "vue-router"
 import {useResourceTableColumns} from "@/components/resource/useResourceTableColumns"
-import {exportableResource, findResourceInTree, mergeResourceRuntime, primaryURL, removeResourceFromTree, resourceSome, visitResource} from "@/services/resources"
+import {exportableResource, findResourceInTree, mergeResource, primaryURL, removeResourceFromTree, resourceSome, selectedResourceRoots, visitResource} from "@/services/resources"
 import {downloadTaskProgress, formatDownloadBytes} from "@/services/downloadProgress"
 import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
+import {useDownloadStore} from "@/stores/download"
+import {activeTaskStates} from "@/components/task/taskState"
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
 import Password from "@/components/Password.vue"
 import {useI18n} from "vue-i18n"
@@ -191,6 +194,7 @@ import type {MessageReactive} from "naive-ui"
 
 const {t, locale} = useI18n()
 const eventStore = useEventStore()
+const downloadStore = useDownloadStore()
 const isProxy = computed(() => {
   return store.isProxy
 })
@@ -227,6 +231,15 @@ const updateResourceRecordCount = (value: unknown, afterCleanup = false) => {
   })
 }
 const filterKinds = ref<string[]>([])
+const resourceDepths = computed(() => {
+  const depths = new Map<string, number>()
+  const collect = (item: appType.ResourceView, depth: number) => {
+    depths.set(item.id, depth)
+    ;(item.children ?? []).forEach((child) => collect(child, depth + 1))
+  }
+  data.value.forEach((root) => collect(root, 0))
+  return depths
+})
 const filteredData = computed(() => {
   let result = data.value
   const resourceId = String(route.query.resourceId || "")
@@ -259,26 +272,26 @@ const pluginResourceKinds = ref<appType.ResourceKindDefinition[]>([])
 const pluginActionDefinitions = ref<Record<string, Record<string, appType.PluginActionDefinition>>>({})
 const pluginOperationDefinitions = ref<Record<string, Record<string, OperationDefinition>>>({})
 
-const classifyAlias: {[key: string]: any} = {
-  "media.image": computed(() => t("index.image")),
-  "media.audio": computed(() => t("index.audio")),
-  "media.video": computed(() => t("index.video")),
-  "media.collection": computed(() => t("index.collection")),
-  "stream.hls": computed(() => t("index.m3u8")),
-  "stream.live": computed(() => t("index.live")),
-  "document.xls": computed(() => t("index.xls")),
-  "document.doc": computed(() => t("index.doc")),
-  "document.pdf": computed(() => t("index.pdf")),
-  image: computed(() => t("index.image")),
-  audio: computed(() => t("index.audio")),
-  video: computed(() => t("index.video")),
-  m3u8: computed(() => t("index.m3u8")),
-  live: computed(() => t("index.live")),
-  xls: computed(() => t("index.xls")),
-  doc: computed(() => t("index.doc")),
-  pdf: computed(() => t("index.pdf")),
-  stream: computed(() => t("index.stream")),
-  font: computed(() => t("index.font")),
+const classifyAlias: Record<string, string> = {
+  "media.image": "image",
+  "media.audio": "audio",
+  "media.video": "video",
+  "media.collection": "collection",
+  "stream.hls": "m3u8",
+  "stream.live": "live",
+  "document.xls": "xls",
+  "document.doc": "doc",
+  "document.pdf": "pdf",
+  image: "image",
+  audio: "audio",
+  video: "video",
+  m3u8: "m3u8",
+  live: "live",
+  xls: "xls",
+  doc: "doc",
+  pdf: "pdf",
+  stream: "stream",
+  font: "font",
 }
 
 const dwStatus = computed<any>(() => {
@@ -292,9 +305,6 @@ const dwStatus = computed<any>(() => {
     handle: t("index.handle"),
   }
 })
-
-const classify = ref<any[]>([])
-const captureTypeOptions = ref<any[]>([])
 
 const descriptionSearchValue = ref("")
 const urlSearchValue = ref("")
@@ -327,7 +337,7 @@ const refreshExecutions = async () => {
   const current = () => executionPolling && generation === executionPollGeneration
   try {
     const ids = new Set<string>()
-    for (const root of data.value)
+    for (const root of filteredData.value)
       visitResource(root, (row) => {
         ids.add(row.id)
       })
@@ -384,7 +394,6 @@ const refreshPluginMetadata = (): Promise<void> => {
       pluginResourceKinds.value = loadedPlugins.flatMap((plugin) => plugin.manifest.resourceKinds ?? [])
       pluginActionDefinitions.value = Object.fromEntries(plugins.map((plugin) => [plugin.manifest.id, plugin.manifest.actions ?? {}]))
       pluginOperationDefinitions.value = Object.fromEntries(plugins.map((plugin) => [plugin.manifest.id, plugin.manifest.operations ?? {}]))
-      buildClassify()
       removeUnavailableResourceTypes()
     } catch {
       // Keep current labels; retry while the resource list remains open.
@@ -409,8 +418,8 @@ onMounted(() => {
     window.$message?.error(JSON.stringify(e), {duration: 5000})
   }
 
-  buildClassify()
   restoreResourceTypes()
+  void downloadStore.load().catch((error) => window.$message?.error(String(error.message ?? error)))
 
   appApi.listResources({offset: 0, limit: resourcePageSize}).then((res: appType.Res) => {
     if (res.code !== 1) {
@@ -421,16 +430,6 @@ onMounted(() => {
     resourceTotal.value = Number(res.data?.total ?? data.value.length)
     updateResourceRecordCount(res.data?.recordCount)
     nextResourceOffset.value = Number(res.data?.nextOffset ?? 0)
-    data.value.forEach((item) => visitResource(item, (child) => ensureResourceKind(child.kind)))
-    appApi.downloadTasks().then((tasksResponse: appType.Res<appType.DownloadTaskRecord[]>) => {
-      if (tasksResponse.code !== 1) return
-      const restored = new Set<string>()
-      for (const task of tasksResponse.data ?? []) {
-        if (restored.has(task.resourceId)) continue
-        restored.add(task.resourceId)
-        applyTaskStatus(task)
-      }
-    })
   })
   if (store.globalConfig.AutoProxy) void open()
   const choiceCache = localStorage.getItem("remember-clear-choice")
@@ -482,13 +481,6 @@ onMounted(() => {
         resourceTotal.value = nextTotal
         updateResourceRecordCount(payload?.recordCount)
       },
-    }),
-  )
-
-  disposers.push(
-    eventStore.addHandle({
-      type: "downloadTaskUpdated",
-      event: (task: appType.DownloadTaskRecord) => applyTaskStatus(task),
     }),
   )
 
@@ -548,7 +540,13 @@ watch(
     if (!id || route.path !== "/index") return
     const root = data.value.find((item) => resourceSome(item, (child) => child.id === id))
     if (root) {
-      if (root.id !== id && !expandedRowKeys.value.includes(root.id)) expandedRowKeys.value.push(root.id)
+      const expandAncestors = (item: appType.ResourceView): boolean => {
+        if (item.id === id) return true
+        if (!(item.children ?? []).some(expandAncestors)) return false
+        if (!expandedRowKeys.value.includes(item.id)) expandedRowKeys.value.push(item.id)
+        return true
+      }
+      expandAncestors(root)
       return
     }
     if (nextResourceOffset.value > 0 && !loadingMoreResources.value) {
@@ -563,10 +561,9 @@ watch(
 )
 
 const upsertResourceRoot = (resource: appType.ResourceView) => {
-  visitResource(resource, (child) => ensureResourceKind(child.kind))
   const index = data.value.findIndex((item) => item.id === resource.id)
   if (index >= 0) {
-    data.value[index] = mergeResourceRuntime(resource, data.value[index])
+    data.value[index] = mergeResource(resource, data.value[index])
     return
   }
   if (store.globalConfig.InsertTail) data.value.push(resource)
@@ -575,22 +572,16 @@ const upsertResourceRoot = (resource: appType.ResourceView) => {
 
 const appendResourcePage = (resources: appType.ResourceView[]) => {
   for (const resource of resources) {
-    visitResource(resource, (child) => ensureResourceKind(child.kind))
     const index = data.value.findIndex((item) => item.id === resource.id)
-    if (index >= 0) data.value[index] = mergeResourceRuntime(resource, data.value[index])
+    if (index >= 0) data.value[index] = mergeResource(resource, data.value[index])
     else data.value.push(resource)
   }
 }
 
-watch(resourcesType, (n, o) => {
+watch(resourcesType, () => {
   localStorage.setItem("resource-kind-filter", JSON.stringify({res: resourcesType.value}))
   appApi.setResourceFilter(resourcesType.value)
 })
-
-const updateItem = (id: string, updater: (item: any) => void) => {
-  const item = findResource(id)
-  if (item) updater(item)
-}
 
 const updateDescription = async (id: string, value: string) => {
   const item = findResource(id)
@@ -610,36 +601,62 @@ const updateDescription = async (id: string, value: string) => {
   }
 }
 
-const applyTaskStatus = (task: appType.DownloadTaskRecord) => {
-  updateItem(task.resourceId, (item) => {
-    const progress = downloadTaskProgress(task)
-    let message = task.error || ""
-    if (!message) {
-      if (task.state === "paused") message = t("tasks.paused")
-      else if ((task.items?.length ?? 0) > 0) message = `${progress.downloaded}/${progress.total}`
-      else if (progress.total > 0) message = `${Math.floor(progress.percentage)}%`
-      else message = formatDownloadBytes(progress.downloaded)
-    }
-    item.download = {
-      createdAt: task.createdAt,
-      startedAt: task.startedAt,
-      taskId: task.id,
-      state: task.state,
-      outputPath: task.outputPath || "",
-      message,
-      downloaded: task.downloaded,
-      total: task.total,
-    }
-  })
+const downloadState = (row: appType.ResourceView): appType.ResourceDownloadState | undefined => {
+  const task = downloadStore.resourceTasks.get(row.id)
+  if (downloadStore.creating.has(row.id) && (!task || !activeTaskStates.includes(task.state))) return {state: "pending", message: t("index.pending")}
+  if (!task) return undefined
+  const progress = downloadTaskProgress(task)
+  const message =
+    task.error ||
+    (task.state === "paused"
+      ? t("tasks.paused")
+      : (task.items?.length ?? 0) > 0
+        ? `${progress.downloaded}/${progress.total}`
+        : progress.total > 0
+          ? `${Math.floor(progress.percentage)}%`
+          : formatDownloadBytes(progress.downloaded))
+  return {
+    createdAt: task.createdAt,
+    startedAt: task.startedAt,
+    taskId: task.id,
+    state: task.state,
+    outputPath: task.outputPath || "",
+    message,
+    downloaded: task.downloaded,
+    total: task.total,
+  }
 }
+
+const isActiveDownload = (row: appType.ResourceView) => activeTaskStates.some((state) => state === downloadState(row)?.state)
+
+const resourcesBlockedByDownloads = computed(() => {
+  const blocked = new Set<string>()
+  const collect = (row: appType.ResourceView, ancestorActive: boolean): boolean => {
+    const active = isActiveDownload(row)
+    let subtreeActive = active
+    for (const child of row.children ?? []) {
+      if (collect(child, ancestorActive || active)) subtreeActive = true
+    }
+    // Collection tasks protect descendants; a child's task protects its ancestors.
+    if (ancestorActive || subtreeActive) blocked.add(row.id)
+    return subtreeActive
+  }
+  data.value.forEach((root) => collect(root, false))
+  return blocked
+})
+const canDeleteResource = (row: appType.ResourceView) => !resourcesBlockedByDownloads.value.has(row.id)
 
 const findResource = (id: string): appType.ResourceView | undefined => {
   return findResourceInTree(data.value, id)
 }
 
 const removeResource = (id: string) => {
+  const resource = findResource(id)
+  const removedIds = new Set<string>()
+  if (resource) visitResource(resource, (item) => removedIds.add(item.id))
   if (removeResourceFromTree(data.value, id)) {
-    expandedRowKeys.value = expandedRowKeys.value.filter((key) => key !== id)
+    expandedRowKeys.value = expandedRowKeys.value.filter((key) => !removedIds.has(String(key)))
+    checkedRowKeysValue.value = checkedRowKeysValue.value.filter((key) => !removedIds.has(String(key)))
   }
 }
 
@@ -656,16 +673,16 @@ const resetTableHeight = () => {
   }
 }
 
-const buildClassify = () => {
+const resourceTypeOptions = computed(() => {
   const allOption = {value: "all", label: t("index.all")}
   const primaryOptions = [
-    {value: "video", label: computed(() => t("index.video"))},
-    {value: "audio", label: computed(() => t("index.audio"))},
-    {value: "image", label: computed(() => t("index.image"))},
-    {value: "document", label: computed(() => t("index.document"))},
-    {value: "archive", label: computed(() => t("index.archive"))},
-    {value: "collection", label: computed(() => t("index.collection"))},
-    {value: "other", label: computed(() => t("index.other"))},
+    {value: "video", label: t("index.video")},
+    {value: "audio", label: t("index.audio")},
+    {value: "image", label: t("index.image")},
+    {value: "document", label: t("index.document")},
+    {value: "archive", label: t("index.archive")},
+    {value: "collection", label: t("index.collection")},
+    {value: "other", label: t("index.other")},
   ]
   const primaryKindAliases = new Set(["media.video", "media.audio", "media.image", "media.collection", "document.text"])
   const seen = new Set<string>(["all", ...primaryOptions.map((option) => option.value)])
@@ -674,27 +691,31 @@ const buildClassify = () => {
     seen.add(definition.id)
     return [{value: definition.id, label: localizedResourceKindName(definition)}]
   })
-  classify.value = [allOption, ...primaryOptions, ...detailedOptions]
-  captureTypeOptions.value = [
-    allOption,
-    {
-      type: "group",
-      key: "primary-types",
-      label: t("index.primary_types"),
-      children: primaryOptions,
-    },
-    ...(detailedOptions.length > 0
-      ? [
-          {
-            type: "group",
-            key: "detailed-types",
-            label: t("index.detailed_types"),
-            children: detailedOptions,
-          },
-        ]
-      : []),
-  ]
-}
+  return {
+    classify: [allOption, ...primaryOptions, ...detailedOptions],
+    capture: [
+      allOption,
+      {
+        type: "group",
+        key: "primary-types",
+        label: t("index.primary_types"),
+        children: primaryOptions,
+      },
+      ...(detailedOptions.length > 0
+        ? [
+            {
+              type: "group",
+              key: "detailed-types",
+              label: t("index.detailed_types"),
+              children: detailedOptions,
+            },
+          ]
+        : []),
+    ],
+  }
+})
+const classify = computed(() => resourceTypeOptions.value.classify)
+const captureTypeOptions = computed(() => resourceTypeOptions.value.capture)
 
 const restoreResourceTypes = () => {
   const cached = localStorage.getItem("resource-kind-filter")
@@ -735,12 +756,15 @@ const localizedResourceKindName = (definition: appType.ResourceKindDefinition) =
   const entries = definition.locales ?? {}
   const current = locale.value
   const language = current.split("-")[0]
-  return entries[current]?.name || entries[language]?.name || entries.en?.name || Object.values(entries)[0]?.name || classifyAlias[definition.id]?.value || definition.id
+  return (
+    entries[current]?.name ||
+    entries[language]?.name ||
+    entries.en?.name ||
+    Object.values(entries)[0]?.name ||
+    (classifyAlias[definition.id] ? t(`index.${classifyAlias[definition.id]}`) : "") ||
+    definition.id
+  )
 }
-
-const ensureResourceKind = (_kind?: string) => undefined
-
-watch(locale, buildClassify)
 
 const hasCapability = (row: appType.ResourceView, capability: string) => Array.isArray(row.capabilities) && row.capabilities.includes(capability)
 
@@ -856,11 +880,10 @@ const dataAction = (row: appType.ResourceView, index: number, type: string) => {
       download(row, index)
       break
     case "cancel": {
-      const taskId = row.download?.taskId
+      const taskId = downloadState(row)?.taskId
       if (taskId)
         appApi.cancelDownloadTask(taskId).then((res) => {
           if (res.code === 0) window?.$message?.error(res.message)
-          else row.download = {state: "cancelled"}
         })
       break
     }
@@ -886,14 +909,15 @@ const dataAction = (row: appType.ResourceView, index: number, type: string) => {
       BrowserOpenURL(primaryURL(row))
       break
     case "delete":
-      if (isActiveDownload(row)) {
+      if (!canDeleteResource(row)) {
         window?.$message?.error(t("index.delete_tip"))
         return
       }
       appApi.deleteResources({ids: [row.id]}).then((res) => {
         if (res.code === 1) {
+          const isRoot = data.value.some((item) => item.id === row.id)
           removeResource(row.id)
-          resourceTotal.value = Math.max(0, resourceTotal.value - 1)
+          if (isRoot) resourceTotal.value = Math.max(0, resourceTotal.value - 1)
           updateResourceRecordCount(res.data?.recordCount, true)
         } else window?.$message?.error(res.message)
       })
@@ -906,7 +930,9 @@ const rowKey = (row: appType.ResourceView) => {
 }
 
 const resourceRowClassName = (row: appType.ResourceView) => {
-  return checkedRowKeysValue.value.includes(rowKey(row)) ? "resource-row--checked" : ""
+  return [checkedRowKeysValue.value.includes(row.id) ? "resource-row--checked" : "", (resourceDepths.value.get(row.id) ?? 0) > 0 ? "resource-row--child" : ""]
+    .filter(Boolean)
+    .join(" ")
 }
 
 const {columns} = useResourceTableColumns({
@@ -915,13 +941,15 @@ const {columns} = useResourceTableColumns({
   pluginResourceKinds,
   resourceKindLabel: localizedResourceKindName,
   checkedRowKeys: checkedRowKeysValue,
+  resourceDepths,
   descriptionSearch: descriptionSearchValue,
   urlSearch: urlSearchValue,
   previewRow,
   showPreview: showPreviewRow,
   downloadStatuses: dwStatus,
   executions,
-  rowKey,
+  downloadState,
+  filterKinds,
   hasCapability,
   canDownload,
   download: (row, index) => download(row, index),
@@ -934,9 +962,11 @@ const handleCheck = (rowKeys: DataTableRowKey[]) => {
   checkedRowKeysValue.value = rowKeys
 }
 
-const updateFilters = (filters: DataTableFilterState, initiatorColumn: DataTableBaseColumn) => {
-  filterKinds.value = filters.primaryType as string[]
+function updateFilters(filters: DataTableFilterState) {
+  filterKinds.value = (filters.primaryType as string[] | null) ?? []
 }
+
+const selectedResources = (predicate?: (item: appType.ResourceView) => boolean) => selectedResourceRoots(data.value, new Set(checkedRowKeysValue.value.map(String)), predicate)
 
 const batchDown = async () => {
   if (checkedRowKeysValue.value.length <= 0) {
@@ -949,11 +979,7 @@ const batchDown = async () => {
     return
   }
 
-  data.value.forEach((item, index) => {
-    if (checkedRowKeysValue.value.includes(item.id) && canDownload(item)) {
-      download(item, index)
-    }
-  })
+  selectedResources(canDownload).forEach(download)
 
   checkedRowKeysValue.value = []
 }
@@ -965,20 +991,22 @@ const batchCancel = async () => {
   }
   loading.value = true
   const cancelTasks: Promise<any>[] = []
-  data.value.forEach((item) => {
-    if (!checkedRowKeysValue.value.includes(item.id)) {
-      return
-    }
-
-    if (isActiveDownload(item) && item.download?.taskId) {
-      cancelTasks.push(
-        appApi.cancelDownloadTask(item.download.taskId).then((res) => {
-          if (res.code === 1) item.download = {state: "cancelled"}
-          else window?.$message?.error(res.message)
-        }),
-      )
-    }
-  })
+  const selectedIds = new Set(checkedRowKeysValue.value.map(String))
+  const taskIds = new Set<string>()
+  data.value.forEach((root) =>
+    visitResource(root, (item) => {
+      if (!selectedIds.has(item.id)) return
+      const taskId = downloadState(item)?.taskId
+      if (isActiveDownload(item) && taskId) taskIds.add(taskId)
+    }),
+  )
+  taskIds.forEach((taskId) =>
+    cancelTasks.push(
+      appApi.cancelDownloadTask(taskId).then((res) => {
+        if (res.code !== 1) window?.$message?.error(res.message)
+      }),
+    ),
+  )
   await Promise.allSettled(cancelTasks)
   loading.value = false
   checkedRowKeysValue.value = []
@@ -998,7 +1026,7 @@ const batchExport = (type?: string) => {
   loadingText.value = t("common.loading")
   loading.value = true
 
-  let jsonData: Array<object | string> = data.value.filter((item) => checkedRowKeysValue.value.includes(item.id))
+  let jsonData: Array<object | string> = selectedResources()
 
   if (type === "url") {
     jsonData = (jsonData as appType.ResourceView[]).map((item) => primaryURL(item))
@@ -1032,20 +1060,7 @@ const download = (row: appType.ResourceView, _index: number) => {
   if (isActiveDownload(row)) {
     return
   }
-  row.download = {state: "pending", message: t("index.pending")}
-  appApi
-    .createDownload({id: row.id})
-    .then((res: appType.Res<appType.DownloadTaskRecord>) => {
-      if (res.code === 0) {
-        row.download = {state: "ready"}
-        window?.$message?.error(res.message)
-        return
-      }
-      applyTaskStatus(res.data)
-    })
-    .catch(() => {
-      row.download = {state: "ready"}
-    })
+  void downloadStore.create(row.id).catch((error) => window.$message?.error(String(error.message ?? error)))
 }
 
 const open = async () => {
@@ -1078,11 +1093,7 @@ const close = () => {
 const clear = async () => {
   const deletedIds: string[] = []
   if (checkedRowKeysValue.value.length > 0) {
-    data.value.forEach((item) => {
-      if (checkedRowKeysValue.value.includes(item.id) && !isActiveDownload(item)) {
-        deletedIds.push(item.id)
-      }
-    })
+    deletedIds.push(...selectedResources(canDeleteResource).map((item) => item.id))
     checkedRowKeysValue.value = []
   } else {
     const response = await appApi.clearResources()
@@ -1091,6 +1102,7 @@ const clear = async () => {
       return
     }
     data.value = []
+    expandedRowKeys.value = []
     resourceTotal.value = 0
     updateResourceRecordCount(response.data?.recordCount ?? 0, true)
     nextResourceOffset.value = 0
@@ -1102,8 +1114,9 @@ const clear = async () => {
     window?.$message?.error(response.message)
     return
   }
+  const deletedRootCount = data.value.filter((item) => deletedIds.includes(item.id)).length
   deletedIds.forEach(removeResource)
-  resourceTotal.value = Math.max(0, resourceTotal.value - deletedIds.length)
+  resourceTotal.value = Math.max(0, resourceTotal.value - deletedRootCount)
   updateResourceRecordCount(response.data?.recordCount, true)
 }
 
@@ -1134,7 +1147,6 @@ const handleImport = (content: string) => {
         resourceTotal.value = Number(page.data?.total ?? data.value.length)
         updateResourceRecordCount(page.data?.recordCount)
         nextResourceOffset.value = Number(page.data?.nextOffset ?? 0)
-        data.value.forEach((item) => visitResource(item, (child) => ensureResourceKind(child.kind)))
       })
     })
   }
@@ -1145,6 +1157,4 @@ const handlePassword = async (password: string) => {
   const res = proxyAction.value === "enable" ? await store.openProxy(password) : await store.unsetProxy(password)
   if (res.code === 1) showPassword.value = false
 }
-
-const isActiveDownload = (row: appType.ResourceView) => ["pending", "resolving", "downloading", "processing", "pausing"].includes(row.download?.state || "")
 </script>

@@ -45,23 +45,23 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 
 ## 运行时组成
 
-| 模块 | 主要职责 | 关键依赖或输出 |
-| --- | --- | --- |
-| Wails | 加载内嵌前端、提供窗口生命周期和少量 Bind 方法 | `frontend/dist`、`app.Bind` |
-| `app.Runtime` | 创建模块、连接依赖、管理启动与关闭顺序 | 配置、事件、代理、HTTP、插件、资源、下载 |
-| `server.Gateway` | 管理抓取代理监听器，并在本地 API 与代理请求之间分流 | `httpapi.Server`、`proxy.Engine` |
-| `control.Server` | 管理本机自动化监听器、独立凭据及连接发现文件 | 仅监听回环地址，复用资源与下载 HTTP 处理器 |
-| `automation` | 将 CLI 命令与 MCP stdio 工具转换为本机控制请求 | 每次调用读取当前连接信息，不启动桌面 Runtime |
+| 模块 | 主要职责                               | 关键依赖或输出 |
+| --- |------------------------------------| --- |
+| Wails | 加载内嵌前端、提供窗口生命周期和少量 Bind 方法         | `frontend/dist`、`app.Bind` |
+| `app.Runtime` | 创建模块、连接依赖、管理启动与关闭顺序                | 配置、事件、代理、HTTP、插件、资源、下载 |
+| `server.Gateway` | 管理抓取代理监听器，并在本地 API 与代理请求之间分流       | `httpapi.Server`、`proxy.Engine` |
+| `control.Server` | 管理本机自动化监听器、独立凭据及连接发现文件             | 仅监听回环地址，复用资源与下载 HTTP 处理器 |
+| `automation` | 将 CLI 命令与 MCP stdio 工具转换为本机控制请求    | 每次调用读取当前连接信息，不启动桌面 Runtime |
 | `proxy.Engine` | 处理 HTTP 代理和 HTTPS MITM，生成请求/响应观察结果 | 拦截规则、设备证书、插件管理器 |
-| `plugin.PluginManager` | 加载插件、执行观察钩子、关联资源、刷新地址和生成下载计划 | 内置、内嵌和用户插件 |
-| `operation.Service` | 操作发现、会话选择、单次/批量、调度、取消、历史、结果和产物 | 独立 `operations.db`、插件页面桥、资源与下载适配 |
-| `resource.Resource` | 维护资源目录、持久化候选资源、执行资源操作和下载计划 | `resources.db`、捕获缓存、媒体引擎 |
-| `download.Scheduler` | 持久化任务、管理工作协程和任务状态，处理暂停、恢复与重试 | `tasks.db`、插件下载计划 |
-| `download.PlanRunner` | 执行一个下载计划中的输入获取、处理和输出安装 | HTTP、HLS、捕获文件、FFmpeg、WASM |
-| `capture.Store` | 暂存代理、页面脚本或插件钩子写入的文件字节，供下载计划读取 | `capture-cache/` |
-| `media.Engine` | 调用用户配置的 FFmpeg / ffprobe 完成媒体处理 | 转封装、合并、录制等能力 |
-| `system.Setup` | 管理设备证书、系统代理和平台相关操作 | Windows、macOS、Linux 实现 |
-| `events.Emitter` | 把资源和任务变化编码后发送给 Wails 前端 | 单一 `event` 事件通道 |
+| `plugin.PluginManager` | 加载插件、执行观察钩子、关联资源、刷新地址和生成下载计划       | 内置、内嵌和用户插件 |
+| `operation.Service` | 操作发现、会话选择、单次/批量、调度、取消、历史、结果和产物     | 独立 `operations.db`、插件页面桥、资源与下载适配 |
+| `resource.Resource` | 维护资源目录、持久化候选资源、执行资源操作和下载计划         | `resources.db`、捕获缓存、媒体引擎 |
+| `download.Scheduler` | 持久化任务、管理工作协程和任务状态，处理暂停、恢复与重试       | `tasks.db`、插件下载计划 |
+| `download.PlanRunner` | 执行一个下载计划中的输入获取、处理和输出安装             | HTTP、HLS、捕获文件、FFmpeg、WASM |
+| `capture.Store` | 暂存代理、页面脚本或插件钩子写入的文件字节，供下载计划读取      | `capture-cache/` |
+| `media.Engine` | 调用用户配置的 FFmpeg / FFprobe 完成媒体处理     | 转封装、合并、录制等能力 |
+| `system.Setup` | 管理设备证书、系统代理和平台相关操作                 | Windows、macOS、Linux 实现 |
+| `events.Emitter` | 把资源和任务变化编码后发送给 Wails 前端            | 单一 `event` 事件通道 |
 
 ## 启动和关闭生命周期
 
@@ -108,6 +108,8 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 6. PlanRunner 根据计划使用普通 HTTP、HLS、捕获文件或 FFmpeg 等执行器获取输入，并按需执行宿主处理或插件 WASM 处理器。
 7. 临时结果完成后原子化安装到最终路径；进度和状态同时写入任务数据库并通过事件发送给前端。
 
+调度器持有每次任务执行的取消上下文，并通过父子上下文传递给 PlanRunner 和输入执行器。资源服务只执行计划、处理命名与输出安装，不持有调度器或维护下载实例索引。执行进度和处理阶段通过绑定任务 ID 与执行上下文的回调上报，已取消执行的迟到回调会被忽略。集合任务按完成子项数统计进度，子项字节进度不会更新同一资源的独立下载任务。资源列表和任务中心共享 `downloadTaskUpdated` 事件。
+
 普通 HTTP 文件和捕获文件计划可以保留断点状态；直播录制、HLS 或媒体处理是否支持暂停恢复由具体执行器决定。应用退出时未完成的任务会记录为可恢复或已中断状态，而不是继续持有后台进程。
 
 ## 前后端通信
@@ -116,7 +118,9 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 
 - **Wails Bind**：提供应用信息、配置快照、API Session Token 和重置入口等少量启动能力。
 - **本地 HTTP API**：处理资源、预览、下载任务、插件管理、证书和设置请求。除少数公开的证书下载或 HLS 预览路径外，请求需要本次启动随机生成的 Bearer Token，并校验来源和请求方法。
-- **Wails 事件**：后端将不同业务事件封装为 `{type, data}`，统一通过 `event` 通道发送；Pinia 事件 Store 再分发给各页面。
+- **Wails 事件**：后端将不同业务事件封装为 `{type, data}`，统一通过 `event` 通道发送；Pinia 事件 Store 再分发给业务 Store 和页面。
+
+下载任务由共享的 Pinia Store 统一加载，并处理 `downloadTaskUpdated` 和 `downloadTaskRemoved` 事件。任务中心按任务 ID 展示，资源列表按资源 ID 优先选择活动任务（包括已暂停任务），没有活动任务时选择创建时间最新的关联任务，不在资源行维护另一份可写下载状态。列表加载期间收到的更新和删除会保留，较旧的任务快照不会覆盖较新的状态。
 
 Wails AssetServer 使用同一套 HTTP API 中间件，使内嵌前端可以访问 `/api`。独立监听器上的网关则让代理、手机证书下载和本地预览复用配置的 Host 与 Port。
 
@@ -166,17 +170,17 @@ CLI 与 MCP 另经本机控制监听器访问资源查询及下载任务操作�
 | `frontend/` | Vue、Pinia、Naive UI 前端及 Wails 生成的桥接代码 |
 | `internal/app/` | 应用组合根、Wails Bind 和各后端模块的适配层          |
 | `internal/server/` | 统一监听器及 API / 代理分流，不包含业务处理            |
-| `internal/control/` | 本机控制监听器、连接发现及跨平台凭据文件权限 |
-| `internal/automation/` | CLI 参数、MCP 工具和共用的本机 API 客户端 |
+| `internal/control/` | 本机控制监听器、连接发现及跨平台凭据文件权限               |
+| `internal/automation/` | CLI 参数、MCP 工具和共用的本机 API 客户端          |
 | `internal/httpapi/` | 本地 API、鉴权、预览和桌面操作入口                  |
 | `internal/proxy/` | HTTP 代理、HTTPS MITM、观察结果和页面脚本注入       |
 | `internal/rules/` | CONNECT 阶段的域名拦截与透传策略                 |
 | `internal/plugin/` | 插件加载、权限校验、运行时、商店、安装和开发 CLI           |
-| `internal/operation/` | 统一业务操作服务及独立 BoltDB 存储 |
+| `internal/operation/` | 统一业务操作服务及独立 BoltDB 存储                |
 | `internal/resource/` | 资源目录、关联、持久化、资源操作和下载计划入口              |
 | `internal/download/` | 任务调度、状态持久化、下载执行器和计划运行器               |
 | `internal/capture/` | 可按范围写入或追加片段的临时响应缓存                   |
-| `internal/media/` | FFmpeg / ffprobe 能力检测与进程执行           |
+| `internal/media/` | FFmpeg / FFprobe 能力检测与进程执行           |
 | `internal/system/` | 证书、系统代理和平台差异实现                       |
 | `internal/config/` | 默认配置、校验、快照和持久化                       |
 | `internal/events/` | Go 到 Wails 前端的事件发送                   |
@@ -185,8 +189,8 @@ CLI 与 MCP 另经本机控制监听器访问资源查询及下载任务操作�
 | `internal/logging/` | 应用日志封装                               |
 | `examples/plugins/` | 可提交的插件协议示例和脱敏 fixture                |
 | `plugins/` | 独立站点插件的本地开发工作区，默认不随宿主提交或打包           |
-| `cmd/githubctl/` | 生成正式版更新信息和扩展商店索引的脚本              |
-| `cmd/resdctl/` | 可独立构建的 CLI / MCP 控制台客户端，仍依赖运行中的桌面应用 |
+| `cmd/githubctl/` | 生成正式版更新信息和扩展商店索引的脚本                  |
+| `cmd/resdctl/` | 可独立构建的 CLI / MCP 控制台客户端，仍依赖运行中的桌面应用  |
 | `build/` | Wails 平台配置、图标和安装包构建资源                |
 | `docs/` | 用户指南、插件 SDK 和开发文档                    |
 
@@ -207,6 +211,8 @@ Runtime 在资源、插件和下载服务就绪后创建操作服务，再提供
 
 页面桥上报携带执行领取时的 revision，不能用当前页面 revision 替代。页面状态变化后，旧执行仅可确认 handler 已结束并释放占用，不能提交结果或覆盖终态。普通页面消息与操作就绪上报共享页面上下文，通过页面会话锁读写。
 
-资源行通过桌面专用 `/api/operations/resources` 按资源 ID 查询状态，每次最多 1000 个；同一资源优先返回活动执行，再按创建时间选最新记录，不返回结果正文。该查询独立于历史分页，前端离开资源页或窗口隐藏时停止轮询。历史列表仅深拷贝当前分页的摘要，避免复制全部结果。
+资源行通过桌面专用 `/api/operations/resources` 按资源 ID 查询状态，每次最多 1000 个；同一资源优先返回活动执行，再按创建时间选最新记录，不返回结果正文。该查询只覆盖当前筛选后的资源及其子项，独立于历史分页；前端离开资源页或窗口隐藏时停止轮询。历史列表仅深拷贝当前分页的摘要，避免复制全部结果。
+
+操作页按当前内容刷新：历史页刷新历史，运行页刷新页面会话，打开的执行详情和活动批次刷新状态；操作定义与服务设置降低刷新频率。窗口隐藏时不发送轮询请求。
 
 保留清理复用最近一次扫描，直到记录写入、设置变化、手动清理或最近的到期时间；最长间隔一分钟。结果和产物仍在到期后立即失去读取权限。重置应用时一并删除 `operations.db`，避免留下引用已清空资源和任务的历史、设置或幂等记录。详细状态、限额和保留规则见[插件业务操作](operations.md)。

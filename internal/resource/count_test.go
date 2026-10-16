@@ -13,7 +13,7 @@ func TestResourceRecordCountIncludesChildrenOutsidePage(t *testing.T) {
 		{ID: "second", ParentGroupKey: "group", Kind: "media.image"},
 		{ID: "other", Kind: "media.video"},
 	} {
-		resources.catalog.Store(candidate.ID, candidate)
+		resources.saveCandidateLocked(candidate)
 	}
 	page := resources.ListPage(0, 1)
 	if len(page.Items) != 1 || page.Total != 2 || page.RecordCount != 4 || page.NextOffset != 1 {

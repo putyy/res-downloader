@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"res-downloader/internal/config"
+	downloadengine "res-downloader/internal/download"
 	"res-downloader/internal/logging"
 	shared "res-downloader/internal/model"
 	"sync"
@@ -79,10 +80,10 @@ func TestConcurrentDownloadsReserveDistinctDestinationPaths(t *testing.T) {
 				Inputs: []shared.DownloadInput{{ID: "input", Executor: "capture-file", CaptureKey: item.captureKey}},
 				Output: shared.DownloadOutput{Input: "input", Extension: ".bin"},
 			}
-			path, err := resources.runDownloadPlanContext(context.Background(), candidate, plan, directory, shared.DownloadExecution{
+			path, err := resources.RunDownloadPlan(context.Background(), candidate, plan, directory, shared.DownloadExecution{
 				TaskID:  item.id,
 				WorkDir: filepath.Join(directory, ".tasks", item.id),
-			})
+			}, downloadengine.ExecutionCallbacks{})
 			results <- result{path: path, err: err}
 		}()
 	}

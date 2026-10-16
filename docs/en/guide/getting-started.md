@@ -24,8 +24,4 @@ If a particular site is not detected correctly, install its dedicated plugin und
 
 Open **Downloads** to track progress and use the pause, resume, cancel, or retry actions available for each task.
 
-## Interface preview
-
-![res-downloader desktop interface showing resources and download management](/images/show.png)
-
 If you run into a problem, see [Troubleshooting](troubleshooting.md).

@@ -27,6 +27,12 @@ func namedOperation(t *testing.T, name string) operation {
 
 func TestOperationArgumentsRejectInvalidRequestsBeforeDiscovery(t *testing.T) {
 	cases := []struct{ tool, raw string }{
+		{"list_resources", `{"offset":-1}`},
+		{"list_resources", `{"limit":5001}`},
+		{"list_resources", `{"limit":null}`},
+		{"list_downloads", `{"id":"unexpected"}`},
+		{"get_download", `{"id":" "}`},
+		{"create_download", `{"id":"wrong-field"}`},
 		{"list_page_sessions", `{"pluginId":"not-a-supported-filter"}`},
 		{"get_plugin_operation", `{"pluginId":"p"}`},
 		{"invoke_plugin_operation", `{"pluginId":"p","operationId":"op","input":null}`},
@@ -51,6 +57,24 @@ func TestOperationArgumentsRejectInvalidRequestsBeforeDiscovery(t *testing.T) {
 				t.Fatalf("validation did not precede session discovery: %v", err)
 			}
 		})
+	}
+}
+
+func TestResourceAndDownloadArgumentContracts(t *testing.T) {
+	page, err := namedOperation(t, "list_resources").arguments(nil)
+	if err != nil || page["offset"] != 0 || page["limit"] != 100 {
+		t.Fatalf("resource pagination defaults changed: %v %v", page, err)
+	}
+	page, err = namedOperation(t, "list_resources").arguments(json.RawMessage(`{"offset":10001,"limit":5000}`))
+	if err != nil || page["offset"] != 10001 || page["limit"] != 5000 {
+		t.Fatalf("resource pagination acquired an extra upper bound: %v %v", page, err)
+	}
+	args, err := namedOperation(t, "create_download").arguments(json.RawMessage(`{"resourceId":"resource"}`))
+	if err != nil || args["id"] != "resource" {
+		t.Fatalf("resourceId was not mapped to the desktop API: %v %v", args, err)
+	}
+	if _, exists := args["resourceId"]; exists {
+		t.Fatal("resourceId escaped into the desktop request")
 	}
 }
 

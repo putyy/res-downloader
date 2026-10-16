@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref} from "vue"
+import {computed} from "vue"
 import {DocumentOutline} from "@vicons/ionicons5"
 import {useI18n} from "vue-i18n"
 import type {appType} from "@/types/app"
@@ -85,6 +85,7 @@ import {downloadTaskProgress, formatDownloadBytes} from "@/services/downloadProg
 const props = withDefaults(
   defineProps<{
     task: appType.DownloadTaskRecord
+    now: number
     selectable?: boolean
     selected?: boolean
   }>(),
@@ -155,11 +156,9 @@ const formatTime = (value: number) =>
     minute: "2-digit",
   }).format(new Date(value))
 
-const now = ref(Date.now())
-let timer: number | undefined
 const recordingDuration = computed(() => {
   if (!props.task.startedAt) return "00:00:00"
-  const seconds = Math.max(0, Math.floor((now.value - props.task.startedAt) / 1000))
+  const seconds = Math.max(0, Math.floor((props.now - props.task.startedAt) / 1000))
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const remaining = seconds % 60
@@ -168,15 +167,6 @@ const recordingDuration = computed(() => {
 const progressSummary = computed(() => {
   if (!props.task.recording || !active.value) return progressText.value
   return `${progressText.value} · ${t("tasks.recording_duration", {duration: recordingDuration.value})}`
-})
-
-onMounted(() => {
-  timer = window.setInterval(() => {
-    now.value = Date.now()
-  }, 1000)
-})
-onUnmounted(() => {
-  if (timer !== undefined) window.clearInterval(timer)
 })
 </script>
 

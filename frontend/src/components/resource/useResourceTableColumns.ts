@@ -1,5 +1,5 @@
-import {computed, h, type Ref, unref} from "vue"
-import {type DataTableRowKey, NButton, NDataTable, NIcon, NImage, NInput, NPopover, NTooltip} from "naive-ui"
+import {computed, h, type Ref} from "vue"
+import {type DataTableRowKey, NButton, NIcon, NImage, NInput, NPopover, NTooltip} from "naive-ui"
 import {SearchOutline} from "@vicons/ionicons5"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
@@ -19,13 +19,15 @@ interface ResourceColumnOptions {
   pluginResourceKinds: Ref<appType.ResourceKindDefinition[]>
   resourceKindLabel: (definition: appType.ResourceKindDefinition) => string
   checkedRowKeys: Ref<DataTableRowKey[]>
+  resourceDepths: Ref<ReadonlyMap<string, number>>
   descriptionSearch: Ref<string>
   urlSearch: Ref<string>
   previewRow: Ref<appType.ResourceView | undefined>
   showPreview: Ref<boolean>
   downloadStatuses: Ref<Record<string, string>>
   executions: Ref<Record<string, OperationExecution>>
-  rowKey: (row: appType.ResourceView) => DataTableRowKey
+  downloadState: (row: appType.ResourceView) => appType.ResourceDownloadState | undefined
+  filterKinds: Ref<string[]>
   hasCapability: (row: appType.ResourceView, capability: string) => boolean
   canDownload: (row: appType.ResourceView) => boolean
   download: (row: appType.ResourceView, index: number) => void
@@ -36,26 +38,6 @@ interface ResourceColumnOptions {
 
 export const useResourceTableColumns = (options: ResourceColumnOptions) => {
   const columns = computed<any[]>(() => [
-    {
-      type: "expand",
-      width: 20,
-      expandable: (row: appType.ResourceView) => (row.children?.length ?? 0) > 0,
-      renderExpand: (row: appType.ResourceView) =>
-        h(NDataTable, {
-          class: "resource-child-table",
-          columns: childColumns.value,
-          data: row.children ?? [],
-          // Collection children are rendered by the expansion panel,
-          // not by NDataTable's automatic tree flattening.
-          childrenKey: "__tableTreeChildren",
-          rowKey: options.rowKey,
-          bordered: false,
-          singleLine: false,
-          size: "small",
-          maxHeight: 360,
-          style: {padding: "4px 12px 8px 28px"},
-        }),
-    },
     {type: "selection"},
     {
       title: () => {
@@ -65,11 +47,18 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
         return searchTitle(options.t("index.domain"), options.urlSearch, options.t("index.search_description"))
       },
       key: "domain",
-      width: 90,
+      className: "resource-tree-column",
+      tree: true,
+      width: 160,
+      ellipsis: true,
+      // Cell padding owns indentation; the table's native indent is zero.
+      cellProps: (row: appType.ResourceView) => ({
+        style: {paddingLeft: `calc(var(--n-td-padding) + ${(options.resourceDepths.value.get(row.id) ?? 0) * 24}px)`},
+      }),
       render: (row: appType.ResourceView) => {
         const domain = resourceDomain(row)
         const details = primaryURL(row)?.trim() || row.source?.pageUrl?.trim() || domain
-        const trigger = () => h("span", {class: "block max-w-full truncate cursor-default"}, domain || "—")
+        const trigger = () => h("span", {class: "cursor-default"}, domain || "—")
         return details ? h(NTooltip, {trigger: "hover", placement: "top"}, {trigger, default: () => details}) : trigger()
       },
     },
@@ -79,11 +68,13 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
       width: 80,
       filterOptions: Array.from(options.classify.value).slice(1),
       filterMultiple: true,
-      filter: (value: string, row: appType.ResourceView) => row.primaryType === String(value) || row.kind === String(value),
+      // Keep the filter menu; the page applies collection-aware matching once.
+      filter: true,
+      filterOptionValues: options.filterKinds.value,
       render: (row: appType.ResourceView) => {
         const item = options.classify.value.find((item) => item.value === row.primaryType)
         const definition = options.pluginResourceKinds.value.find((item) => item.id === row.kind)
-        const label = definition ? options.resourceKindLabel(definition) : item ? unref(item.label) : row.primaryType || row.kind
+        const label = definition ? options.resourceKindLabel(definition) : item ? item.label : row.primaryType || row.kind
         return h(ResourceTypeCell, {
           label,
           primaryType: row.primaryType,
@@ -137,11 +128,12 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
       key: "download.state",
       width: 100,
       render: (row: appType.ResourceView, index: number) => {
+        const download = options.downloadState(row)
         const command = options.executions.value[row.id]
-        if (command && shouldShowExecution(command, row.download)) {
+        if (command && shouldShowExecution(command, download)) {
           return h(OperationStatus, {execution: command})
         }
-        const effectiveStatus = displayStatus(row)
+        const effectiveStatus = displayStatus(row, download)
         let type: "primary" | "success" | "warning" = "primary"
         if (effectiveStatus === "done") type = "success"
         else if (effectiveStatus === "pending" || effectiveStatus === "partial") type = "warning"
@@ -153,12 +145,12 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
             size: "small",
             style: {margin: "2px"},
             onClick: () => {
-              if (row.download?.outputPath && effectiveStatus === "done") appApi.openFolder({filePath: row.download.outputPath})
+              if (download?.outputPath && effectiveStatus === "done") appApi.openFolder({filePath: download.outputPath})
               else if (effectiveStatus === "ready" && options.canDownload(row)) options.download(row, index)
             },
           },
           {
-            default: () => (effectiveStatus === "running" ? runningStatusLabel(row, options.t) : options.downloadStatuses.value[effectiveStatus]),
+            default: () => (effectiveStatus === "running" ? runningStatusLabel(row, download, options.t) : options.downloadStatuses.value[effectiveStatus]),
           },
         )
       },
@@ -184,15 +176,15 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
       title: options.t("index.save_path"),
       key: "download.outputPath",
       render: (row: appType.ResourceView) => {
+        const download = options.downloadState(row)
         const command = options.executions.value[row.id]
-        if (command && shouldShowExecution(command, row.download)) {
+        if (command && shouldShowExecution(command, download)) {
           let message = executionMessage(command, options.t)
           if (!command.syncUnavailable && command.state === "running" && command.progress != null && !/[%％]/.test(message)) {
             message += ` · ${Math.floor(command.progress)}%`
           }
           return h("span", {class: "text-app-muted ellipsis-2", title: message}, message)
         }
-        const download = row.download
         if (download?.state === "completed" && download.outputPath) {
           return h(
             "a",
@@ -224,6 +216,7 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
         h(Action, {
           key: row.id,
           row,
+          download: options.downloadState(row),
           index,
           pluginActions: options.resourceActions(row),
           onAction: options.dataAction,
@@ -232,21 +225,18 @@ export const useResourceTableColumns = (options: ResourceColumnOptions) => {
     },
   ])
 
-  const childColumns = computed(() => columns.value.filter((column) => column.type !== "expand" && column.type !== "selection"))
-  return {columns, childColumns}
+  return {columns}
 }
 
-const runningStatusLabel = (row: appType.ResourceView, t: ResourceColumnOptions["t"]) => {
+const runningStatusLabel = (row: appType.ResourceView, download: appType.ResourceDownloadState | undefined, t: ResourceColumnOptions["t"]) => {
   if ((row.traits ?? []).includes("live")) return t("index.recording")
-  const raw = String(row.download?.message || "").trim()
-  const byteProgress = /^(\d+)\s*B$/i.exec(raw)
-  if (byteProgress) return formatSize(Number(byteProgress[1]))
+  const raw = String(download?.message || "").trim()
   return raw || t("index.running")
 }
 
-const displayStatus = (row: appType.ResourceView): string => {
+const displayStatus = (row: appType.ResourceView, download: appType.ResourceDownloadState | undefined): string => {
   if (row.state === "partial") return "partial"
-  const state = row.download?.state || "ready"
+  const state = download?.state || "ready"
   if (state === "pending" || state === "paused") return "pending"
   if (["resolving", "downloading", "processing", "pausing"].includes(state)) return "running"
   if (state === "completed") return "done"

@@ -20,10 +20,6 @@ import (
 	"time"
 )
 
-type cancellableDownload interface {
-	Cancel()
-}
-
 type Processor interface {
 	ProcessDownload(path string, processors []shared.DownloadStep, initialOffset uint64, reportProgress bool) error
 }
@@ -36,7 +32,6 @@ type PlanRunner struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	mu           sync.Mutex
-	downloaders  map[string]*FileDownloader
 	progress     func(downloaded, total float64)
 	partial      map[string]float64
 	totals       map[string]float64
@@ -62,21 +57,15 @@ func NewPlanRunner(progress func(downloaded, total float64), cfg *config.Config,
 func NewPlanRunnerContext(parent context.Context, progress func(downloaded, total float64), cfg *config.Config, logger *logging.Logger, mediaEngine *media.Engine, processor Processor, workDir string) *PlanRunner {
 	ctx, cancel := context.WithCancel(parent)
 	runner := &PlanRunner{
-		ctx: ctx, cancel: cancel, downloaders: make(map[string]*FileDownloader),
+		ctx: ctx, cancel: cancel,
 		progress: progress, partial: make(map[string]float64), totals: make(map[string]float64),
 		config: cfg, logger: logger, media: mediaEngine, processor: processor, workDir: workDir,
 	}
 	return runner
 }
 
-func (r *PlanRunner) Cancel() {
-	r.cancel()
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, downloader := range r.downloaders {
-		downloader.Cancel()
-	}
-}
+// Cancel propagates to every input executor through the plan context.
+func (r *PlanRunner) Cancel() { r.cancel() }
 
 func (r *PlanRunner) Run(plan shared.DownloadPlan, directory string, taskNumber int) (string, error) {
 	if r.workDir != "" {
@@ -350,14 +339,7 @@ func (r *PlanRunner) acquireHTTP(input shared.DownloadInput, directory string, t
 	downloader.progressCallback = func(downloaded, total float64, _ int, _ float64) {
 		r.reportProgress(input.ID, downloaded, total)
 	}
-	r.mu.Lock()
-	r.downloaders[input.ID] = downloader
-	r.mu.Unlock()
-	defer func() {
-		r.mu.Lock()
-		delete(r.downloaders, input.ID)
-		r.mu.Unlock()
-	}()
+	defer downloader.Cancel()
 	if err := downloader.Start(); err != nil {
 		if r.workDir == "" {
 			_ = os.Remove(downloader.FileName)

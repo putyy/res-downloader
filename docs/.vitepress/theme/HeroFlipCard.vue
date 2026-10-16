@@ -14,7 +14,7 @@ const copy = computed(() => lang.value.startsWith('zh') ? {
   downloading: 'Saving to your desktop',
 })
 
-const angle = ref(0)
+const angle = ref(180)
 const dragging = ref(false)
 const showingBack = computed(() => {
   const turn = ((angle.value % 360) + 360) % 360

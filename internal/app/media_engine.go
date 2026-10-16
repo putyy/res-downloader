@@ -12,7 +12,3 @@ func NewMediaEngine(config *Config) *media.Engine {
 		return snapshot.FFmpegPath, snapshot.FFprobePath
 	})
 }
-
-func ffmpegHeaderArgument(headers map[string]string) string {
-	return media.HeaderArgument(headers)
-}

@@ -37,6 +37,15 @@ func operationRequestFields() map[string]argumentField {
 func (op operation) fields() map[string]argumentField {
 	fields := map[string]argumentField{}
 	id := argumentField{kind: "string", required: true, min: 1, max: 512}
+	switch op.argument {
+	case "page":
+		fields["offset"] = argumentField{kind: "integer", min: 0, defaultValue: 0}
+		fields["limit"] = argumentField{kind: "integer", min: 1, max: 5000, defaultValue: 100}
+		return fields
+	case "id", "resourceId":
+		fields[op.argument] = id
+		return fields
+	}
 	switch op.name {
 	case "list_plugin_operations":
 		fields["pluginId"] = argumentField{kind: "string", min: 1, max: 512}
@@ -80,7 +89,10 @@ func fieldsSchema(fields map[string]argumentField) map[string]any {
 			property["minLength"], property["maxLength"] = field.min, field.max
 			property["description"] = "Non-blank value; maximum length also applies in UTF-8 bytes."
 		case "integer":
-			property["minimum"], property["maximum"] = field.min, field.max
+			property["minimum"] = field.min
+			if field.max > 0 {
+				property["maximum"] = field.max
+			}
 		case "object":
 			property["additionalProperties"] = true
 			property["description"] = "Plugin operation input; validated against its current inputSchema by the host. Maximum serialized input is 32 KiB."
@@ -161,7 +173,7 @@ func validateFields(raw json.RawMessage, fields map[string]argumentField) (map[s
 			result[name] = value
 		case "integer":
 			var value int
-			if json.Unmarshal(raw, &value) != nil || value < field.min || value > field.max {
+			if json.Unmarshal(raw, &value) != nil || value < field.min || (field.max > 0 && value > field.max) {
 				return invalid()
 			}
 			result[name] = value

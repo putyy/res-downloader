@@ -142,7 +142,6 @@ func (r *Runtime) initialise(ctx context.Context) error {
 		logger.Esg(err, "operation storage unavailable")
 	}
 	resources.SetPlugins(plugins)
-	resources.SetDownloads(downloads)
 	proxy := NewProxy(app, config, rules, plugins, logger)
 	proxy.SetCaptureStore(captures)
 	r.Proxy = proxy

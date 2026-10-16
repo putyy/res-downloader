@@ -1,13 +1,7 @@
 // Package automation implements CLI and MCP adapters for the running desktop app.
 package automation
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"strings"
-)
+import "encoding/json"
 
 type operation struct {
 	name, group, command, path, description string
@@ -48,66 +42,19 @@ func (e *commandError) Error() string { return e.message }
 func fail(kind, message string) error { return &commandError{kind: kind, message: message} }
 
 func (op operation) schema() map[string]any {
-	if op.argument == "json" {
-		return fieldsSchema(op.fields())
-	}
-	properties := map[string]any{}
-	required := []string{}
-	if op.argument == "page" {
-		properties["offset"] = map[string]any{"type": "integer", "minimum": 0, "default": 0}
-		properties["limit"] = map[string]any{"type": "integer", "minimum": 1, "maximum": 5000, "default": 100}
-	} else if op.argument != "" {
-		properties[op.argument] = map[string]any{"type": "string", "minLength": 1, "maxLength": 512}
-		required = append(required, op.argument)
-	}
-	return map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false}
+	return fieldsSchema(op.fields())
 }
 
 // Validate in one place so CLI and MCP accept exactly the same arguments.
 func (op operation) arguments(raw json.RawMessage) (map[string]any, error) {
-	if op.argument == "json" {
-		return validateFields(raw, op.fields())
+	values, err := validateFields(raw, op.fields())
+	if err != nil {
+		return nil, err
 	}
-	if len(raw) == 0 {
-		raw = json.RawMessage(`{}`)
+	// The public tool names this resourceId; the desktop API accepts id.
+	if op.argument == "resourceId" {
+		values["id"] = values["resourceId"]
+		delete(values, "resourceId")
 	}
-	var values map[string]json.RawMessage
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	if err := decoder.Decode(&values); err != nil || values == nil {
-		return nil, fail("invalid_arguments", "arguments must be a JSON object")
-	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
-		return nil, fail("invalid_arguments", "unexpected data after arguments")
-	}
-	for name := range values {
-		if (op.argument == "page" && (name == "offset" || name == "limit")) || (op.argument != "" && op.argument != "page" && name == op.argument) {
-			continue
-		}
-		return nil, fail("invalid_arguments", fmt.Sprintf("unknown argument %q", name))
-	}
-	result := map[string]any{}
-	if op.argument == "page" {
-		for _, name := range []string{"offset", "limit"} {
-			value := 0
-			if name == "limit" {
-				value = 100
-			}
-			if raw, exists := values[name]; exists {
-				if string(raw) == "null" || json.Unmarshal(raw, &value) != nil {
-					return nil, fail("invalid_arguments", name+" must be an integer")
-				}
-			}
-			if value < 0 || (name == "limit" && (value < 1 || value > 5000)) {
-				return nil, fail("invalid_arguments", "offset must be >= 0 and limit must be between 1 and 5000")
-			}
-			result[name] = value
-		}
-	} else if op.argument != "" {
-		var id string
-		if json.Unmarshal(values[op.argument], &id) != nil || strings.TrimSpace(id) == "" || len(id) > 512 {
-			return nil, fail("invalid_arguments", op.argument+" must be a non-empty ID of at most 512 bytes")
-		}
-		result["id"] = id
-	}
-	return result, nil
+	return values, nil
 }

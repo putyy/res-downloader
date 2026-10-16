@@ -18,11 +18,11 @@ func (r *Resource) processFileAction(
 	sourcePath string,
 ) {
 	taskID := "action:" + candidate.ID + ":" + actionID
-	if _, loaded := r.tasks.LoadOrStore(taskID, true); loaded {
+	if _, loaded := r.actions.LoadOrStore(taskID, true); loaded {
 		r.actionEventsEmit(candidate.ID, actionID, "error", "", "action is already running")
 		return
 	}
-	defer r.tasks.Delete(taskID)
+	defer r.actions.Delete(taskID)
 
 	outputPath, err := r.runFileAction(definition, processor, sourcePath)
 	if err != nil {
