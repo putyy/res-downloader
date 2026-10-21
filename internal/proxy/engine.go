@@ -55,6 +55,7 @@ type Engine struct {
 	rules        RuleMatcher
 	plugins      PluginProcessor
 	captures     ResponseCaptureStore
+	responseDump *responseDumper
 }
 
 func New(certificates CertificateProvider, settings SettingsProvider, rules RuleMatcher, plugins PluginProcessor) *Engine {
@@ -141,6 +142,7 @@ func (p *Engine) httpRequestEvent(r *http.Request, ctx *goproxy.ProxyCtx) (*http
 		ctx.UserData = &requestPluginState{pageScripts: pageScripts}
 		r.Header.Set("Accept-Encoding", "identity")
 	}
+	p.responseDump.prepareRequest(r)
 	if limit := p.plugins.BodyLimit(obs); limit > 0 && r.Body != nil {
 		body, truncated := readBodyPrefix(&r.Body, limit)
 		obs.Request.Body = string(body)
@@ -156,6 +158,9 @@ func (p *Engine) httpRequestEvent(r *http.Request, ctx *goproxy.ProxyCtx) (*http
 func (p *Engine) httpResponseEvent(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
 	if resp == nil || resp.Request == nil {
 		return resp
+	}
+	if finishDump := p.responseDump.begin(resp); finishDump != nil {
+		defer finishDump(resp)
 	}
 
 	obs := responseObservation(resp)

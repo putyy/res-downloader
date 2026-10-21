@@ -124,6 +124,9 @@ func pageInlineScriptAllowed(policies []string) bool {
 //go:embed operation_sdk.js
 var operationSDK string
 
+//go:embed page_bridge_probe.js
+var pageBridgeProbeSDK string
+
 func buildPageScriptTag(script shared.PageScriptInjection, nonce string) string {
 	pluginID := jsonString(script.PluginID)
 	pluginVersion := jsonString(script.PluginVersion)
@@ -159,10 +162,12 @@ func buildPageScriptTag(script shared.PageScriptInjection, nonce string) string 
 		tag.WriteString(`if(window.top!==window)return;`)
 	}
 	tag.WriteString(`var listeners=[],nativeFetch=window.fetch&&window.fetch.bind(window),NativeEventSource=window.EventSource;`)
+	tag.WriteString(pageBridgeProbeSDK)
 	tag.WriteString(`function captureRequest(action,key,body){if(!captureEnabled||!bridgeBase||!nativeFetch)return Promise.reject(new Error("page capture is unavailable"));if(typeof key!=="string"||!key||key.length>512)return Promise.reject(new Error("capture key is invalid"));var headers={"X-Res-Downloader-Capture-Key":key},options={method:"POST",headers:headers,credentials:"same-origin",cache:"no-store"};if(body!==undefined){if(!(body instanceof ArrayBuffer)&&!ArrayBuffer.isView(body))return Promise.reject(new TypeError("capture body must be binary"));headers["Content-Type"]="application/octet-stream";options.body=body;}return nativeFetch(bridgeBase+"capture-"+action,options).then(function(response){return response.json().then(function(result){if(!response.ok||!result.ok)throw new Error(result.error||"page capture failed");return result;});});}`)
 	tag.WriteString(operationSDK)
 	tag.WriteString(`var pageApi=Object.freeze({pluginId:pluginId,pluginVersion:pluginVersion,scriptId:scriptId,pageSessionId:pageSessionId,`)
 	tag.WriteString(`operations:operationsAPI,`)
+	tag.WriteString(`probe:probePageBridge,`)
 	tag.WriteString(`send:function(message){if(!bridgeBase||!nativeFetch)return Promise.reject(new Error("page bridge is unavailable"));var body=JSON.stringify(message);if(body.length>65536)return Promise.reject(new Error("page message is too large"));return nativeFetch(bridgeBase+"message",{method:"POST",headers:{"Content-Type":"application/json"},body:body,credentials:"same-origin",cache:"no-store"}).then(function(response){return response.json();});},`)
 	tag.WriteString(`capture:Object.freeze({start:function(key){return captureRequest("start",key);},write:function(key,body){return captureRequest("write",key,body);},complete:function(key){return captureRequest("complete",key);},abort:function(key){return captureRequest("abort",key);}}),`)
 	tag.WriteString(`onMessage:function(listener){if(typeof listener!=="function")throw new TypeError("listener must be a function");listeners.push(listener);return function(){var index=listeners.indexOf(listener);if(index>=0)listeners.splice(index,1);};}});`)

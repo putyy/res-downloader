@@ -496,6 +496,13 @@ func (m *PluginManager) HandlePageBridge(request *http.Request) (*http.Response,
 		return pageBridgeJSONResponse(request, http.StatusForbidden, map[string]interface{}{"ok": false, "error": "page bridge request origin is invalid"}), true
 	}
 	switch parts[2] {
+	case "probe":
+		if request.Method != http.MethodGet {
+			return pageBridgeJSONResponse(request, http.StatusMethodNotAllowed, map[string]interface{}{"ok": false}), true
+		}
+		return pageBridgeJSONResponse(request, http.StatusOK, map[string]interface{}{
+			"ok": true, "bridge": "res-downloader", "apiVersion": shared.PluginAPIVersion,
+		}), true
 	case "operation-ready", "operation-claim", "operation-report", "operation-reload", "operation-resume", "operation-reload-abort":
 		if request.Method != http.MethodPost {
 			return pageBridgeJSONResponse(request, http.StatusMethodNotAllowed, map[string]interface{}{"ok": false}), true

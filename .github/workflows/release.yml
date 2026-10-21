@@ -80,6 +80,24 @@ jobs:
           echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Prepare latest bundled plugins
+        run: go run ./cmd/bundleplugins -download
+
+      - name: Share bundled plugin sources across platforms
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-plugins
+          path: |
+            internal/plugin/bundled/
+            !internal/plugin/bundled/README.md
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Create draft release
         shell: bash
         env:

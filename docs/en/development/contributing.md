@@ -73,6 +73,10 @@ These commands check types and produce a static build. Manually verify client in
 
 In `frontend`, run `npm run format` to format code or `npm run format:check` to check formatting. See the [frontend development guide](https://github.com/putyy/res-downloader/blob/master/frontend/README.md) (Chinese).
 
+### Prepare bundled plugins
+
+Clone the repositories configured under `plugins` in `wails.json` into `plugins/`, then run `wails dev` or `wails build`. Restart the development process after editing a plugin. See [Maintaining bundled plugins](plugins.md#maintaining-bundled-plugins) for configuration and build requirements.
+
 ## Documentation contributions
 
 Corrections, screenshots, clearer instructions, and translations can be submitted directly as PRs. User guides should explain where to find a control, what an option does, and how to solve a problem.

@@ -6,7 +6,7 @@ description: Troubleshoot res-downloader installation, certificates, resource ca
 
 ## Too many WeChat Channels resources
 
-Under **Plugins**, turn off the WeChat Channels plugin's full capture mode. Clear the resource list and reopen the target detail page.
+Videos are captured when playback starts, including homepage autoplay and hover previews. To reduce the number of resources, clear the list and play only the target video.
 
 ## Large resource list warning
 

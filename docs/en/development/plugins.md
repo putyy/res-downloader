@@ -8,7 +8,7 @@ This guide is for plugin developers. It covers plugin directories, the Manifest,
 
 res-downloader identifies its plugin protocol by version. The app passes captured request and response information to plugins, which return resources in the agreed data format. Plugins cannot directly access Go objects, the filesystem, or the shell, or make arbitrary network requests themselves.
 
-The repository's `plugins/` directory is a local workspace for cloning and debugging independent plugin repositories. By default, these sources are not committed to the host repository, loaded automatically, or packaged with the app. Example plugins live in `examples/plugins/`; bundled plugins shipped with the app live in `internal/plugin/bundled/`.
+The repository's `plugins/` directory is a workspace for independent plugin development, with examples under `examples/plugins/`. See [Maintaining bundled plugins](#maintaining-bundled-plugins) for official plugins shipped with the app.
 
 Before developing a plugin, read “Choose a plugin type → Quick start → Manifest → Permissions → Resource model → JavaScript hooks or Declarative plugins → Validation and offline replay.” Page scripts, download plans, and WASM are advanced capabilities to use as needed.
 
@@ -305,6 +305,17 @@ pageApi.onMessage(function (message) {
 
 var result = await pageApi.send({type: "player-ready", data: collectPlayerData()})
 ```
+
+`pageApi.probe()` is an optional host check returning `Promise<boolean>`. Each page-script instance sends at most one bodyless GET and caches the result. It omits cookies and Referer, rejects redirects, and returns `false` on a one-second timeout or an unexpected response marker. The host applies the existing session-token and origin checks. `send()`, capture, and operation calls do not require a probe.
+
+A page script that requires host confirmation can initialize as follows; a failed probe sends no business data for that document:
+
+```javascript
+const available = await pageApi.probe()
+if (available) await pageApi.send({type: "player-ready", data: collectPlayerData()})
+```
+
+The probe checks initialization-time availability, not continued proxy connectivity. A page reload starts a new probe; SPA navigation within the same document reuses its result.
 
 With `capture-response-body` declared, a page script can use its current page session token to write file bytes or media segments into the app's capture cache (Capture Store):
 
@@ -1032,10 +1043,17 @@ Avoid processing oversized objects in loops or logging complete responses and se
 
 See [Extension Store](extension-store.md) for listing requirements, repository configuration, and publishing steps.
 
-## Maintaining bundled plugins (project maintainers only)
+## Maintaining bundled plugins
 
-These commands maintain plugin snapshots shipped with the app. Independent plugin authors do not need them.
+Configure each official plugin's `id` and `repository` under `plugins` in `wails.json`. Before local development, clone the repositories into `plugins/`, using repository names without `.git` as directory names:
 
-From the `res-downloader` source root, run `go run main.go plugin sync-bundled <plugin-directory>` to validate the source plugin and replace the old snapshot with the same ID under `internal/plugin/bundled/`, using the source directory's name.
+```bash
+git clone https://github.com/putyy/resd-plugin-wechat.git plugins/resd-plugin-wechat
+wails dev
+```
 
-Use `go run main.go plugin lint-bundled <directory>` to check a preinstalled snapshot. It accepts only IDs present in the application image used by the command, with directory contents exactly matching that embedded version. Ordinary plugin development uses `lint`; these commands do not grant official status.
+Both `wails dev` and `wails build` automatically validate local plugins and prepare embedded files. Restart the development process after editing a plugin.
+
+Plugin directories under `internal/plugin/bundled/` are generated and excluded from Git. They contain only runtime files and licenses; tests and fixtures stay in the plugin source repositories.
+
+Releases automatically fetch the latest default branches and use the same plugin files across platforms. Before compiling or checking the host directly with Go, run `go run ./cmd/bundleplugins`.

@@ -12,7 +12,7 @@ Turn a target media page into a minimal-permission res-downloader plugin with re
 - For site-behavior changes, require at least one representative target URL. Ask for one only when none is provided. For README-only edits, follow `docs-sync` without repeating browser observation, plugin validation, or packaging unless the change affects those artifacts.
 - Preserve user-specified plugin IDs, directories, capabilities, versions, and acceptance criteria. Do not increment the version for each debugging iteration of an unpublished change.
 - For an explicitly requested ID migration, update Manifest IDs, private trait prefixes, source/status lookups, test loaders, fixtures, and documentation references as applicable. Check publisher metadata for reserved IDs; do not leave tests using a community loader for an official plugin. An ID change does not migrate installed settings or historical resource ownership automatically.
-- Local version changes and repackaging stay in this workflow; they do not imply release, Git, or bundled-snapshot work. For version-only changes, reuse applicable validation evidence, lint the Manifest, repack, and verify the ZIP against the final source.
+- Local version changes and repackaging stay in this workflow; they do not imply release, Git, or host build-configuration changes. For version-only changes, reuse applicable validation evidence, lint the Manifest, repack, and verify the ZIP against the final source.
 - For a new plugin without a requested directory, derive a stable site slug and use `plugins/resd-plugin-<site>`.
 - Inspect the worktree before editing. Preserve unrelated changes and update an existing target plugin in place instead of overwriting it.
 - Keep site-specific implementation inside the target plugin directory. Only an explicit request to improve the host authoring CLI or scaffold permits related Go tooling, template, test, and documentation edits; it does not authorize plugin-protocol, application-UI, or host-capability changes.
@@ -21,7 +21,9 @@ Turn a target media page into a minimal-permission res-downloader plugin with re
 
 ## Source of truth
 
-Before implementation, read `docs/zh/development/plugins.md` completely and inspect the closest relevant plugins under `plugins/`, `examples/plugins/`, or `internal/plugin/bundled/`.
+Before implementation, read `docs/zh/development/plugins.md` completely and inspect the closest relevant plugin sources under `plugins/` or `examples/plugins/`.
+
+Develop plugins in their source directories under `plugins/`; each cloned plugin is an independent repository. `internal/plugin/bundled/` contains ignored build output: do not edit it or commit generated plugin directories. `wails.json` selects bundled plugins by `id` and `repository`, and the repository name determines the local directory under `plugins/`. Wails dev and build prepare runtime files and licenses automatically; tests and fixtures stay in the source repository. Before direct Go compilation or host checks, run `go run ./cmd/bundleplugins`. Hand off restarting the development process after source changes to the user; do not start Wails as validation.
 
 Follow current documentation when it conflicts with this skill. Do not duplicate the plugin protocol. Prefer the existing Go authoring tool, `go run ./cmd/pluginctl ...`; `go run main.go plugin ...` shares its implementation. Extend Go tooling when explicitly requested rather than adding a second implementation in Python or shell.
 

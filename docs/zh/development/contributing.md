@@ -73,6 +73,10 @@ npm run build
 
 在 `frontend` 目录运行 `npm run format` 格式化代码，或运行 `npm run format:check` 检查格式。详见[前端开发说明](https://github.com/putyy/res-downloader/blob/master/frontend/README.md)。
 
+### 准备内嵌插件
+
+按 `wails.json` 的 `plugins` 配置将插件仓库克隆到 `plugins/`，然后运行 `wails dev` 或 `wails build`。修改插件后重启开发进程。配置和构建要求见[维护应用内嵌插件](plugins.md#维护应用内嵌插件)。
+
 ## 文档贡献
 
 修正文案、补充截图、完善操作步骤和帮助翻译都可以直接提交 PR。用户指南应优先说明在哪里操作、选项有什么作用、遇到问题怎么办。

@@ -273,10 +273,11 @@ func TestInstallBundledPlugins(t *testing.T) {
 	if err := installBundledPlugins(directory); err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := ValidateBundledPluginDirectory(filepath.Join(directory, "official.wechat"))
+	runtime, _, err := LoadBundledPlugin(filepath.Join(directory, "official.wechat"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	manifest := runtime.Manifest()
 	if manifest.ID != "official.wechat" {
 		t.Fatalf("installed plugin id = %q", manifest.ID)
 	}

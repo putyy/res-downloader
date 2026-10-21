@@ -34,6 +34,11 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundled-plugins
+          path: plugins
+
       - name: Build Linux environment
         shell: bash
         env:

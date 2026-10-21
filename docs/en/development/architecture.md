@@ -135,7 +135,7 @@ Plugins receive structured observations and return structured resource candidate
 Plugins have three sources:
 
 - **Built-in plugins**: implemented in Go, such as the generic resource detector.
-- **Bundled official plugins**: source snapshots in `internal/plugin/bundled/`, shipped with the app and installed into the user's plugin directory.
+- **Bundled official plugins**: configured in `wails.json`, shipped with the app and installed into the user's plugin directory.
 - **User plugins**: installed under `plugins/` in the user data directory, from the extension store or a local ZIP.
 
 Site-specific API detection, correlation, signature calculation, URL refresh, and non-DRM byte transformations belong in plugins. Extend the host API only for reusable capabilities that multiple plugins may need and that the existing protocol cannot safely express. Such changes must synchronize Go models, runtime validation, Schema, TypeScript declarations, examples, and documentation.

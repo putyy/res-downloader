@@ -8,7 +8,7 @@ description: res-downloader 插件开发指南，涵盖 Manifest、权限、Java
 
 res-downloader 的插件协议通过版本号区分。应用将捕获到的请求和响应信息传给插件，插件按约定的数据格式返回识别出的资源。插件不能直接访问 Go 对象、文件系统、Shell，也不能自行发起任意网络请求。
 
-项目仓库中的 `plugins/` 是本地插件开发工作区，方便克隆和调试独立插件仓库。该目录下的插件源码默认不会提交到宿主仓库，也不会被宿主自动加载或打进应用；示例插件位于 `examples/plugins/`，随应用发布的内嵌插件位于 `internal/plugin/bundled/`。
+项目仓库中的 `plugins/` 用于开发独立插件，示例位于 `examples/plugins/`。随应用发布的官方插件配置见[维护应用内嵌插件](#维护应用内嵌插件)。
 
 开发插件前建议依次阅读“选择插件类型 → 快速开始 → Manifest → 权限 → 资源模型 → JavaScript 钩子或声明式插件 → 校验和离线回放”。页面脚本、下载计划和 WASM 属于按需使用的高级能力。
 
@@ -305,6 +305,17 @@ pageApi.onMessage(function (message) {
 
 var result = await pageApi.send({type: "player-ready", data: collectPlayerData()})
 ```
+
+`pageApi.probe()` 是可选的宿主探测，返回 `Promise<boolean>`。同一页面脚本实例只发送一次无正文 GET，并缓存结果；不携带 Cookie 或 Referer、不跟随重定向，1 秒超时或响应标识不符时返回 `false`。宿主沿用页面会话令牌和来源校验。`send()`、捕获和业务操作不要求先探测。
+
+需要先确认宿主的页面脚本可以这样初始化；探测失败后，本页不发送业务数据：
+
+```javascript
+const available = await pageApi.probe()
+if (available) await pageApi.send({type: "player-ready", data: collectPlayerData()})
+```
+
+探测只反映初始化时的状态，不保证后续代理始终可用。刷新页面会重新探测，同一文档内的 SPA 路由切换复用结果。
 
 声明了 `capture-response-body` 后，页面脚本可以使用当前页面的会话令牌，将文件字节或媒体分片写入应用的捕获缓存（Capture Store）：
 
@@ -1032,10 +1043,17 @@ fixture 只保留匹配和生成资源所需的字段。保留真实域名，私
 
 商店收录条件、仓库配置及发布流程见[扩展商店](extension-store.md)。
 
-## 维护应用内嵌插件（仅项目维护者）
+## 维护应用内嵌插件
 
-以下命令用于维护随应用发布的插件快照，独立插件作者无需使用。
+在 `wails.json` 的 `plugins` 中配置官方插件的 `id` 和 `repository`。本地开发前，将对应仓库克隆到 `plugins/`，目录名使用仓库名（去掉 `.git`）：
 
-在 `res-downloader` 源码根目录运行 `go run main.go plugin sync-bundled <插件目录>`，可校验源插件，并以源目录名称替换 `internal/plugin/bundled/` 中同 ID 的旧快照。
+```bash
+git clone https://github.com/putyy/resd-plugin-wechat.git plugins/resd-plugin-wechat
+wails dev
+```
 
-`go run main.go plugin lint-bundled <目录>` 用于核对预装快照，只接受 ID 存在于命令所用应用镜像且目录内容与该内嵌版本完全一致的插件。普通插件开发使用 `lint`；这些命令不用于申请官方身份。
+`wails dev` 和 `wails build` 会自动校验本地插件并生成内嵌文件。修改插件后，重启开发进程生效。
+
+`internal/plugin/bundled/` 中的插件目录由构建生成，不提交到 Git，仅包含运行文件和许可证。测试和 fixture 保留在插件源码仓库。
+
+正式发布自动获取各仓库默认分支的最新代码，各平台使用同一份插件文件。直接使用 Go 编译或检查宿主前，先执行 `go run ./cmd/bundleplugins`。
