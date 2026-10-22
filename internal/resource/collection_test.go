@@ -39,22 +39,20 @@ func TestDeletingCollectionCascadesButDeletingChildDoesNot(t *testing.T) {
 	second := shared.ResourceCandidate{ID: "second", GroupKey: "post:2", ParentGroupKey: "post", DedupeKey: "second-sign", Kind: "media.image", Source: shared.ResourceSource{PluginID: "example"}}
 	foreign := shared.ResourceCandidate{ID: "foreign", GroupKey: "foreign:1", ParentID: "parent", DedupeKey: "foreign-sign", Kind: "media.image", Source: shared.ResourceSource{PluginID: "another-plugin"}}
 	for _, candidate := range []shared.ResourceCandidate{parent, first, second, foreign} {
-		resource.catalog.Store(candidate.ID, candidate)
-		resource.mediaMark.Store(candidate.DedupeKey, true)
-		resource.groupIndex.Store(resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey), candidate.ID)
+		resource.saveCandidateLocked(candidate)
 		if err := store.Upsert(candidate); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	resource.deleteMany([]string{"first"})
-	if _, exists := resource.catalog.Load("first"); exists {
+	if _, exists := resource.Candidate("first"); exists {
 		t.Fatal("selected child was not removed")
 	}
-	if _, exists := resource.catalog.Load("parent"); !exists {
+	if _, exists := resource.Candidate("parent"); !exists {
 		t.Fatal("deleting a child removed its parent")
 	}
-	if _, exists := resource.catalog.Load("second"); !exists {
+	if _, exists := resource.Candidate("second"); !exists {
 		t.Fatal("deleting a child removed its sibling")
 	}
 
@@ -62,10 +60,10 @@ func TestDeletingCollectionCascadesButDeletingChildDoesNot(t *testing.T) {
 	if records, err := store.List(); err != nil || len(records) != 1 || records[0].Candidate.ID != "foreign" {
 		t.Fatalf("records after cascade = %#v, %v", records, err)
 	}
-	if _, exists := resource.catalog.Load("second"); exists {
+	if _, exists := resource.Candidate("second"); exists {
 		t.Fatal("collection child survived cascade delete")
 	}
-	if _, exists := resource.catalog.Load("foreign"); !exists {
+	if _, exists := resource.Candidate("foreign"); !exists {
 		t.Fatal("collection delete crossed the plugin boundary")
 	}
 }

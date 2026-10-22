@@ -18,11 +18,27 @@ export const findResourceInTree = (items: appType.ResourceView[], id: string): a
   }
 }
 
-export const mergeResourceRuntime = (incoming: appType.ResourceView, current?: appType.ResourceView): appType.ResourceView => {
+export const selectedResourceRoots = (
+  items: appType.ResourceView[],
+  selectedIds: ReadonlySet<string>,
+  predicate: (item: appType.ResourceView) => boolean = () => true,
+): appType.ResourceView[] => {
+  const selected: appType.ResourceView[] = []
+  const collect = (item: appType.ResourceView) => {
+    if (selectedIds.has(item.id) && predicate(item)) {
+      selected.push(item)
+      return
+    }
+    ;(item.children ?? []).forEach(collect)
+  }
+  items.forEach(collect)
+  return selected
+}
+
+export const mergeResource = (incoming: appType.ResourceView, current?: appType.ResourceView): appType.ResourceView => {
   const merged = Object.assign({}, current ?? {}, incoming)
-  if (current?.download) merged.download = current.download
   const children = (incoming.children ?? []).map((child) =>
-    mergeResourceRuntime(
+    mergeResource(
       child,
       current?.children?.find((item) => item.id === child.id),
     ),

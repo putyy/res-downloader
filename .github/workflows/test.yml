@@ -51,6 +51,8 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: Prepare bundled plugins
+        run: go run -mod=readonly ./cmd/bundleplugins -download
       - name: Vet Go packages
         run: go vet -mod=readonly -tags '${{ matrix.go-tags }}' ./...
       - name: Test Go packages

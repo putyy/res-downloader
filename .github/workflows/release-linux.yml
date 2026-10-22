@@ -34,6 +34,11 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundled-plugins
+          path: plugins
+
       - name: Build Linux environment
         shell: bash
         env:
@@ -79,7 +84,7 @@ jobs:
               }
               trap restore_workspace_ownership EXIT
 
-              wails build -platform "linux/$ARCH" -s -skipbindings -ldflags "-X res-downloader/internal/app.ReleaseVersion=$RELEASE_VERSION"
+              wails build -platform "linux/$ARCH" -ldflags "-X res-downloader/internal/app.ReleaseVersion=$RELEASE_VERSION"
 
               install -Dm755 \
                 build/bin/res-downloader \

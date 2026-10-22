@@ -104,10 +104,12 @@ import {useI18n} from "vue-i18n"
 import {computed} from "vue"
 import {CloseOutline, CopyOutline, DownloadOutline, GlobeOutline, GridSharp, LinkOutline, LockOpenOutline, TrashOutline} from "@vicons/ionicons5"
 import type {appType} from "@/types/app"
+import {activeTaskStates} from "@/components/task/taskState"
 
 const {t} = useI18n()
 const props = defineProps<{
-  row: any
+  row: appType.ResourceView
+  download?: appType.ResourceDownloadState
   index: number
   pluginActions?: appType.DisplayResourceAction[]
 }>()
@@ -119,7 +121,7 @@ const canDownload = computed(() => capabilities().includes("download") && props.
 const canOpen = computed(() => capabilities().includes("open"))
 const canCopy = computed(() => capabilities().includes("copy"))
 const isLive = computed(() => Array.isArray(props.row.traits) && props.row.traits.includes("live"))
-const isDownloading = computed(() => ["pending", "resolving", "downloading", "processing", "pausing"].includes(props.row.download?.state))
+const isDownloading = computed(() => activeTaskStates.some((state) => state === props.download?.state))
 // An incomplete resource often needs a plugin action to acquire its tracks.
 // Keep that next step visible instead of leaving only a waiting status.
 const primaryPluginAction = computed(() => (props.row.state === "partial" ? props.pluginActions?.find((item) => item.kind !== "process-file") : undefined))

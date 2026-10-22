@@ -15,23 +15,22 @@ import (
 var ErrResourceNotFound = errors.New("resource not found")
 
 type Resource struct {
-	emit       func(string, ...interface{})
-	config     *config.Config
-	logger     *logging.Logger
-	plugins    resourcePluginService
-	downloads  resourceDownloadQueue
-	media      *media.Engine
-	captures   downloadengine.CaptureSource
-	mediaMark  sync.Map
-	tasks      sync.Map
-	catalog    sync.Map
-	groupIndex sync.Map
-	outputMux  sync.Mutex
-	outputs    map[string]struct{}
-	catalogMux sync.Mutex
-	store      *Store
-	resType    map[string]bool
-	resTypeMux sync.RWMutex
+	emit        func(string, ...interface{})
+	config      *config.Config
+	logger      *logging.Logger
+	plugins     resourcePluginService
+	media       *media.Engine
+	captures    downloadengine.CaptureSource
+	actions     sync.Map
+	catalog     map[string]shared.ResourceCandidate
+	dedupeIndex map[string]string
+	groupIndex  map[string]string
+	outputMux   sync.Mutex
+	outputs     map[string]struct{}
+	catalogMux  sync.RWMutex
+	store       *Store
+	resType     map[string]bool
+	resTypeMux  sync.RWMutex
 }
 
 type Page struct {
@@ -48,19 +47,10 @@ func (r *Resource) emitEvent(name string, data interface{}) {
 }
 
 func (r *Resource) SetPlugins(plugins resourcePluginService)               { r.plugins = plugins }
-func (r *Resource) SetDownloads(downloads resourceDownloadQueue)           { r.downloads = downloads }
 func (r *Resource) SetCaptureSource(captures downloadengine.CaptureSource) { r.captures = captures }
-
-type cancellableDownload interface{ Cancel() }
 
 type resourcePluginService interface {
 	ProcessWASM(context.Context, shared.DownloadStep, string, uint64) (string, error)
-}
-
-type resourceDownloadQueue interface {
-	Cancel(string) error
-	Progress(string, int64, int64)
-	Processing(string)
 }
 
 type PluginStatusProvider interface {
@@ -69,32 +59,33 @@ type PluginStatusProvider interface {
 
 // Candidate returns the current catalog copy for a persisted resource.
 func (r *Resource) Candidate(id string) (shared.ResourceCandidate, bool) {
-	stored, exists := r.catalog.Load(id)
-	if !exists {
-		return shared.ResourceCandidate{}, false
-	}
-	candidate, ok := stored.(shared.ResourceCandidate)
+	r.catalogMux.RLock()
+	defer r.catalogMux.RUnlock()
+	candidate, ok := r.catalog[id]
 	return candidate, ok
 }
 
 func (r *Resource) CandidateByGroup(pluginID, groupKey string) (shared.ResourceCandidate, bool) {
-	id, exists := r.groupIndex.Load(resourceGroupIndexKey(pluginID, groupKey))
-	if !exists {
+	r.catalogMux.RLock()
+	defer r.catalogMux.RUnlock()
+	id, exists := r.groupIndex[resourceGroupIndexKey(pluginID, groupKey)]
+	if !exists || id == "" {
 		return shared.ResourceCandidate{}, false
 	}
-	value, ok := id.(string)
-	if !ok || value == "" {
-		return shared.ResourceCandidate{}, false
-	}
-	return r.Candidate(value)
+	candidate, ok := r.catalog[id]
+	return candidate, ok
 }
 
 // SaveCandidate updates both the in-memory catalog and its durable store.
 func (r *Resource) SaveCandidate(candidate shared.ResourceCandidate) error {
-	r.catalog.Store(candidate.ID, candidate)
+	r.catalogMux.Lock()
+	defer r.catalogMux.Unlock()
 	if r.store != nil {
-		return r.store.Upsert(candidate)
+		if err := r.store.Upsert(candidate); err != nil {
+			return err
+		}
 	}
+	r.saveCandidateLocked(candidate)
 	return nil
 }
 
@@ -104,12 +95,8 @@ func (r *Resource) UpdateTitle(id, title string) (shared.ResourceCandidate, erro
 	r.catalogMux.Lock()
 	defer r.catalogMux.Unlock()
 
-	stored, exists := r.catalog.Load(id)
+	candidate, exists := r.catalog[id]
 	if !exists {
-		return shared.ResourceCandidate{}, ErrResourceNotFound
-	}
-	candidate, ok := stored.(shared.ResourceCandidate)
-	if !ok {
 		return shared.ResourceCandidate{}, ErrResourceNotFound
 	}
 	candidate.Title = title
@@ -118,7 +105,7 @@ func (r *Resource) UpdateTitle(id, title string) (shared.ResourceCandidate, erro
 			return shared.ResourceCandidate{}, err
 		}
 	}
-	r.catalog.Store(id, candidate)
+	r.saveCandidateLocked(candidate)
 	return candidate, nil
 }
 
@@ -151,37 +138,15 @@ func (r *Resource) ListPage(offset, limit int) Page {
 
 // RecordCount includes collection children, unlike the root-only page total.
 func (r *Resource) RecordCount() int {
-	count := 0
-	r.catalog.Range(func(_, value interface{}) bool {
-		if _, ok := value.(shared.ResourceCandidate); ok {
-			count++
-		}
-		return true
-	})
-	return count
+	r.catalogMux.RLock()
+	defer r.catalogMux.RUnlock()
+	return len(r.catalog)
 }
 func (r *Resource) Import(items []shared.ResourceView) ([]shared.ResourceView, error) {
 	return r.importResources(items)
 }
 func (r *Resource) ChildrenOf(parent shared.ResourceCandidate) []shared.ResourceCandidate {
 	return r.childrenOf(parent)
-}
-
-func (r *Resource) RunDownloadPlan(ctx context.Context, candidate shared.ResourceCandidate, plan shared.DownloadPlan, directory string, execution shared.DownloadExecution) (string, error) {
-	return r.runDownloadPlanContext(ctx, candidate, plan, directory, execution)
-}
-
-func (r *Resource) CancelActive(id string) error {
-	return r.cancelActive(id)
-}
-
-func (r *Resource) CancelAllActive() {
-	r.tasks.Range(func(_, value interface{}) bool {
-		if task, ok := value.(cancellableDownload); ok {
-			task.Cancel()
-		}
-		return true
-	})
 }
 
 func (r *Resource) EmitDownloadTaskEvent(task shared.DownloadTaskRecord) {
@@ -210,9 +175,4 @@ func New(userDir string, config *config.Config, media *media.Engine, logger *log
 		logger.Esg(err, "restore resource database")
 	}
 	return resources
-}
-
-func (r *Resource) mediaIsMarked(key string) bool {
-	_, loaded := r.mediaMark.Load(key)
-	return loaded
 }

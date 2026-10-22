@@ -4,9 +4,9 @@ description: Use the res-downloader CLI and MCP to manage resources and download
 
 # CLI and MCP
 
-CLI and MCP control the **running desktop app**. They can query captured resources, manage downloads, and invoke plugin operations. Tasks continue in the desktop app after a command exits or an agent disconnects. Quitting the desktop app stops background downloads.
+Control the **running desktop app** to query captured resources, manage downloads, and invoke plugin operations. Tasks continue in the desktop app after a command exits or an agent disconnects. Quitting the desktop app stops background downloads.
 
-Before using them, launch the updated desktop app, enable capture as described in [Quick Start](getting-started.md), and open the target content. CLI / MCP do not automatically open websites, sign in, or resolve arbitrary webpage links into videos.
+Before use, launch the res-downloader app, enable capture as described in [Quick Start](getting-started.md), and open the target content. CLI / MCP do not automatically open websites, sign in, or resolve arbitrary webpage links into videos.
 
 ## Locate the executable
 

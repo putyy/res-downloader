@@ -50,11 +50,16 @@ const taskWorkspaceDirectory = ".res-downloader-work"
 
 type ResourceService interface {
 	ChildrenOf(shared.ResourceCandidate) []shared.ResourceCandidate
-	RunDownloadPlan(context.Context, shared.ResourceCandidate, shared.DownloadPlan, string, shared.DownloadExecution) (string, error)
-	CancelActive(string) error
-	CancelAllActive()
+	RunDownloadPlan(context.Context, shared.ResourceCandidate, shared.DownloadPlan, string, shared.DownloadExecution, ExecutionCallbacks) (string, error)
 	EmitDownloadTaskEvent(shared.DownloadTaskRecord)
 	EmitDownloadTaskRemoved(string)
+}
+
+// ExecutionCallbacks report one execution's progress without exposing the scheduler
+// to the resource service. They are not part of the persisted download protocol.
+type ExecutionCallbacks struct {
+	Progress   func(downloaded, total int64)
+	Processing func()
 }
 
 type PlanService interface {
@@ -477,7 +482,7 @@ func (s *Scheduler) execute(id string) {
 	s.update(&task, shared.DownloadTaskDownloading, step, "")
 	path, err := s.resources.RunDownloadPlan(taskCtx, resource, plan, task.SaveDirectory, shared.DownloadExecution{
 		TaskID: task.ID, WorkDir: task.TempPath,
-	})
+	}, s.executionCallbacks(taskCtx, task))
 	if err != nil {
 		if errors.Is(context.Cause(taskCtx), errTaskPaused) {
 			s.finishPause(&task, releaseCancelLocked)
@@ -575,7 +580,7 @@ func (s *Scheduler) executeCollection(ctx context.Context, task *shared.Download
 				item.Resource, item.Plan = child, plan
 				item.OutputPath, itemErr = s.resources.RunDownloadPlan(ctx, child, plan, directory, shared.DownloadExecution{
 					TaskID: task.ID, WorkDir: filepath.Join(task.TempPath, fmt.Sprintf("item-%06d", index)),
-				})
+				}, s.executionCallbacks(ctx, *task))
 			}
 		}
 		if itemErr != nil {
@@ -637,8 +642,8 @@ func (s *Scheduler) finishPause(task *shared.DownloadTaskRecord, releaseCancelLo
 // changes so an older worker snapshot cannot overwrite a pause on disk.
 func (s *Scheduler) updateLocked(task *shared.DownloadTaskRecord, state, step, message string) {
 	task.State, task.Step, task.Error, task.UpdatedAt = state, step, message, time.Now().UnixMilli()
-	// HTTP download progress is reported through Progress and therefore lives in
-	// the scheduler's current task record, while execute keeps its own snapshot.
+	// Execution callbacks report HTTP progress to the current task record,
+	// while execute keeps its own snapshot.
 	// Preserve the current counters when that snapshot transitions state so a
 	// pause or completion event cannot overwrite the latest visible progress.
 	if current, exists := s.tasks[task.ID]; exists {
@@ -688,11 +693,22 @@ func (s *Scheduler) List() []shared.DownloadTaskRecord {
 	return tasks
 }
 
-func (s *Scheduler) Progress(resourceID string, downloaded, total int64) {
+func (s *Scheduler) executionCallbacks(ctx context.Context, task shared.DownloadTaskRecord) ExecutionCallbacks {
+	callbacks := ExecutionCallbacks{Processing: func() { s.processing(ctx, task.ID) }}
+	// Collection counters count completed children, not bytes. A child's byte
+	// callback must also never update an independent task for that resource.
+	if len(task.Items) == 0 {
+		callbacks.Progress = func(downloaded, total int64) {
+			s.progress(ctx, task.ID, downloaded, total)
+		}
+	}
+	return callbacks
+}
+
+func (s *Scheduler) progress(ctx context.Context, id string, downloaded, total int64) {
 	s.mu.Lock()
-	id := s.byResource[resourceID]
 	task, exists := s.tasks[id]
-	if !exists {
+	if !exists || ctx.Err() != nil || (task.State != shared.DownloadTaskDownloading && task.State != shared.DownloadTaskProcessing) {
 		s.mu.Unlock()
 		return
 	}
@@ -709,14 +725,16 @@ func (s *Scheduler) Progress(resourceID string, downloaded, total int64) {
 	}
 }
 
-func (s *Scheduler) Processing(id string) {
-	s.mu.RLock()
+func (s *Scheduler) processing(ctx context.Context, id string) {
+	s.mu.Lock()
 	task, exists := s.tasks[id]
-	s.mu.RUnlock()
-	if !exists || task.State != shared.DownloadTaskDownloading {
+	if !exists || ctx.Err() != nil || task.State != shared.DownloadTaskDownloading {
+		s.mu.Unlock()
 		return
 	}
-	s.update(&task, shared.DownloadTaskProcessing, "process", "")
+	s.updateLocked(&task, shared.DownloadTaskProcessing, "process", "")
+	s.mu.Unlock()
+	s.resources.EmitDownloadTaskEvent(task)
 }
 
 func (s *Scheduler) Cancel(resourceID string) error {
@@ -925,13 +943,9 @@ func (s *Scheduler) Close() {
 		s.workerMu.Lock()
 		s.started = false
 		s.workerMu.Unlock()
+		// Task contexts are children of s.ctx; one cancellation stops every
+		// execution and its input executors before waiting for workers.
 		s.cancel()
-		s.mu.RLock()
-		for _, cancelTask := range s.cancelFuncs {
-			cancelTask(context.Canceled)
-		}
-		s.mu.RUnlock()
-		s.resources.CancelAllActive()
 		s.mu.Lock()
 		for id, task := range s.tasks {
 			if activeDownloadTaskState(task.State) {

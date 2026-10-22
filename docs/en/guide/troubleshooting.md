@@ -6,7 +6,7 @@ description: Troubleshoot res-downloader installation, certificates, resource ca
 
 ## Too many WeChat Channels resources
 
-Under **Plugins**, turn off the WeChat Channels plugin's full capture mode. Clear the resource list and reopen the target detail page.
+Videos are captured when playback starts, including homepage autoplay and hover previews. To reduce the number of resources, clear the list and play only the target video.
 
 ## Large resource list warning
 
@@ -183,7 +183,7 @@ The app first generates a name from the filename template, removing incompatible
 
 ## Live recording does not work
 
-Install FFmpeg, then run detection under **Setting → Media Processing**.
+Install FFmpeg, then click **Detect FFmpeg** under **Setting → Media Processing** and confirm that both FFmpeg and FFprobe show **Available**.
 
 ## Still need help
 

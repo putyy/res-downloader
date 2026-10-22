@@ -29,7 +29,19 @@ Add an `operations` map keyed by stable IDs to a JavaScript manifest, with at mo
 
 Publishing requires `emit-resource`; downloading also requires `enqueue-download`. The host validates actual outputs. Declared effects are not a sandbox for arbitrary website JavaScript.
 
-The strict schema subset supports one `type` (object, array, string, number, integer, boolean, null), `title`, `description`, `properties`, `required`, `additionalProperties: false`, `items`, scalar `enum`, numeric bounds, string/array size bounds, `x-persist` and `x-sensitive`. Every object must close additional properties; arrays require items. Maximum depth is 12, with 64 properties per object. Unknown keywords, mismatched constraints and inverted bounds fail validation. References, type unions, patterns and defaults are unsupported.
+### Supported Schema subset
+
+| Purpose | Supported fields or rules |
+| --- | --- |
+| Type | A single `type`: `object`, `array`, `string`, `number`, `integer`, `boolean`, or `null` |
+| Description | `title`, `description` |
+| Objects | `properties`, `required`; explicitly set `additionalProperties: false` |
+| Arrays | `items` is required; supports `minItems` / `maxItems` |
+| Value constraints | Scalar `enum`, `minimum` / `maximum`, `minLength` / `maxLength` |
+| Persistence | `x-persist`, `x-sensitive`; see [Storage rules](#storage-rules) |
+| Structure limits | Maximum depth 12, with 64 properties per object |
+
+`$ref`, type unions, patterns, and defaults are unsupported. Unknown keywords, constraints that do not match the type, and inverted bounds fail validation.
 
 ## Page execution
 
@@ -44,29 +56,47 @@ await pageApi.operations.setState({ready: true, login: "unknown", context: "curr
 
 `handle(id, handler)` returns an unregister function. The handler receives `executionId`, validated `input`, the plugin's original `cursor`, `limit`, optional `resource: {id, actionId}`, an `AbortSignal`, and `report(progress)`. Return `{data, count, hasMore, nextCursor, truncated}` or throw to fail. The SDK does not expose raw page errors as trusted diagnostics. Progress is 0–100; the SDK sends heartbeats every 15 seconds.
 
-`setState` returns `{revision}`. Login is `unknown`, `authenticated` or `required`; connectivity is not proof of login. `context` is a nonsensitive target identifier of at most 128 characters. Report SPA, account and readiness changes: changes to URL, context, login or ready invalidate previous work. An ordinary manual reload creates a new session and interrupts execution; only the explicit one-time checkpoint below allows continuation. Entering the back/forward cache (BFCache) aborts old handlers and closes SSE; only a noncached departure sends a session-close notification. Restoring a cached page reconnects SSE without replaying operations.
+### Page state and sessions
 
-The SDK sends progress, heartbeat and terminal reports with the revision under which that invocation was claimed. After `setState` advances the revision, an old handler's terminal report only confirms that it stopped and releases the page lease. It cannot commit stale results or change an existing terminal state. Plugins do not need to manage the report revision themselves.
+`setState` returns `{revision}`. Call it again after SPA navigation, account changes, or readiness changes:
 
-`ready` means the current page can accept an operation, not that all requested data has finished loading. Handlers must still validate the current target and use bounded waits for content or media when needed. Do not require capture results to be available before allowing capture to start.
+| Field | Meaning |
+| --- | --- |
+| `login` | `unknown`, `authenticated`, or `required`; a connected bridge does not prove login |
+| `context` | Target identifier, up to 128 characters, without credentials |
+| `ready` | The page can accept an operation; data need not be fully loaded. Handlers must validate the target and use bounded waits for content |
 
-Each readiness request has a five-second deadline and up to three attempts for network failures, timeouts or temporary server errors. A new state or page departure aborts the old update; concurrent identical states share a request. If an invocation arrives before the readiness response, the SDK waits for that pending update before checking the revision and claiming execution. Cancellation still works during this wait. These retries synchronize state only; they never replay business operations.
+Changes to URL, `context`, `login`, or `ready` advance the revision and invalidate previous work. The SDK manages report revisions. An old handler's terminal report only confirms that it stopped and releases the page; it cannot commit stale results or overwrite a terminal state.
+
+Each readiness request has a five-second deadline and up to three attempts for network failures, timeouts, or temporary server errors. New state or page departure aborts the old update; concurrent identical states share a request. An early invocation waits for the update before revision checks and execution claiming, and can still be cancelled. These retries synchronize state only, without replaying operations.
+
+An ordinary manual reload creates a new session and interrupts execution; only the explicit checkpoint below allows continuation. Entering the back/forward cache (BFCache) aborts old handlers. Restoring the page reconnects the bridge without replaying operations.
 
 Session discovery includes plugin/script IDs, pageSessionId, title, URL, connection, readiness, login, revision and operation IDs. A unique eligible page can be selected automatically. Multiple matching pages require an explicit pageSessionId; calls are never broadcast.
 
 ### Explicit one-time reload
 
-An operation that needs a page reload to reacquire content can declare `allowReload: true` and `effects: ["read", "page"]`, plus any other effects it performs. The handler receives `reloadCount: 0 | 1` and `reload(): Promise<never>`. Clean up uncommitted Capture Store data first, then `return ctx.reload()` or `await ctx.reload()` before final submission; the SDK performs the reload. This call must end the current handler. Do not catch it to continue work, call `location.reload()` yourself, or request it after publishing a result.
+To reload the page and reacquire content, declare `allowReload: true` and `effects: ["read", "page"]`, plus any other effects performed. The handler receives `reloadCount: 0 | 1` and `reload(): Promise<never>`:
 
-After reloading, the handler starts again from its entry point with the original `executionId` and input and `reloadCount` set to 1. It does not restore the old JavaScript stack. Validate the target again and reacquire the required data. Continuation is limited to one reload and never extends the total deadline. `safeRetry` remains restricted to read-only operations.
+- Clean up uncommitted Capture Store data, then `return ctx.reload()` or `await ctx.reload()` before final submission. The SDK performs the reload.
+- This call must end the handler. Do not catch it to continue, call `location.reload()` yourself, or request a reload after publishing a result.
+- After reloading, the handler starts from its entry point with the original `executionId` and input, with `reloadCount` set to 1. Validate the target and reacquire data; the old JavaScript stack is not restored.
+- Only one continuation is allowed, without extending the total deadline. `safeRetry` remains restricted to read-only operations.
 
 The checkpoint lasts at most 60 seconds and never exceeds the original execution deadline. A newly ready page with an SSE connection may claim it once only for the same plugin, runtime, page script, exact page URL, login state and context. Cancellation, navigation to another video or URL, plugin reload, host restart or checkpoint expiry prevents continuation. Ordinary manual reloads and BFCache restoration do not automatically resubmit operations.
 
-`pageApi.operations.hasPendingReload(): boolean` is a read-only bootstrap hint for preparing the page. It neither claims nor starts an execution and does not replace `setState`. Internal tickets and continuation endpoints are not exposed through public HTTP or CLI APIs. Raw tickets are not logged and operation input is not stored in `sessionStorage`. Execution summaries may include `reloadCount`.
+`pageApi.operations.hasPendingReload(): boolean` is a read-only bootstrap hint. It neither claims nor starts an execution and does not replace `setState`. The SDK manages continuation without exposing it through public HTTP or CLI APIs. Execution summaries may include `reloadCount`.
 
 ### Result submission and resource buttons
 
-Successful data passes through synchronous `onPageMessage({type: "operation-result", operationId, executionId, data}, context, api)`. Return `data`, `resources` and optionally `autoDownload`; both page data and mapped data must satisfy outputSchema. Asynchronous site work belongs in the page handler; Goja hooks cannot await promises. Resources still undergo domain, ownership, groupKey, track, processor, permission and download-plan checks. Only actual published resources and created downloads receive association IDs. Mapping runs asynchronously outside the service lock, with a budget of the lesser of ten seconds and the remaining operation deadline; the Goja hook itself stays synchronous. Cancellation interrupts the hook and plan-validation context. The complete mapped JSON is limited to 2 MiB and 128 resource tracks in total. Actual resource/download effects confirmed after termination are still associated without changing the terminal state.
+Successful data passes through the synchronous hook `onPageMessage({type: "operation-result", operationId, executionId, data}, context, api)`, which can return `data`, `resources`, and `autoDownload`:
+
+- Both page data and mapped data must satisfy `outputSchema`. Asynchronous site work belongs in the page handler; Goja hooks cannot await promises.
+- Resources undergo domain, ownership, `groupKey`, track, processor, permission, and download-plan checks. Only published resources and created downloads receive association IDs.
+- Mapping has the lesser of ten seconds and the remaining operation deadline. Cancellation interrupts the hook and plan validation.
+- The complete mapped JSON is limited to 2 MiB and 128 resource tracks in total.
+
+Resource publication or download creation confirmed after termination is still associated without changing the terminal state.
 
 Resource buttons may reference an operation in the same plugin:
 
@@ -78,27 +108,69 @@ Resource `actions: [{id: "resolve-item", data: {id: "stable-item-id"}}]` supplie
 
 ## Results, pagination and execution
 
+### Results and pagination
+
 A result is `{data, pagination: {cursor, hasMore, count, truncated}}`. The content-item convention uses `pluginId`, a stable business `id`, `kind`, `title`, `pageUrl` and a `capabilities` array with follow-up values such as `detail`, `list`, `resolve` and `text`. Do not guess missing authors, duration or total counts. Search returns data; publish resources only after selected resolution.
 
 Each invocation is bounded to 100 items, 32 KiB of input and 60 KiB of result data. Continue using the host cursor with the same plugin, operation, input and page. Cursors last 15 minutes, bind to the page revision, and do not survive restart.
+
+### Execution state and batches
 
 Each invocation has an executionId and state: `queued`, `running`, `succeeded`, `failed`, `cancelled`, `timed_out`, `interrupted`. Late reports cannot overwrite terminal states. `certainty` is `not_started`, `confirmed` or `unknown`; unknown means effects may already have occurred and must not be treated as safely retryable. `cancelRequested` and `cancelConfirmed` distinguish a request from page acknowledgement.
 
 Batches contain 1–32 explicit calls. Validation or capacity failure rejects the entire batch. Successful submission returns batchId and independent executionIds in input-index order. Batch queries return paginated items, whole-batch counts and total; partial success is valid. A child is one bounded page, never an automatic traversal.
 
-Active limits are 256 globally, 64 per plugin and 32 per page. Running concurrency is eight globally, two per plugin, and one per page. Queue timeout is five minutes, claim timeout 30 seconds, heartbeat timeout 90 seconds; execution uses the declared deadline. Disconnection and page changes interrupt work except at an explicit reload checkpoint. Plugin reload/disable/uninstall and host exit always interrupt work. Cancellation is cooperative and cannot undo website requests. Cancelling a batch does not delete successful resources/files or cancel independent downloads. A terminal execution whose page has not acknowledged stopping retains its page/concurrency lease. New calls return `page_busy_unknown` until acknowledgement or a refresh invalidates the old session. Cleanup skips executions still finishing in this way.
+### Concurrency, time limits, and cancellation
 
-Idempotency keys last 24 hours and are scoped by caller source and invocation scope. Identical key and parameters reuse an execution; conflicting parameters fail. Key registration and execution creation are atomic, with an independent idempotency index that survives restart. A batch key binds the complete request list; changing its order or length conflicts, without promising website exactly-once delivery. Automatic retries are disabled. Explicit `retryOf` is limited to safe read-only failures with known outcomes and at most two retries; never retry successful or uncertain-effect items.
+| Item | Limit |
+| --- | --- |
+| Active calls | 256 globally, 64 per plugin, 32 per page |
+| Running concurrency | 8 globally, 2 per plugin, one at a time per page |
+| Queuing | Up to 5 minutes |
+| Execution claiming | Within 30 seconds of delivery |
+| Heartbeat | At most 90 seconds without one while running |
+| Operation deadline | The declared `timeoutSeconds` |
+
+Disconnection and page changes interrupt work except at an explicit reload checkpoint. Plugin disable, reload, uninstall, and host exit always interrupt work. Cancellation is cooperative and cannot undo website requests. Cancelling a batch does not delete successful resources or files, or cancel independent downloads.
+
+A terminal execution whose page has not acknowledged stopping retains its page and concurrency slot and is skipped during cleanup. New calls return `page_busy_unknown` until acknowledgement or a refresh invalidates the old session.
+
+### Idempotency and retries
+
+Idempotency keys last 24 hours, are scoped by caller source and invocation scope, and survive restart. Identical keys and parameters reuse an execution; conflicting parameters fail. Batch keys bind the complete request list, including its order and length. This does not guarantee that website requests execute exactly once.
+
+Operations are not retried automatically. Explicit `retryOf` allows at most two retries for safe read-only failures with known outcomes, never successful or uncertain-effect items.
 
 ## History and artifacts
 
-Independent `operations.db` stores summaries, permitted result projections, associations, settings and idempotency records. History defaults to 7 days, with at most 10000 records / 32 MiB. Results default to 2 hours, with at most 1000 results / 16 MiB. User settings can adjust retention within 1–30 days and 1–24 hours; plugins can shorten results further.
+### Storage rules
+
+`operations.db` stores execution summaries, permitted result projections, associations, settings, and idempotency records:
+
+| Content | Default retention | Setting range | Capacity |
+| --- | --- | --- | --- |
+| Execution summaries | 7 days | 1–30 days | 10000 records / 32 MiB |
+| Results | 2 hours | 1–24 hours | 1000 results / 16 MiB |
+
+Plugins can shorten result retention further.
 
 Input summaries and saved results include only individual scalar leaves marked `x-persist: true`; opting in an object does not authorize its children. `x-sensitive: true` excludes the subtree, and credential-like fields are additionally excluded. Arbitrary inputs and raw site responses are not persisted by default. In-memory output can be fuller than the saved copy; recovered projections have `resultProjection: true`. Cursors are not persisted.
 
-`resultStatus` distinguishes `available`, `expired`, `cleaned` and `never_persisted`. Missing output is not successful empty data. Startup marks unfinished work interrupted without replay. Unavailable storage explicitly rejects calls. Cleaning history/results removes records and artifact references, not resources or completed download files. Cleaned execution details disappear from history listings. Within the 24-hour idempotency window, execution/batch queries can still return a minimal record with the original ID, terminal state and resultStatus cleaned. Reusing the same key and parameters returns this record without replaying cleaned work.
+### Cleanup and recovery
 
-Executions associate `resourceIds`, `downloadTaskIds` and `artifactIds`. Ordinary download creation, retry and resume also use actual scheduler task records to add download associations to retained terminal executions that published the same plugin resource. New artifact references require a still-valid original result retention window; linking neither extends it nor revives cleaned references. A separate `operationLinkError` reports association-storage failure while the existing download remains queryable by task ID; do not create it again because linking failed. Capture Store retains its own expiry; metadata reflects pending downloads and missing or expired files. Metadata distinguishes available, pending, expired and unavailable. Manual result cleanup, TTL expiry or capacity eviction atomically revokes artifact indexes and execution artifactIds without deleting files. Metadata/text reads first perform expiry cleanup; revoked IDs return `not_found`. With `persistResult: false`, artifact references also stay in memory and cannot be recovered for reading after restart; resource/download association summaries remain. Artifact APIs accept only registered IDs, never caller-supplied paths or URLs.
+`resultStatus` is `available`, `expired`, `cleaned`, or `never_persisted`; missing output is not a successful empty result. Startup marks unfinished work `interrupted` without replay. Unavailable storage rejects calls.
+
+Cleaning history or results does not delete resources or completed download files. Cleaned executions disappear from history listings. Within the 24-hour idempotency window, execution/batch queries still return a minimal record with the original ID, terminal state, and `resultStatus: cleaned`. Reusing the same key and parameters returns this record without replay.
+
+### Artifact associations
+
+Executions associate `resourceIds`, `downloadTaskIds`, and `artifactIds`. Ordinary download creation, retry, and resume also add actual task IDs to retained terminal executions that published the same plugin resource. New artifact references require a valid original result retention window; linking neither extends it nor revives cleaned references.
+
+An `operationLinkError` reports association-storage failure separately. The existing download remains queryable by task ID and should not be created again. Artifact metadata reports actual availability as `available`, `pending`, `expired`, or `unavailable`; Capture Store files follow their own expiry rules.
+
+Manual result cleanup, TTL expiry, or capacity eviction revokes both artifact indexes and execution `artifactIds`, without deleting files. Artifact queries and text reads clear expired records first; revoked IDs return `not_found`. With `persistResult: false`, artifact references stay in memory and do not survive restart, while resource/download association summaries remain. Reads accept only registered `artifactId` values, never local paths or URLs.
+
+### Reading text
 
 Text reads require UTF-8 files of at most 1 MiB and requests of 4–32768 bytes. Offsets are byte positions on character boundaries. The reader drops incomplete trailing characters and returns nextOffset; use that offset to continue. truncated means content remains. Binary files use downloads rather than JSON.
 

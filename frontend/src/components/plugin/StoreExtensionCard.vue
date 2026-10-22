@@ -15,8 +15,8 @@
               {{ t("plugin.store_update_available") }}
             </NTag>
             <NTag v-if="extension.status === 'available'" size="small" type="success">
-              <template v-if="updateAvailable && installedVersion"> v{{ installedVersion }} → v{{ extension.release?.version }} </template>
-              <template v-else>v{{ extension.release?.version }}</template>
+              <template v-if="updateAvailable && installedVersion"> v{{ installedVersion }} → v{{ version }} </template>
+              <template v-else>v{{ version }}</template>
             </NTag>
             <NTag v-else size="small" type="warning">{{ t("plugin.store_unavailable") }}</NTag>
           </div>
@@ -35,7 +35,15 @@
     </template>
 
     <div class="text-app-muted text-xs">
-      {{ extension.repository }}<span v-if="extension.license"> · {{ extension.license }}</span>
+      <button
+        type="button"
+        class="cursor-pointer rounded-sm border-0 bg-transparent p-0 text-left text-xs hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        :title="t('plugin.store_repository')"
+        @click="openRepository"
+      >
+        {{ extension.repository }}
+      </button>
+      <span v-if="extension.license"> · {{ extension.license }}</span>
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>
@@ -48,7 +56,7 @@
       </div>
     </NTooltip>
     <div class="text-app-muted mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
-      <span class="min-w-0 break-words">{{ t("plugin.developer") }}：{{ extension.manifest?.author?.name || extension.owner }}</span>
+      <span class="min-w-0 break-words">{{ t("plugin.developer") }}：{{ extension.author || storePluginOwner(extension) }}</span>
       <NTooltip v-if="updatedTime" trigger="hover">
         <template #trigger>
           <span class="cursor-default whitespace-nowrap">· {{ t("plugin.store_updated_at", {date: updatedTime.date}) }}</span>
@@ -105,6 +113,7 @@ import {useI18n} from "vue-i18n"
 import {RefreshOutline} from "@vicons/ionicons5"
 import type {appType} from "@/types/app"
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
+import {localizedStoreEntry, storePluginOwner, storePluginVersion} from "./store"
 
 const props = defineProps<{
   extension: appType.PluginStoreEntry
@@ -117,12 +126,9 @@ const props = defineProps<{
 const emit = defineEmits<{install: [extension: appType.PluginStoreEntry]}>()
 const {t, locale} = useI18n()
 
-const localizedEntry = computed(() => {
-  const entries = props.extension.manifest?.locales ?? {}
-  const current = locale.value
-  return entries[current] ?? entries[current.split("-")[0]] ?? entries.en ?? Object.values(entries)[0] ?? {}
-})
-const name = computed(() => localizedEntry.value.name || props.extension.manifest?.name || props.extension.name)
+const localizedEntry = computed(() => localizedStoreEntry(props.extension, locale.value))
+const name = computed(() => localizedEntry.value.name || props.extension.name)
+const version = computed(() => storePluginVersion(props.extension))
 const description = computed(() => localizedEntry.value.description || props.extension.description || "")
 const updatedTime = computed(() => {
   const timestamp = Date.parse(props.extension.updatedAt ?? "")
@@ -143,14 +149,14 @@ const updatedTime = computed(() => {
     }).format(date),
   }
 })
-const capabilities = computed(() => props.extension.manifest?.permissions?.capabilities ?? [])
+const capabilities = computed(() => props.extension.capabilities ?? [])
 const visibleCapabilities = computed(() => (capabilities.value.length > 4 ? capabilities.value.slice(0, 3) : capabilities.value))
 const hiddenCapabilityCount = computed(() => capabilities.value.length - visibleCapabilities.value.length)
 
 const openRepository = () => {
   try {
-    const parsed = new URL(props.extension.repositoryUrl)
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") BrowserOpenURL(props.extension.repositoryUrl)
+    const parsed = new URL(`https://github.com/${props.extension.repository}`)
+    if (parsed.origin === "https://github.com") BrowserOpenURL(parsed.href)
   } catch (_) {
     window?.$message?.error(t("plugin.invalid_homepage"))
   }

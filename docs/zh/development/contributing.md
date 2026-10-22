@@ -12,6 +12,8 @@ description: 参与 res-downloader：了解 Pull Request 的范围、标题、�
 
 参与代码开发需要具备相关编程语言、开发工具和 Git 的基础，能够阅读现有代码，并独立完成基本的构建、调试和验证。维护者主要处理项目相关问题和 PR 审核，时间与精力有限，无法提供从零开始的编程教学或全程指导。基础知识请通过相关文档和教程自行学习，感谢理解。
 
+`你可以结合Ai参与贡献，但请自行描述问题与说明实现，包括 Issue 和 Pull Request 的标题与正文。`
+
 ## 提交 PR 前
 
 Bug 修复和文档更新可以直接提交 PR。新功能、架构调整或大型重构建议先创建 Issue 讨论，确认方向后再开始开发；未经讨论的大型 PR 可能不会被审核，或被要求拆分后重新提交。
@@ -47,6 +49,8 @@ PR 描述请交代：
 - **修改效果**：说明修改后的行为，以及受影响的平台或功能；界面调整可附修改前后的截图。
 - **验证结果**：列出实际完成的检查、测试命令和结果，以及仍未验证的项目。不要将编译通过写成所有功能均已验证。
 
+填写时可参考仓库中的 [PR 模板](https://github.com/putyy/res-downloader/blob/master/.github/pull_request_template.md)。
+
 ## 提交前检查
 
 - 确认代码能够编译，并完成与改动相关的检查和测试；修复问题时尽量补充能够复现该问题的回归测试。
@@ -68,6 +72,10 @@ npm run build
 这些命令用于类型检查和静态构建；客户端交互仍需按实际改动进行人工验证。
 
 在 `frontend` 目录运行 `npm run format` 格式化代码，或运行 `npm run format:check` 检查格式。详见[前端开发说明](https://github.com/putyy/res-downloader/blob/master/frontend/README.md)。
+
+### 准备内嵌插件
+
+按 `wails.json` 的 `plugins` 配置将插件仓库克隆到 `plugins/`，然后运行 `wails dev` 或 `wails build`。修改插件后重启开发进程。配置和构建要求见[维护应用内嵌插件](plugins.md#维护应用内嵌插件)。
 
 ## 文档贡献
 

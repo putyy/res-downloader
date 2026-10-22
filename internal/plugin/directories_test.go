@@ -7,7 +7,7 @@ import (
 )
 
 func TestBundledPluginDirectoriesAreValid(t *testing.T) {
-	testPluginDirectories(t, "bundled", true)
+	testPluginDirectories(t, filepath.FromSlash(bundledPluginRoot), true)
 }
 
 func TestExamplePluginDirectoriesAreValid(t *testing.T) {

@@ -30,7 +30,7 @@ type pausableSchedulerResourceFake struct {
 func (f *pausableSchedulerResourceFake) ChildrenOf(shared.ResourceCandidate) []shared.ResourceCandidate {
 	return nil
 }
-func (f *pausableSchedulerResourceFake) RunDownloadPlan(ctx context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, _ shared.DownloadExecution) (string, error) {
+func (f *pausableSchedulerResourceFake) RunDownloadPlan(ctx context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, _ shared.DownloadExecution, _ ExecutionCallbacks) (string, error) {
 	f.mu.Lock()
 	f.runs++
 	run := f.runs
@@ -42,8 +42,6 @@ func (f *pausableSchedulerResourceFake) RunDownloadPlan(ctx context.Context, can
 	}
 	return filepath.Join(directory, candidate.ID+".mp4"), nil
 }
-func (f *pausableSchedulerResourceFake) CancelActive(string) error                       { return nil }
-func (f *pausableSchedulerResourceFake) CancelAllActive()                                {}
 func (f *pausableSchedulerResourceFake) EmitDownloadTaskEvent(shared.DownloadTaskRecord) {}
 func (f *pausableSchedulerResourceFake) EmitDownloadTaskRemoved(string)                  {}
 
@@ -69,14 +67,12 @@ func (f *schedulerResourceFake) SaveCandidate(shared.ResourceCandidate) error { 
 func (f *schedulerResourceFake) ChildrenOf(shared.ResourceCandidate) []shared.ResourceCandidate {
 	return append([]shared.ResourceCandidate(nil), f.children...)
 }
-func (f *schedulerResourceFake) RunDownloadPlan(_ context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, execution shared.DownloadExecution) (string, error) {
+func (f *schedulerResourceFake) RunDownloadPlan(_ context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, execution shared.DownloadExecution, _ ExecutionCallbacks) (string, error) {
 	f.runs = append(f.runs, candidate.ID)
 	f.directories = append(f.directories, directory)
 	f.executions = append(f.executions, execution)
 	return filepath.Join(directory, candidate.ID+".mp4"), nil
 }
-func (f *schedulerResourceFake) CancelActive(string) error { return nil }
-func (f *schedulerResourceFake) CancelAllActive()          {}
 func (f *schedulerResourceFake) EmitDownloadTaskEvent(task shared.DownloadTaskRecord) {
 	f.events = append(f.events, task)
 }
@@ -108,13 +104,11 @@ type recordingSchedulerResourceFake struct {
 func (f *recordingSchedulerResourceFake) ChildrenOf(shared.ResourceCandidate) []shared.ResourceCandidate {
 	return nil
 }
-func (f *recordingSchedulerResourceFake) RunDownloadPlan(ctx context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, _ shared.DownloadExecution) (string, error) {
+func (f *recordingSchedulerResourceFake) RunDownloadPlan(ctx context.Context, candidate shared.ResourceCandidate, _ shared.DownloadPlan, directory string, _ shared.DownloadExecution, _ ExecutionCallbacks) (string, error) {
 	f.once.Do(func() { close(f.started) })
 	<-ctx.Done()
 	return filepath.Join(directory, candidate.ID+".mp4"), nil
 }
-func (f *recordingSchedulerResourceFake) CancelActive(string) error                       { return nil }
-func (f *recordingSchedulerResourceFake) CancelAllActive()                                {}
 func (f *recordingSchedulerResourceFake) EmitDownloadTaskEvent(shared.DownloadTaskRecord) {}
 func (f *recordingSchedulerResourceFake) EmitDownloadTaskRemoved(string)                  {}
 func (schedulerPlanFake) RefreshResource(_ context.Context, candidate shared.ResourceCandidate, _ shared.DownloadOptions) (shared.ResourceCandidate, string, error) {

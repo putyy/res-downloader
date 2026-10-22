@@ -12,6 +12,17 @@ This sanitized in-memory catalog does not implement a real website search API. S
 
 `persistResult` 仅在搜索启用，只有条目 ID 的 `x-persist` 叶子允许落盘。重启后的结果是投影，不能当作完整详情。游标不持久化。Search persistence stores opted-in ID leaves only; recovered projections are not full results and cursors do not survive restart.
 
+## 可选宿主探测 / Optional host probe
+
+需要在初始化时确认宿主的页面脚本，可在发送业务数据前调用一次 `pageApi.probe()`。未调用探测的脚本仍可直接发送消息。A page script may check the host once before sending business data. Scripts can also send without a probe.
+
+```javascript
+const available = await pageApi.probe()
+if (available) await pageApi.send({type: "player-ready"})
+```
+
+同一脚本实例缓存结果，失败或 1 秒超时返回 `false`；不保证后续代理持续在线。Results are cached per page-script instance; failure or a one-second timeout returns `false`. This does not guarantee continued proxy connectivity.
+
 ## 单次刷新扩展 / One-time reload extension
 
 现有目录示例无需刷新。若另加一个读取网页标题、缺失时主动刷新一次的操作，可在 Manifest 的 `operations` 中添加以下定义。The existing catalog needs no reload. To add an operation that reads the page title and requests one reload if it is missing, add this definition to the manifest's `operations` map:

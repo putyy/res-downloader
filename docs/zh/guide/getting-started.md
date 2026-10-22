@@ -24,8 +24,4 @@ description: 开始使用 res-downloader：安装应用和证书、开启资源�
 
 在“下载任务”页面查看进度，并使用任务上提供的暂停、继续、取消或重试操作。
 
-## 界面预览
-
-![res-downloader 桌面应用界面：资源列表与下载管理](/images/show.png)
-
 遇到问题请查看[常见问题](troubleshooting.md)。

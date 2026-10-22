@@ -25,6 +25,11 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundled-plugins
+          path: plugins
+
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod

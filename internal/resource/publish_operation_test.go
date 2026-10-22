@@ -114,7 +114,7 @@ func TestOperationPublicationDiskFailureDoesNotMutateMergedCatalog(t *testing.T)
 	if err := validateCandidate(&fresh); err != nil {
 		t.Fatal(err)
 	}
-	if r.mediaIsMarked(fresh.DedupeKey) || r.RecordCount() != 1 || events != 0 {
+	if r.dedupeIndex[fresh.DedupeKey] != "" || r.RecordCount() != 1 || events != 0 {
 		t.Fatal("failed publication leaked mark, catalog or event")
 	}
 }

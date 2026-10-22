@@ -75,15 +75,17 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref} from "vue"
+import {computed} from "vue"
 import {DocumentOutline} from "@vicons/ionicons5"
 import {useI18n} from "vue-i18n"
 import type {appType} from "@/types/app"
 import {canPauseTask, canResumeTask, canRetryTask, isActiveTask} from "@/components/task/taskState"
+import {downloadTaskProgress, formatDownloadBytes} from "@/services/downloadProgress"
 
 const props = withDefaults(
   defineProps<{
     task: appType.DownloadTaskRecord
+    now: number
     selectable?: boolean
     selected?: boolean
   }>(),
@@ -118,21 +120,19 @@ const statusType = computed<"default" | "info" | "success" | "warning" | "error"
   if (["paused", "pausing", "cancelled", "interrupted"].includes(props.task.state)) return "warning"
   return props.task.state === "pending" ? "default" : "info"
 })
+const progress = computed(() => downloadTaskProgress(props.task))
 const progressPercentage = computed(() => {
   if (props.task.state === "completed") return 100
-  const total = props.task.total || props.task.items?.length || 0
-  if (!total) return 0
-  return Math.min(100, Math.round(((props.task.downloaded ?? 0) / total) * 100))
+  return Math.round(progress.value.percentage)
 })
 const progressText = computed(() => {
-  const downloaded = props.task.downloaded ?? 0
-  const total = props.task.total || props.task.items?.length || 0
+  const {downloaded, total} = progress.value
   if ((props.task.items?.length ?? 0) > 0) {
     return t("tasks.collection_progress", {done: downloaded, total})
   }
   return t("tasks.byte_progress", {
-    done: formatBytes(downloaded),
-    total: total > 0 ? formatBytes(total) : "-",
+    done: formatDownloadBytes(downloaded),
+    total: total > 0 ? formatDownloadBytes(total) : "-",
   })
 })
 
@@ -147,13 +147,6 @@ const metadataText = computed(() =>
     .join(" · "),
 )
 
-const formatBytes = (value: number) => {
-  if (!value) return "0 B"
-  const units = ["B", "KB", "MB", "GB", "TB"]
-  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1)
-  return `${(value / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
-}
-
 const formatTime = (value: number) =>
   new Intl.DateTimeFormat(locale.value === "zh" ? "zh-CN" : "en-US", {
     year: "numeric",
@@ -163,11 +156,9 @@ const formatTime = (value: number) =>
     minute: "2-digit",
   }).format(new Date(value))
 
-const now = ref(Date.now())
-let timer: number | undefined
 const recordingDuration = computed(() => {
   if (!props.task.startedAt) return "00:00:00"
-  const seconds = Math.max(0, Math.floor((now.value - props.task.startedAt) / 1000))
+  const seconds = Math.max(0, Math.floor((props.now - props.task.startedAt) / 1000))
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const remaining = seconds % 60
@@ -176,15 +167,6 @@ const recordingDuration = computed(() => {
 const progressSummary = computed(() => {
   if (!props.task.recording || !active.value) return progressText.value
   return `${progressText.value} · ${t("tasks.recording_duration", {duration: recordingDuration.value})}`
-})
-
-onMounted(() => {
-  timer = window.setInterval(() => {
-    now.value = Date.now()
-  }, 1000)
-})
-onUnmounted(() => {
-  if (timer !== undefined) window.clearInterval(timer)
 })
 </script>
 

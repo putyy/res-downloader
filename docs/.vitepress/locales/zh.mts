@@ -32,7 +32,7 @@ export const zh = {
         text: '资源与下载',
         items: [
           { text: '插件管理', link: '/guide/plugin-management' },
-          { text: '资源与下载设置', link: '/guide/settings' },
+          { text: '系统设置', link: '/guide/settings' },
           { text: 'CLI 与 MCP', link: '/guide/automation' },
           { text: '使用技巧', link: '/guide/more' },
           { text: '常见问题', link: '/guide/troubleshooting' },
@@ -44,7 +44,7 @@ export const zh = {
           { text: '开发指南', link: '/development/plugins' },
           { text: '插件 SDK v1', link: '/development/plugin-sdk' },
           { text: '业务操作', link: '/development/operations' },
-          { text: '发布到扩展商店', link: '/development/extension-store' },
+          { text: '扩展商店', link: '/development/extension-store' },
         ],
       },
       {

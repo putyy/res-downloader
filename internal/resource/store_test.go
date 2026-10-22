@@ -144,18 +144,17 @@ func TestResourceRestoreRebuildsRuntimeIndexes(t *testing.T) {
 	if err := resource.restore(); err != nil {
 		t.Fatal(err)
 	}
-	if _, exists := resource.catalog.Load(candidate.ID); !exists {
+	if _, exists := resource.Candidate(candidate.ID); !exists {
 		t.Fatal("restored resource is missing from catalog")
 	}
-	if !resource.mediaIsMarked(candidate.DedupeKey) {
+	if resource.dedupeIndex[candidate.DedupeKey] == "" {
 		t.Fatal("restored dedupe key is missing")
 	}
-	groupID, exists := resource.groupIndex.Load(resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey))
+	groupID, exists := resource.groupIndex[resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey)]
 	if !exists || groupID != candidate.ID {
 		t.Fatalf("restored group index = %#v, %v", groupID, exists)
 	}
-	restoredValue, _ := resource.catalog.Load(candidate.ID)
-	restored := restoredValue.(shared.ResourceCandidate)
+	restored, _ := resource.Candidate(candidate.ID)
 	if restored.Lifecycle.DiscoveredAt != candidate.Lifecycle.DiscoveredAt || restored.Lifecycle.UpdatedAt != candidate.Lifecycle.UpdatedAt {
 		t.Fatalf("restored lifecycle=%#v candidate=%#v", restored.Lifecycle, candidate.Lifecycle)
 	}
@@ -204,10 +203,10 @@ func TestResourceRestoreKeepsConfiguredListOrder(t *testing.T) {
 					t.Fatalf("order=%q,%q want=%q,%q", items[0].ID, items[1].ID, test.want[0], test.want[1])
 				}
 			}
-			olderValue, _ := resource.catalog.Load(older.ID)
-			newerValue, _ := resource.catalog.Load(newer.ID)
-			if olderValue.(shared.ResourceCandidate).Lifecycle.UpdatedAt != older.Lifecycle.UpdatedAt ||
-				newerValue.(shared.ResourceCandidate).Lifecycle.UpdatedAt != newer.Lifecycle.UpdatedAt {
+			olderValue, _ := resource.Candidate(older.ID)
+			newerValue, _ := resource.Candidate(newer.ID)
+			if olderValue.Lifecycle.UpdatedAt != older.Lifecycle.UpdatedAt ||
+				newerValue.Lifecycle.UpdatedAt != newer.Lifecycle.UpdatedAt {
 				t.Fatal("restore overwrote persisted lifecycle timestamps")
 			}
 		})
@@ -247,8 +246,7 @@ func TestResourceCatalogSupportsMemoryOnlyFallback(t *testing.T) {
 		ID: "memory-only", DedupeKey: "memory-only-sign", Kind: "media.image",
 		Tracks: []shared.ResourceTrack{{ID: "image", Role: "image", URL: "https://cdn.example/image.jpg"}},
 	}
-	resource.catalog.Store(candidate.ID, candidate)
-	resource.mediaMark.Store(candidate.DedupeKey, true)
+	resource.saveCandidateLocked(candidate)
 
 	items := resource.list()
 	if len(items) != 1 || items[0].ID != candidate.ID {
@@ -278,7 +276,7 @@ func TestDeletedResourceCanBePublishedAgain(t *testing.T) {
 		t.Fatalf("initial resources = %#v", first)
 	}
 	resource.deleteMany([]string{first[0].ID})
-	if resource.mediaIsMarked(candidate.DedupeKey) {
+	if resource.dedupeIndex[candidate.DedupeKey] != "" {
 		t.Fatal("deleted resource retained its dedupe marker")
 	}
 	resource.PublishCandidate(candidate)

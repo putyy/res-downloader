@@ -11,9 +11,7 @@ description: res-downloader 安装指南：选择适合 Windows、macOS 或 Linu
 
 ## Windows
 
-::: warning 大多数 Windows 电脑请选择 amd64
 **大多数使用 Intel 或 AMD 处理器的 64 位 Windows 电脑，应下载安装包名称中架构标识为 `amd64` 的版本。** `amd64` 同时适用于 Intel 和 AMD，并不只是 AMD 处理器。只有使用 ARM 处理器的 Windows 设备才选择 `arm64`。
-:::
 
 下载 Windows 安装包并按提示完成安装。首次安装证书时，请允许系统显示的 UAC 授权。
 

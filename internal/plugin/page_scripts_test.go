@@ -1,13 +1,91 @@
 package plugin
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	shared "res-downloader/internal/model"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestPageBridgeProbeUsesExistingSessionAndOriginChecks(t *testing.T) {
+	manager := &PluginManager{pages: newPageBridgeHub(nil)}
+	session := manager.pages.create("example.page", "hook", "https://www.example.com/watch", "www.example.com")
+	endpoint := "https://www.example.com" + pageBridgePrefix + session.id + "/" + session.token + "/probe"
+	for _, scenario := range []struct {
+		name, method, origin, address string
+		status                        int
+	}{
+		{"valid", http.MethodGet, "https://www.example.com", endpoint, http.StatusOK},
+		{"no origin", http.MethodGet, "", endpoint, http.StatusOK},
+		{"wrong method", http.MethodPost, "https://www.example.com", endpoint, http.StatusMethodNotAllowed},
+		{"wrong origin", http.MethodGet, "https://other.example.com", endpoint, http.StatusForbidden},
+		{"wrong token", http.MethodGet, "https://www.example.com", "https://www.example.com" + pageBridgePrefix + session.id + "/invalid/probe", http.StatusForbidden},
+		{"wrong host", http.MethodGet, "", "https://other.example.com" + pageBridgePrefix + session.id + "/" + session.token + "/probe", http.StatusForbidden},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			request := httptest.NewRequest(scenario.method, scenario.address, nil)
+			request.Header.Set("Origin", scenario.origin)
+			response, handled := manager.HandlePageBridge(request)
+			if !handled || response.StatusCode != scenario.status {
+				t.Fatalf("handled=%v, response=%#v", handled, response)
+			}
+			defer response.Body.Close()
+			if scenario.status == http.StatusOK {
+				var result struct {
+					OK         bool   `json:"ok"`
+					Bridge     string `json:"bridge"`
+					APIVersion int    `json:"apiVersion"`
+				}
+				if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+					t.Fatal(err)
+				}
+				if !result.OK || result.Bridge != "res-downloader" || result.APIVersion != shared.PluginAPIVersion {
+					t.Fatalf("unexpected probe response: %#v", result)
+				}
+			}
+		})
+	}
+	manager.pages.closeSession(session)
+	response, handled := manager.HandlePageBridge(httptest.NewRequest(http.MethodGet, endpoint, nil))
+	if !handled || response.StatusCode != http.StatusForbidden {
+		t.Fatal("closed session should reject probes locally")
+	}
+	response.Body.Close()
+}
+
+func TestPageBridgeMessageDoesNotRequireProbe(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "main.js"), []byte(`function onPageMessage(message) { return {ok:true,data:message}; }`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := newJavaScriptPlugin(directory, shared.PluginManifest{
+		ID: "example.page", Entry: "main.js", APIVersion: shared.PluginAPIVersion,
+		Permissions: shared.PluginPermissions{Capabilities: []string{"page-bridge"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := &PluginManager{pages: newPageBridgeHub(nil), plugins: []managedPlugin{{runtime: runtime}}}
+	session := manager.pages.create("example.page", "hook", "https://www.example.com/watch", "www.example.com")
+	endpoint := "https://www.example.com" + pageBridgePrefix + session.id + "/" + session.token + "/message"
+	response, handled := manager.HandlePageBridge(httptest.NewRequest(http.MethodPost, endpoint, strings.NewReader(`{"type":"sample-message"}`)))
+	if !handled || response.StatusCode != http.StatusOK {
+		t.Fatal("message requests should be handled without probing")
+	}
+	defer response.Body.Close()
+	var result shared.PageMessageResult
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK {
+		t.Fatalf("message was rejected without a probe: %#v", result)
+	}
+}
 
 func TestValidateManifestPageScripts(t *testing.T) {
 	manifest := shared.PluginManifest{

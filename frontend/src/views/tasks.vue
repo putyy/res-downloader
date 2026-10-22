@@ -91,6 +91,7 @@
               v-for="task in filteredTasks"
               :key="task.id"
               :task="task"
+              :now="task.recording && isActiveTask(task) ? now : 0"
               :selectable="batchMode"
               :selected="selectedIds.includes(task.id)"
               @select="selectTask"
@@ -110,27 +111,26 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref, watch} from "vue"
+import {computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from "vue"
 import {useRoute, useRouter} from "vue-router"
 import {useI18n} from "vue-i18n"
 import appApi from "@/api/app"
 import type {appType} from "@/types/app"
-import {useEventStore} from "@/stores/event"
+import {useDownloadStore} from "@/stores/download"
+import {storeToRefs} from "pinia"
 import TaskListItem from "@/components/task/TaskListItem.vue"
 import {canCancelTask, canDeleteTask, canPauseTask, canResumeTask, canRetryTask, isActiveTask} from "@/components/task/taskState"
 
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
-const eventStore = useEventStore()
-const tasks = ref<appType.DownloadTaskRecord[]>([])
+const downloadStore = useDownloadStore()
+const {tasks, loading} = storeToRefs(downloadStore)
 const activeTab = ref("all")
-const loading = ref(false)
 const clearing = ref(false)
 const batchMode = ref(false)
 const selectedIds = ref<string[]>([])
 const batchAction = ref<appType.DownloadTaskBatchAction | null>(null)
-const disposers: (() => void)[] = []
 
 const activeCount = computed(() => tasks.value.filter(isActiveTask).length)
 const completedCount = computed(() => tasks.value.filter((task) => task.state === "completed").length)
@@ -160,30 +160,12 @@ const eligibility: Record<appType.DownloadTaskBatchAction, (task: appType.Downlo
 const eligibleTasks = (action: appType.DownloadTaskBatchAction) => selectedTasks.value.filter(eligibility[action])
 const eligibleCount = (action: appType.DownloadTaskBatchAction) => eligibleTasks(action).length
 
-const sortTasks = () =>
-  tasks.value.sort((left, right) => {
-    const createdAtOrder = right.createdAt - left.createdAt
-    return createdAtOrder || left.id.localeCompare(right.id)
-  })
-const upsertTask = (task: appType.DownloadTaskRecord) => {
-  const index = tasks.value.findIndex((item) => item.id === task.id)
-  if (index < 0) tasks.value.push(task)
-  else tasks.value[index] = task
-  sortTasks()
-}
-
 const loadTasks = async () => {
-  loading.value = true
   try {
-    const response = (await appApi.downloadTasks()) as appType.Res<appType.DownloadTaskRecord[]>
-    if (response.code !== 1) throw new Error(response.message)
-    tasks.value = response.data ?? []
-    sortTasks()
+    await downloadStore.load(true)
     selectedIds.value = selectedIds.value.filter((id) => tasks.value.some((task) => task.id === id))
-  } catch (error: any) {
+  } catch (error) {
     showError(error)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -226,12 +208,12 @@ const cancelTask = async (task: appType.DownloadTaskRecord) => {
 
 const pauseTask = async (task: appType.DownloadTaskRecord) => {
   const response = await runTaskAction(() => appApi.pauseDownloadTask(task.id))
-  if (response?.data) upsertTask(response.data)
+  if (response?.data) downloadStore.upsert(response.data)
 }
 
 const resumeTask = async (task: appType.DownloadTaskRecord) => {
   const response = await runTaskAction(() => appApi.resumeDownloadTask(task.id))
-  if (response?.data) upsertTask(response.data)
+  if (response?.data) downloadStore.upsert(response.data)
 }
 
 const stopRecording = async (task: appType.DownloadTaskRecord) => {
@@ -240,7 +222,7 @@ const stopRecording = async (task: appType.DownloadTaskRecord) => {
 
 const retryTask = async (task: appType.DownloadTaskRecord) => {
   const response = await runTaskAction(() => appApi.retryDownload(task.id))
-  if (response?.data) upsertTask(response.data)
+  if (response?.data) downloadStore.upsert(response.data)
 }
 
 const openTask = async (task: appType.DownloadTaskRecord) => {
@@ -250,7 +232,7 @@ const openTask = async (task: appType.DownloadTaskRecord) => {
 
 const deleteTask = async (task: appType.DownloadTaskRecord) => {
   const response = await runTaskAction(() => appApi.deleteDownloadTask(task.id))
-  if (response) tasks.value = tasks.value.filter((item) => item.id !== task.id)
+  if (response) downloadStore.remove(task.id)
 }
 
 const clearFinished = async () => {
@@ -290,21 +272,41 @@ const showError = (error: any) => {
   window.$message?.error(t("tasks.operation_failed", {message}), {duration: 5000})
 }
 
+const now = ref(Date.now())
+const pageActive = ref(false)
+const windowVisible = ref(!document.hidden)
+let recordingTimer: ReturnType<typeof setInterval> | undefined
+const trackRecordingTime = computed(() => pageActive.value && windowVisible.value && filteredTasks.value.some((task) => task.recording && isActiveTask(task)))
+watch(trackRecordingTime, (enabled) => {
+  if (recordingTimer !== undefined) clearInterval(recordingTimer)
+  recordingTimer = undefined
+  if (enabled) {
+    now.value = Date.now()
+    recordingTimer = setInterval(() => {
+      now.value = Date.now()
+    }, 1000)
+  }
+})
+const updateVisibility = () => {
+  windowVisible.value = !document.hidden
+}
+onActivated(() => {
+  pageActive.value = true
+})
+onDeactivated(() => {
+  pageActive.value = false
+})
 onMounted(() => {
-  loadTasks()
-  disposers.push(eventStore.addHandle({type: "downloadTaskUpdated", event: upsertTask}))
-  disposers.push(
-    eventStore.addHandle({
-      type: "downloadTaskRemoved",
-      event: (data: {id: string}) => {
-        tasks.value = tasks.value.filter((task) => task.id !== data.id)
-      },
-    }),
-  )
+  pageActive.value = true
+  document.addEventListener("visibilitychange", updateVisibility)
+  void downloadStore.load().catch(showError)
+})
+onUnmounted(() => {
+  document.removeEventListener("visibilitychange", updateVisibility)
+  if (recordingTimer !== undefined) clearInterval(recordingTimer)
 })
 
 watch(activeTab, () => {
   selectedIds.value = []
 })
-onUnmounted(() => disposers.splice(0).forEach((dispose) => dispose()))
 </script>

@@ -32,7 +32,7 @@ export const en = {
         text: 'Resources and Downloads',
         items: [
           { text: 'Plugin Management', link: '/en/guide/plugin-management' },
-          { text: 'Settings', link: '/en/guide/settings' },
+          { text: 'System Settings', link: '/en/guide/settings' },
           { text: 'CLI and MCP', link: '/en/guide/automation' },
           { text: 'Tips', link: '/en/guide/more' },
           { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
@@ -44,7 +44,7 @@ export const en = {
           { text: 'Developer Guide', link: '/en/development/plugins' },
           { text: 'Plugin SDK v1', link: '/en/development/plugin-sdk' },
           { text: 'Plugin operations', link: '/en/development/operations' },
-          { text: 'Publishing to the Extension Store', link: '/en/development/extension-store' },
+          { text: 'Extension Store', link: '/en/development/extension-store' },
         ],
       },
       {

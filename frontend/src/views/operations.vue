@@ -367,7 +367,8 @@ const historyDays = ref<number | null>(7),
 let timer: ReturnType<typeof setTimeout> | undefined,
   disposed = false,
   historyGeneration = 0,
-  detailGeneration = 0
+  detailGeneration = 0,
+  definitionsAttemptedAt = 0
 const operationKey = (info: OperationInfo) => `${info.pluginId}/${info.operationId}`
 const selected = computed(() => operations.value.find((info) => operationKey(info) === selectedKey.value))
 const operationName = (info: OperationInfo) => info.definition.locales?.[locale.value]?.name || info.definition.name || info.operationId
@@ -532,6 +533,7 @@ async function refresh() {
   loading.value = true
   error.value = ""
   try {
+    definitionsAttemptedAt = Date.now()
     const [infos, pages, serviceStatus] = await Promise.all([api.list(), api.sessions(), api.status()])
     operations.value = infos
     sessions.value = pages
@@ -543,7 +545,7 @@ async function refresh() {
       if (match) selectOperation(match)
     }
     chooseUniqueSession()
-    await loadHistory()
+    if (tab.value === "history") await loadHistory()
     syncUnavailable.value = false
   } catch (cause) {
     fail(cause)
@@ -740,22 +742,56 @@ async function poll() {
   if (disposed) return
   try {
     if (document.hidden) return
-    await loadHistory()
-    sessions.value = await api.sessions()
-    operations.value = await api.list()
+    const requests: Promise<void>[] = []
+    if (tab.value === "history") requests.push(loadHistory())
+    if (tab.value === "run") {
+      requests.push(
+        api.sessions().then((pages) => {
+          if (!disposed) sessions.value = pages
+        }),
+      )
+    }
+    // Definitions and service settings change much less often than execution state.
+    if (Date.now() - definitionsAttemptedAt >= 15000) {
+      definitionsAttemptedAt = Date.now()
+      requests.push(
+        api.status().then((current) => {
+          if (!disposed) status.value = current
+        }),
+      )
+      if (tab.value === "run" || detailsVisible.value) {
+        requests.push(
+          api.list().then((infos) => {
+            if (!disposed) operations.value = infos
+          }),
+        )
+      }
+    }
     if (execution.value && detailsVisible.value) {
       const id = execution.value.executionId
-      const current = await api.execution(id)
-      if (execution.value?.executionId === id) execution.value = current
+      const generation = detailGeneration
+      requests.push(
+        api.execution(id).then((current) => {
+          if (!disposed && detailsVisible.value && generation === detailGeneration && execution.value?.executionId === id) execution.value = current
+        }),
+      )
     }
-    if (batch.value) batch.value = await api.batchGet(batch.value.batchId)
-    syncUnavailable.value = false
-  } catch {
-    syncUnavailable.value = true
+    if (batch.value && (batch.value.counts.queued ?? 0) + (batch.value.counts.running ?? 0) > 0) {
+      const id = batch.value.batchId
+      requests.push(
+        api.batchGet(id).then((current) => {
+          if (!disposed && batch.value?.batchId === id) batch.value = current
+        }),
+      )
+    }
+    // Wait for all requests before scheduling the next round, even if one fails.
+    const results = await Promise.allSettled(requests)
+    if (!disposed) syncUnavailable.value = results.some((result) => result.status === "rejected")
   } finally {
     if (!disposed) timer = setTimeout(poll, 2500)
   }
 }
+
 const resize = () => {
   viewportWidth.value = window.innerWidth
 }

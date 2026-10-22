@@ -46,14 +46,6 @@ func ValidatePluginDirectory(directory string) (shared.PluginManifest, error) {
 	return runtime.Manifest(), nil
 }
 
-func ValidateBundledPluginDirectory(directory string) (shared.PluginManifest, error) {
-	runtime, _, err := LoadBundledPlugin(directory)
-	if err != nil {
-		return shared.PluginManifest{}, err
-	}
-	return runtime.Manifest(), nil
-}
-
 func ReplayPluginFixture(directory, fixturePath string) error {
 	// Use a temporary real store for plugin-originated captures. Replay never
 	// touches the running application's cache or requires a page session.
@@ -205,7 +197,7 @@ func RunPluginCLI(args []string, output io.Writer) error {
 
 func RunPluginCLIWithInput(args []string, input io.Reader, output io.Writer) error {
 	if len(args) < 1 {
-		return errors.New("usage: res-downloader plugin <create|lint|lint-bundled|replay|pack|verify-release|sync-bundled> ...")
+		return errors.New("usage: res-downloader plugin <create|lint|replay|pack|verify-release> ...")
 	}
 	switch args[0] {
 	case "create":
@@ -219,16 +211,6 @@ func RunPluginCLIWithInput(args []string, input io.Reader, output io.Writer) err
 			return err
 		}
 		_, _ = fmt.Fprintf(output, "valid plugin %s v%s (API %d, %s)\n", manifest.ID, manifest.Version, manifest.APIVersion, manifest.Runtime)
-		return nil
-	case "lint-bundled":
-		if len(args) < 2 {
-			return errors.New("usage: res-downloader plugin lint-bundled <plugin-directory>")
-		}
-		manifest, err := ValidateBundledPluginDirectory(args[1])
-		if err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintf(output, "valid bundled plugin %s v%s (API %d, %s)\n", manifest.ID, manifest.Version, manifest.APIVersion, manifest.Runtime)
 		return nil
 	case "replay":
 		if len(args) < 3 {
@@ -261,16 +243,6 @@ func RunPluginCLIWithInput(args []string, input io.Reader, output io.Writer) err
 			return err
 		}
 		_, _ = fmt.Fprintf(output, "verified plugin %s %s: dist/plugin.zip matches source\n", manifest.ID, args[2])
-		return nil
-	case "sync-bundled":
-		if len(args) < 2 {
-			return errors.New("usage: res-downloader plugin sync-bundled <plugin-directory>")
-		}
-		manifest, target, err := syncBundledPlugin(args[1])
-		if err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintf(output, "synced %s v%s to %s\n", manifest.ID, manifest.Version, target)
 		return nil
 	default:
 		return fmt.Errorf("unknown plugin command %q", args[0])

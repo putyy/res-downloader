@@ -15,20 +15,7 @@ import (
 	"time"
 )
 
-func (r *Resource) cancelActive(id string) error {
-	if d, ok := r.tasks.Load(id); ok {
-		task, ok := d.(cancellableDownload)
-		if !ok {
-			return errors.New("task cannot be cancelled")
-		}
-		task.Cancel()
-		r.tasks.Delete(id) // 可选：取消后清理
-		return nil
-	}
-	return errors.New("task not found")
-}
-
-func (r *Resource) runDownloadPlanContext(ctx context.Context, candidate shared.ResourceCandidate, plan shared.DownloadPlan, directory string, execution shared.DownloadExecution) (string, error) {
+func (r *Resource) RunDownloadPlan(ctx context.Context, candidate shared.ResourceCandidate, plan shared.DownloadPlan, directory string, execution shared.DownloadExecution, callbacks downloadengine.ExecutionCallbacks) (string, error) {
 	configSnapshot := r.config.Snapshot()
 	if directory == "" {
 		return "", errors.New("save directory is empty")
@@ -48,19 +35,14 @@ func (r *Resource) runDownloadPlanContext(ctx context.Context, candidate shared.
 	if err := os.MkdirAll(filepath.Dir(savePath), 0755); err != nil {
 		return "", errors.New("create output directory: " + err.Error())
 	}
-	runner := downloadengine.NewPlanRunnerContext(ctx, func(totalDownloaded, totalSize float64) {
-		if r.downloads != nil {
-			r.downloads.Progress(candidate.ID, int64(totalDownloaded), int64(totalSize))
+	runner := downloadengine.NewPlanRunnerContext(ctx, func(downloaded, total float64) {
+		if callbacks.Progress != nil {
+			callbacks.Progress(int64(downloaded), int64(total))
 		}
 	}, &configSnapshot, r.logger, r.media, r, execution.WorkDir)
+	defer runner.Cancel()
 	runner.SetCaptureSource(r.captures)
-	runner.OnProcessing(func() {
-		if r.downloads != nil {
-			r.downloads.Processing(execution.TaskID)
-		}
-	})
-	r.tasks.Store(candidate.ID, runner)
-	defer r.tasks.Delete(candidate.ID)
+	runner.OnProcessing(callbacks.Processing)
 	outputPath, err := runner.Run(plan, directory, configSnapshot.TaskNumber)
 	if err != nil {
 		return "", err

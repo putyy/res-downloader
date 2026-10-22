@@ -6,6 +6,15 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "preBuildHooks": {
+    "*/*": "go run ../../cmd/bundleplugins"
+  },
+  "plugins": [
+    {
+      "id": "official.wechat",
+      "repository": "https://github.com/putyy/resd-plugin-wechat.git"
+    }
+  ],
   "author": {
     "name": "putyy",
     "email": "putyy@qq.com"

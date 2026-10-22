@@ -6,28 +6,20 @@ import (
 	shared "res-downloader/internal/model"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 )
 
 func (r *Resource) clear() {
 	r.catalogMux.Lock()
 	defer r.catalogMux.Unlock()
-	clearSyncMap(&r.mediaMark)
-	clearSyncMap(&r.catalog)
-	clearSyncMap(&r.groupIndex)
+	clear(r.catalog)
+	clear(r.dedupeIndex)
+	clear(r.groupIndex)
 	if r.store != nil {
 		if err := r.store.Clear(); err != nil {
 			r.logger.Esg(err, "clear resource database")
 		}
 	}
-}
-
-func clearSyncMap(values *sync.Map) {
-	values.Range(func(key, _ interface{}) bool {
-		values.Delete(key)
-		return true
-	})
 }
 
 func (r *Resource) deleteMany(ids []string) {
@@ -37,7 +29,7 @@ func (r *Resource) deleteMany(ids []string) {
 	for _, id := range ids {
 		selectedIDs[id] = struct{}{}
 	}
-	candidates := r.catalogCandidates()
+	candidates := r.catalogCandidatesLocked()
 	// Removing a collection removes all descendants, while removing a child
 	// leaves the rest of the collection intact.
 	for changed := true; changed; {
@@ -53,23 +45,13 @@ func (r *Resource) deleteMany(ids []string) {
 		}
 	}
 	deletedIDs := make([]string, 0, len(selectedIDs))
-	r.catalog.Range(func(key, value interface{}) bool {
-		candidate, ok := value.(shared.ResourceCandidate)
-		if !ok {
-			return true
+	for id, candidate := range r.catalog {
+		if _, exists := selectedIDs[id]; exists {
+			r.removeCandidateIndexesLocked(candidate)
+			delete(r.catalog, id)
+			deletedIDs = append(deletedIDs, id)
 		}
-		if _, exists := selectedIDs[candidate.ID]; exists {
-			r.catalog.Delete(key)
-			r.mediaMark.Delete(candidate.DedupeKey)
-			if id, ok := key.(string); ok {
-				deletedIDs = append(deletedIDs, id)
-			}
-			if candidate.GroupKey != "" {
-				r.groupIndex.Delete(resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey))
-			}
-		}
-		return true
-	})
+	}
 	if r.store != nil {
 		if err := r.store.Delete(deletedIDs); err != nil {
 			r.logger.Esg(err, "delete resources from database")
@@ -100,6 +82,8 @@ func (r *Resource) candidateHasSelectedParent(candidate shared.ResourceCandidate
 }
 
 func (r *Resource) restore() error {
+	r.catalogMux.Lock()
+	defer r.catalogMux.Unlock()
 	records, err := r.store.List()
 	if err != nil {
 		return err
@@ -112,12 +96,8 @@ func (r *Resource) restore() error {
 		persistedUpdatedAt := candidate.Lifecycle.UpdatedAt
 		normalizeResourceModel(&candidate, time.Now())
 		candidate.Lifecycle.UpdatedAt = persistedUpdatedAt
-		r.catalog.Store(candidate.ID, candidate)
-		r.mediaMark.Store(candidate.DedupeKey, true)
+		r.saveCandidateLocked(candidate)
 		r.registerTypes([]string{candidate.PrimaryType})
-		if candidate.GroupKey != "" {
-			r.groupIndex.Store(resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey), candidate.ID)
-		}
 	}
 	return nil
 }
@@ -126,12 +106,10 @@ func (r *Resource) ReconcilePluginAvailability(manager PluginStatusProvider) {
 	if manager == nil {
 		return
 	}
+	r.catalogMux.Lock()
+	defer r.catalogMux.Unlock()
 	now := time.Now().UnixMilli()
-	r.catalog.Range(func(key, value interface{}) bool {
-		candidate, ok := value.(shared.ResourceCandidate)
-		if !ok {
-			return true
-		}
+	for id, candidate := range r.catalog {
 		previous := candidate.Lifecycle.Availability
 		status, exists := manager.Status(candidate.Source.PluginID)
 		switch {
@@ -153,13 +131,12 @@ func (r *Resource) ReconcilePluginAvailability(manager PluginStatusProvider) {
 		}
 		if candidate.Lifecycle.Availability != previous {
 			candidate.Lifecycle.UpdatedAt = now
-			r.catalog.Store(key, candidate)
+			r.catalog[id] = candidate
 			if r.store != nil {
 				_ = r.store.Upsert(candidate)
 			}
 		}
-		return true
-	})
+	}
 }
 
 func (r *Resource) list() []shared.ResourceView {
@@ -169,13 +146,17 @@ func (r *Resource) list() []shared.ResourceView {
 
 func (r *Resource) listWithRecordCount() ([]shared.ResourceView, int) {
 	candidates := r.catalogCandidates()
+	return r.viewsFromCandidates(candidates), len(candidates)
+}
+
+func (r *Resource) viewsFromCandidates(candidates []shared.ResourceCandidate) []shared.ResourceView {
 	items := resourceViewTree(candidates)
 	if r.config != nil && r.config.Snapshot().InsertTail {
 		for left, right := 0, len(items)-1; left < right; left, right = left+1, right-1 {
 			items[left], items[right] = items[right], items[left]
 		}
 	}
-	return items, len(candidates)
+	return items
 }
 
 func resourceViewTree(candidates []shared.ResourceCandidate) []shared.ResourceView {
@@ -239,14 +220,47 @@ func attachResourceChildren(parent *shared.ResourceView, children map[string][]s
 }
 
 func (r *Resource) catalogCandidates() []shared.ResourceCandidate {
-	candidates := make([]shared.ResourceCandidate, 0)
-	r.catalog.Range(func(_, value interface{}) bool {
-		if candidate, ok := value.(shared.ResourceCandidate); ok {
-			candidates = append(candidates, candidate)
-		}
-		return true
-	})
+	r.catalogMux.RLock()
+	defer r.catalogMux.RUnlock()
+	return r.catalogCandidatesLocked()
+}
+
+// catalogCandidatesLocked requires catalogMux to be held for reading or writing.
+func (r *Resource) catalogCandidatesLocked() []shared.ResourceCandidate {
+	candidates := make([]shared.ResourceCandidate, 0, len(r.catalog))
+	for _, candidate := range r.catalog {
+		candidates = append(candidates, candidate)
+	}
 	return candidates
+}
+
+// saveCandidateLocked updates the catalog and both indexes under catalogMux.
+func (r *Resource) saveCandidateLocked(candidate shared.ResourceCandidate) {
+	if r.catalog == nil {
+		r.catalog = make(map[string]shared.ResourceCandidate)
+		r.dedupeIndex = make(map[string]string)
+		r.groupIndex = make(map[string]string)
+	}
+	if previous, exists := r.catalog[candidate.ID]; exists {
+		r.removeCandidateIndexesLocked(previous)
+	}
+	r.catalog[candidate.ID] = candidate
+	if candidate.DedupeKey != "" {
+		r.dedupeIndex[candidate.DedupeKey] = candidate.ID
+	}
+	if candidate.GroupKey != "" {
+		r.groupIndex[resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey)] = candidate.ID
+	}
+}
+
+func (r *Resource) removeCandidateIndexesLocked(candidate shared.ResourceCandidate) {
+	if r.dedupeIndex[candidate.DedupeKey] == candidate.ID {
+		delete(r.dedupeIndex, candidate.DedupeKey)
+	}
+	groupKey := resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey)
+	if r.groupIndex[groupKey] == candidate.ID {
+		delete(r.groupIndex, groupKey)
+	}
 }
 
 func (r *Resource) childrenOf(parent shared.ResourceCandidate) []shared.ResourceCandidate {
@@ -300,19 +314,15 @@ func (r *Resource) importResources(items []shared.ResourceView) ([]shared.Resour
 		if candidate.ID == "" {
 			candidate.ID = candidate.DedupeKey
 		}
-		r.catalog.Store(candidate.ID, candidate)
-		r.mediaMark.Store(candidate.DedupeKey, true)
+		r.saveCandidateLocked(candidate)
 		r.registerTypes([]string{candidate.PrimaryType})
-		if candidate.GroupKey != "" {
-			r.groupIndex.Store(resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey), candidate.ID)
-		}
 		if r.store != nil {
 			if err := r.store.Upsert(candidate); err != nil {
 				return nil, err
 			}
 		}
 	}
-	return r.list(), nil
+	return r.viewsFromCandidates(r.catalogCandidatesLocked()), nil
 }
 
 func flattenResourceViews(items []shared.ResourceView, inheritedParentID string) []shared.ResourceView {

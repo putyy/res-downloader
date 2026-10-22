@@ -390,11 +390,13 @@ func securePluginFilePath(directory, entry string) (string, error) {
 	if entry == "" || filepath.IsAbs(entry) {
 		return "", errors.New("entry must be relative to the plugin directory")
 	}
-	root, err := filepath.EvalSymlinks(directory)
+	// Resolve an absolute root so Windows case and short names are normalised
+	// in the same way as the absolute candidate below.
+	root, err := filepath.Abs(directory)
 	if err != nil {
 		return "", err
 	}
-	root, err = filepath.Abs(root)
+	root, err = filepath.EvalSymlinks(root)
 	if err != nil {
 		return "", err
 	}

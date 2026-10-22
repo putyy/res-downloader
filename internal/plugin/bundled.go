@@ -13,12 +13,15 @@ import (
 	"sync"
 )
 
-// Bundled plugins are regular external plugins materialised into the user
-// plugin directory at startup. They use no private Go API and can be disabled,
-// inspected and exercised with the same tooling as community plugins.
+// Runtime-only bundled plugins are generated before Wails compilation and
+// materialised into the user plugin directory at startup. They use no private
+// Go API and can be disabled, inspected and exercised with the same tooling
+// as community plugins.
 //
-//go:embed bundled/*
+//go:embed bundled
 var bundledPlugins embed.FS
+
+const bundledPluginRoot = "bundled"
 
 func installBundledPlugins(pluginDirectory string) error {
 	return installBundledPluginsExcept(pluginDirectory, nil)
@@ -54,7 +57,7 @@ func installBundledPluginsForManager(pluginDirectory string, removed map[string]
 		if err := os.RemoveAll(targetRoot); err != nil {
 			return nil, fmt.Errorf("replace bundled plugin %s: %w", pluginID, err)
 		}
-		sourceRoot := filepath.ToSlash(filepath.Join("bundled", descriptor.Directory))
+		sourceRoot := filepath.ToSlash(filepath.Join(bundledPluginRoot, descriptor.Directory))
 		if err := fs.WalkDir(bundledPlugins, sourceRoot, func(sourcePath string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
@@ -92,7 +95,7 @@ func installedOfficialIsNewer(pluginDirectory, id string) (bool, error) {
 	if !exists {
 		return false, errors.New("bundled plugin not found")
 	}
-	bundledRaw, err := bundledPlugins.ReadFile(filepath.ToSlash(filepath.Join("bundled", descriptor.Directory, "plugin.json")))
+	bundledRaw, err := bundledPlugins.ReadFile(filepath.ToSlash(filepath.Join(bundledPluginRoot, descriptor.Directory, "plugin.json")))
 	if err != nil {
 		return false, err
 	}
@@ -113,7 +116,7 @@ func isTrustedBundledPluginDirectory(id, directory string) bool {
 	if !exists {
 		return false
 	}
-	expected, err := hashPluginFS(bundledPlugins, filepath.ToSlash(filepath.Join("bundled", descriptor.Directory)))
+	expected, err := hashPluginFS(bundledPlugins, filepath.ToSlash(filepath.Join(bundledPluginRoot, descriptor.Directory)))
 	if err != nil {
 		return false
 	}
@@ -136,7 +139,7 @@ var bundledPluginCache struct {
 func bundledPluginDescriptors() ([]bundledPluginDescriptor, error) {
 	bundledPluginCache.Do(func() {
 		bundledPluginCache.byID = make(map[string]bundledPluginDescriptor)
-		entries, err := fs.ReadDir(bundledPlugins, "bundled")
+		entries, err := fs.ReadDir(bundledPlugins, bundledPluginRoot)
 		if err != nil {
 			bundledPluginCache.err = err
 			return
@@ -145,7 +148,7 @@ func bundledPluginDescriptors() ([]bundledPluginDescriptor, error) {
 			if !entry.IsDir() {
 				continue
 			}
-			raw, readErr := bundledPlugins.ReadFile(filepath.ToSlash(filepath.Join("bundled", entry.Name(), "plugin.json")))
+			raw, readErr := bundledPlugins.ReadFile(filepath.ToSlash(filepath.Join(bundledPluginRoot, entry.Name(), "plugin.json")))
 			if readErr != nil {
 				bundledPluginCache.err = fmt.Errorf("read bundled plugin %s manifest: %w", entry.Name(), readErr)
 				return

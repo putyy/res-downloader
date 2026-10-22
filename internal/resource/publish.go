@@ -3,6 +3,7 @@ package resource
 import (
 	"errors"
 	"fmt"
+	"maps"
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/plugin"
 	"time"
@@ -82,16 +83,12 @@ func (r *Resource) publishCandidates(candidates []shared.ResourceCandidate, requ
 	changedIDs := make(map[string]struct{}, len(plan))
 	types := make([]string, 0, len(plan))
 	for _, candidate := range plan {
-		r.mediaMark.Store(candidate.DedupeKey, true)
-		r.catalog.Store(candidate.ID, candidate)
-		if candidate.GroupKey != "" {
-			r.groupIndex.Store(resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey), candidate.ID)
-		}
+		r.saveCandidateLocked(candidate)
 		changedIDs[candidate.ID] = struct{}{}
 		types = append(types, candidate.PrimaryType)
 	}
 	r.registerTypes(types)
-	all := r.catalogCandidates()
+	all := r.catalogCandidatesLocked()
 	rootIDs := resourceRootIDs(all, changedIDs)
 	tree := resourceViewTree(all)
 	updates := make([]shared.ResourceView, 0, len(rootIDs))
@@ -110,16 +107,12 @@ func (r *Resource) publishCandidates(candidates []shared.ResourceCandidate, requ
 // planPublicationLocked builds a private overlay: every candidate in this call
 // sees earlier group merges, but no shared map is mutated before persistence.
 func (r *Resource) planPublicationLocked(candidates []shared.ResourceCandidate, strict bool) ([]shared.ResourceCandidate, error) {
-	byID := map[string]shared.ResourceCandidate{}
-	byGroup := map[string]string{}
-	byDedupe := map[string]string{}
-	for _, candidate := range r.catalogCandidates() {
-		byID[candidate.ID] = candidate
-		byDedupe[candidate.DedupeKey] = candidate.ID
-		if candidate.GroupKey != "" {
-			byGroup[resourceGroupIndexKey(candidate.Source.PluginID, candidate.GroupKey)] = candidate.ID
-		}
-	}
+	byID := make(map[string]shared.ResourceCandidate, len(r.catalog)+len(candidates))
+	byGroup := make(map[string]string, len(r.groupIndex)+len(candidates))
+	byDedupe := make(map[string]string, len(r.dedupeIndex)+len(candidates))
+	maps.Copy(byID, r.catalog)
+	maps.Copy(byGroup, r.groupIndex)
+	maps.Copy(byDedupe, r.dedupeIndex)
 	ids := make([]string, 0, len(candidates))
 	selected := map[string]bool{}
 	for _, candidate := range candidates {
@@ -132,7 +125,7 @@ func (r *Resource) planPublicationLocked(candidates []shared.ResourceCandidate, 
 			}
 		}
 		if !isUpdate {
-			if id, exists := byDedupe[candidate.DedupeKey]; exists || r.mediaIsMarked(candidate.DedupeKey) {
+			if id, exists := byDedupe[candidate.DedupeKey]; exists {
 				if !strict {
 					continue
 				}

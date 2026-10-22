@@ -11,9 +11,7 @@ Choose the package matching your operating system and CPU architecture. Download
 
 ## Windows
 
-::: warning Choose amd64 for most Windows PCs
 **Most 64-bit Windows PCs with Intel or AMD processors should use the installer labeled `amd64`.** The `amd64` architecture supports both Intel and AMD processors, not just AMD. Choose `arm64` only for Windows devices with an ARM processor.
-:::
 
 Download the Windows installer and follow its instructions. Approve the UAC prompt when installing the certificate for the first time.
 

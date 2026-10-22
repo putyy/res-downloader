@@ -19,7 +19,7 @@ type concurrentSchedulerResources struct {
 
 func (f *concurrentSchedulerResources) EmitDownloadTaskEvent(shared.DownloadTaskRecord) {}
 
-func (f *concurrentSchedulerResources) RunDownloadPlan(ctx context.Context, _ shared.ResourceCandidate, _ shared.DownloadPlan, _ string, _ shared.DownloadExecution) (string, error) {
+func (f *concurrentSchedulerResources) RunDownloadPlan(ctx context.Context, _ shared.ResourceCandidate, _ shared.DownloadPlan, _ string, _ shared.DownloadExecution, _ ExecutionCallbacks) (string, error) {
 	f.runs.Add(1)
 	f.started <- struct{}{}
 	<-ctx.Done()
@@ -159,16 +159,23 @@ func TestSchedulerResumePreservesAnotherTasksResourceOwnership(t *testing.T) {
 	}
 	// A late terminal update for the old task must not remove the new owner.
 	scheduler.update(&old, shared.DownloadTaskFailed, "", "late failure")
-	scheduler.Progress(resource.ID, 25, 100)
+	scheduler.update(&current, shared.DownloadTaskDownloading, "download", "")
+	scheduler.executionCallbacks(context.Background(), current).Progress(25, 100)
 	if scheduler.byResource[resource.ID] != current.ID || scheduler.tasks[current.ID].Downloaded != 25 {
 		t.Fatal("old task displaced the current owner or its progress")
 	}
-	if scheduler.taskState(current.ID) != shared.DownloadTaskPending {
+	if scheduler.taskState(current.ID) != shared.DownloadTaskDownloading {
 		t.Fatal("cancelling the old task changed the current task")
 	}
 	if err := scheduler.CancelTask(current.ID); err != nil {
 		t.Fatal(err)
 	}
+	// This test has no worker. Model its terminal acknowledgement before
+	// expecting cancellation of a downloading task to release ownership.
+	if _, err := scheduler.Resume(old.ID); err == nil {
+		t.Fatal("resumed before the current worker released ownership")
+	}
+	scheduler.update(&current, shared.DownloadTaskCancelled, "", "cancelled")
 	// Once the resource is free, an interrupted task can resume normally.
 	scheduler.update(&old, shared.DownloadTaskInterrupted, "", "interrupted")
 	if _, err := scheduler.Resume(old.ID); err != nil {

@@ -47,23 +47,23 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 
 ## Runtime components
 
-| Module | Main responsibility | Key dependencies or output |
-| --- | --- | --- |
-| Wails | Load the embedded frontend, provide window lifecycle and a few Bind methods | `frontend/dist`, `app.Bind` |
-| `app.Runtime` | Create modules, wire dependencies, and manage startup and shutdown order | Settings, events, proxy, HTTP, plugins, resources, downloads |
-| `server.Gateway` | Manage the capture proxy listener and route local API versus proxy requests | `httpapi.Server`, `proxy.Engine` |
-| `control.Server` | Manage the local automation listener, separate credentials, and discovery file | Loopback only; reuses resource and download HTTP handlers |
-| `automation` | Convert CLI commands and MCP stdio tools into local control requests | Reads connection information on every call; does not start desktop Runtime |
-| `proxy.Engine` | Handle HTTP proxying and HTTPS MITM and generate request/response observations | Interception rules, device certificate, plugin manager |
+| Module | Main responsibility                                                                                 | Key dependencies or output |
+| --- |-----------------------------------------------------------------------------------------------------| --- |
+| Wails | Load the embedded frontend, provide window lifecycle and a few Bind methods                         | `frontend/dist`, `app.Bind` |
+| `app.Runtime` | Create modules, wire dependencies, and manage startup and shutdown order                            | Settings, events, proxy, HTTP, plugins, resources, downloads |
+| `server.Gateway` | Manage the capture proxy listener and route local API versus proxy requests                         | `httpapi.Server`, `proxy.Engine` |
+| `control.Server` | Manage the local automation listener, separate credentials, and discovery file                      | Loopback only; reuses resource and download HTTP handlers |
+| `automation` | Convert CLI commands and MCP stdio tools into local control requests                                | Reads connection information on every call; does not start desktop Runtime |
+| `proxy.Engine` | Handle HTTP proxying and HTTPS MITM and generate request/response observations                      | Interception rules, device certificate, plugin manager |
 | `plugin.PluginManager` | Load plugins, run observation hooks, correlate resources, refresh URLs, and generate download plans | Built-in, bundled, and user plugins |
-| `operation.Service` | Discovery, sessions, single/batch scheduling, cancellation, history, results and artifacts | Independent `operations.db`, plugin bridge, resource/download adapters |
-| `resource.Resource` | Maintain the catalog, persist resource candidates, and execute resource actions and download plans | `resources.db`, capture cache, media engine |
-| `download.Scheduler` | Persist tasks, manage workers and task state, and handle pause, resume, and retry | `tasks.db`, plugin download plans |
-| `download.PlanRunner` | Acquire inputs, process them, and place final output for a download plan | HTTP, HLS, captured files, FFmpeg, WASM |
-| `capture.Store` | Cache file bytes from the proxy, page scripts or plugin hooks for download plans | `capture-cache/` |
-| `media.Engine` | Invoke user-configured FFmpeg / ffprobe for media processing | Remuxing, merging, recording, and related capabilities |
-| `system.Setup` | Manage device certificates, system proxies, and platform operations | Windows, macOS, and Linux implementations |
-| `events.Emitter` | Encode resource and task changes and send them to the Wails frontend | A single `event` channel |
+| `operation.Service` | Discovery, sessions, single/batch scheduling, cancellation, history, results and artifacts          | Independent `operations.db`, plugin bridge, resource/download adapters |
+| `resource.Resource` | Maintain the catalog, persist resource candidates, and execute resource actions and download plans  | `resources.db`, capture cache, media engine |
+| `download.Scheduler` | Persist tasks, manage workers and task state, and handle pause, resume, and retry                   | `tasks.db`, plugin download plans |
+| `download.PlanRunner` | Acquire inputs, process them, and place final output for a download plan                            | HTTP, HLS, captured files, FFmpeg, WASM |
+| `capture.Store` | Cache file bytes from the proxy, page scripts or plugin hooks for download plans                    | `capture-cache/` |
+| `media.Engine` | Invoke user-configured FFmpeg / FFprobe for media processing                                        | Remuxing, merging, recording, and related capabilities |
+| `system.Setup` | Manage device certificates, system proxies, and platform operations                                 | Windows, macOS, and Linux implementations |
+| `events.Emitter` | Encode resource and task changes and send them to the Wails frontend                                | A single `event` channel |
 
 ## Startup and shutdown lifecycle
 
@@ -110,6 +110,8 @@ Reading a request body reconnects the consumed prefix to the original stream. Re
 6. PlanRunner acquires inputs using HTTP, HLS, captured files, FFmpeg, or other executors, and runs host processing or plugin WASM processors as needed.
 7. Completed temporary output is atomically placed at the final path. Progress and state are persisted in the task database and sent to the frontend through events.
 
+The scheduler owns each task execution's cancellation context, which propagates to PlanRunner and its input executors through child contexts. The resource service executes plans, resolves filenames, and installs output without holding the scheduler or indexing active download instances. Progress and processing callbacks are bound to the task ID and execution context; late callbacks from cancelled executions are ignored. Collections count completed children, and child byte progress cannot update an independent download task for the same resource. The resource list and download center share the `downloadTaskUpdated` event.
+
 Plain HTTP and captured-file plans can retain checkpoint state. Pause/resume support for live recording, HLS, or media processing depends on the executor. When the app exits, unfinished tasks are recorded as resumable or interrupted instead of keeping background processes running.
 
 ## Frontend/backend communication
@@ -118,7 +120,9 @@ The frontend does not reference internal Go modules directly. It primarily uses 
 
 - **Wails Bind**: a small set of startup capabilities such as app information, a settings snapshot, the API session token, and reset operations.
 - **Local HTTP API**: resources, previews, download tasks, plugins, certificates, and settings. Except for a few public certificate-download or HLS-preview paths, requests require a per-launch random bearer token and pass origin and method checks.
-- **Wails events**: the backend wraps business events as `{type, data}` and sends them through a single `event` channel. A Pinia event store dispatches them to pages.
+- **Wails events**: the backend wraps business events as `{type, data}` and sends them through a single `event` channel. A Pinia event store dispatches them to business stores and pages.
+
+A shared Pinia store loads download tasks and handles `downloadTaskUpdated` and `downloadTaskRemoved` events. The download center displays tasks by task ID, while the resource list selects an active task (including a paused task) by resource ID, falling back to the most recently created associated task when none is active, instead of maintaining a second writable download state on each resource row. Updates and removals received during loading are preserved, and older task snapshots cannot overwrite newer state.
 
 The Wails AssetServer uses the same HTTP API middleware so the embedded frontend can access `/api`. The gateway's separate listener allows proxy traffic, phone certificate downloads, and local previews to share the configured Host and Port.
 
@@ -131,7 +135,7 @@ Plugins receive structured observations and return structured resource candidate
 Plugins have three sources:
 
 - **Built-in plugins**: implemented in Go, such as the generic resource detector.
-- **Bundled official plugins**: source snapshots in `internal/plugin/bundled/`, shipped with the app and installed into the user's plugin directory.
+- **Bundled official plugins**: configured in `wails.json`, shipped with the app and installed into the user's plugin directory.
 - **User plugins**: installed under `plugins/` in the user data directory, from the extension store or a local ZIP.
 
 Site-specific API detection, correlation, signature calculation, URL refresh, and non-DRM byte transformations belong in plugins. Extend the host API only for reusable capabilities that multiple plugins may need and that the existing protocol cannot safely express. Such changes must synchronize Go models, runtime validation, Schema, TypeScript declarations, examples, and documentation.
@@ -163,34 +167,34 @@ If the resource or task database cannot open, that module logs an error and fall
 
 ## Main directories
 
-| Directory | Responsibility |
-| --- | --- |
-| `frontend/` | Vue, Pinia, Naive UI frontend and Wails-generated bridge code |
-| `internal/app/` | Composition root, Wails Bind, and backend module adapters |
-| `internal/server/` | Shared listener and API/proxy routing, without business handlers |
-| `internal/control/` | Local control listener, discovery, and platform-specific credential file permissions |
-| `internal/automation/` | CLI arguments, MCP tools, and shared local API client |
-| `internal/httpapi/` | Local API, authentication, previews, and desktop operations |
-| `internal/proxy/` | HTTP proxy, HTTPS MITM, observations, and page script injection |
-| `internal/rules/` | Domain interception and pass-through policies for CONNECT |
-| `internal/plugin/` | Plugin loading, permissions, runtime, store, installation, and developer CLI |
-| `internal/operation/` | Unified operation service and independent BoltDB storage |
-| `internal/resource/` | Catalog, correlation, persistence, resource actions, and download plan entry point |
-| `internal/download/` | Task scheduling, persistence, executors, and plan runner |
-| `internal/capture/` | Temporary response cache supporting range writes or appended segments |
-| `internal/media/` | FFmpeg / ffprobe capability detection and process execution |
-| `internal/system/` | Certificates, system proxies, and platform differences |
-| `internal/config/` | Defaults, validation, snapshots, and persistence |
-| `internal/events/` | Events from Go to the Wails frontend |
-| `internal/model/` | Shared resource, plugin, and download protocol models |
-| `internal/naming/` | Download filename templates and conflict policies |
-| `internal/logging/` | Application logging wrapper |
-| `examples/plugins/` | Committable protocol examples and sanitized fixtures |
+| Directory | Responsibility                                                                                  |
+| --- |-------------------------------------------------------------------------------------------------|
+| `frontend/` | Vue, Pinia, Naive UI frontend and Wails-generated bridge code                                   |
+| `internal/app/` | Composition root, Wails Bind, and backend module adapters                                       |
+| `internal/server/` | Shared listener and API/proxy routing, without business handlers                                |
+| `internal/control/` | Local control listener, discovery, and platform-specific credential file permissions            |
+| `internal/automation/` | CLI arguments, MCP tools, and shared local API client                                           |
+| `internal/httpapi/` | Local API, authentication, previews, and desktop operations                                     |
+| `internal/proxy/` | HTTP proxy, HTTPS MITM, observations, and page script injection                                 |
+| `internal/rules/` | Domain interception and pass-through policies for CONNECT                                       |
+| `internal/plugin/` | Plugin loading, permissions, runtime, store, installation, and developer CLI                    |
+| `internal/operation/` | Unified operation service and independent BoltDB storage                                        |
+| `internal/resource/` | Catalog, correlation, persistence, resource actions, and download plan entry point              |
+| `internal/download/` | Task scheduling, persistence, executors, and plan runner                                        |
+| `internal/capture/` | Temporary response cache supporting range writes or appended segments                           |
+| `internal/media/` | FFmpeg / FFprobe capability detection and process execution                                     |
+| `internal/system/` | Certificates, system proxies, and platform differences                                          |
+| `internal/config/` | Defaults, validation, snapshots, and persistence                                                |
+| `internal/events/` | Events from Go to the Wails frontend                                                            |
+| `internal/model/` | Shared resource, plugin, and download protocol models                                           |
+| `internal/naming/` | Download filename templates and conflict policies                                               |
+| `internal/logging/` | Application logging wrapper                                                                     |
+| `examples/plugins/` | Committable protocol examples and sanitized fixtures                                            |
 | `plugins/` | Local workspace for standalone site plugins; excluded from host commits and packages by default |
-| `cmd/githubctl/` | CLI generating stable-release metadata and the extension index |
-| `cmd/resdctl/` | Separately buildable CLI / MCP console client; still requires the running desktop app |
-| `build/` | Wails platform configuration, icons, and installer resources |
-| `docs/` | User guides, Plugin SDK, and developer documentation |
+| `cmd/githubctl/` | CLI generating stable-release metadata and the extension index                                  |
+| `cmd/resdctl/` | Separately buildable CLI / MCP console client; still requires the running desktop app           |
+| `build/` | Wails platform configuration, icons, and installer resources                                    |
+| `docs/` | User guides, Plugin SDK, and developer documentation                                            |
 
 ## Change boundaries
 
@@ -209,6 +213,8 @@ Runtime creates the operation service after resources, plugins and downloads are
 
 Page bridge reports carry the revision under which the execution was claimed, never the current page revision. After a page state change, an old execution may only acknowledge that its handler ended and release its lease; it cannot commit results or overwrite a terminal state. Ordinary page messages and operation readiness reports share page context, guarded by the page session lock.
 
-Resource rows query the desktop-only `/api/operations/resources` endpoint with up to 1000 resource IDs. Each resource selects an active execution first, then the newest record by creation time, without a result payload. This query is independent of history pagination. The frontend stops polling when it leaves the resource page or the window is hidden. History queries deep-copy only the selected page of summaries instead of all result payloads.
+Resource rows query the desktop-only `/api/operations/resources` endpoint with up to 1000 resource IDs. Each resource selects an active execution first, then the newest record by creation time, without a result payload. This query covers only currently filtered resources and their children, independently of history pagination. The frontend stops polling when it leaves the resource page or the window is hidden. History queries deep-copy only the selected page of summaries instead of all result payloads.
+
+The operation page refreshes according to the content being viewed: history on the history tab, page sessions on the run tab, and state for open execution details and active batches. Operation definitions and service settings refresh less frequently. Hidden windows send no polling requests.
 
 Retention cleanup reuses its last scan until a record write, settings change, manual cleanup or the nearest expiry, with a maximum interval of one minute. Results and artifacts still become unreadable as soon as they expire. App reset also removes `operations.db`, preventing history, settings and idempotency records from referring to cleared resources and tasks. See [Plugin operations](operations.md) for states, bounds and retention.

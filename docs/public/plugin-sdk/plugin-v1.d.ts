@@ -451,6 +451,8 @@ interface PageScriptAPI {
   readonly pluginVersion: string
   readonly scriptId: string
   readonly pageSessionId: string
+  /** Optional, one GET per page-script instance; cached false on failure or a 1s timeout. Does not gate send(). */
+  probe(): Promise<boolean>
   send(message: JSONValue): Promise<PageMessageResult>
   onMessage(listener: (message: JSONValue) => void): () => void
   operations: {

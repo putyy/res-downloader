@@ -10,13 +10,7 @@ Plugins improve resource detection and downloading for specific sites. Some offi
 
 Open **Plugins** to install from the extension store or select a local ZIP file.
 
-Descriptions on installed plugin and store cards show up to two lines. Hover over a description to read it in full.
-
-The extension store keeps its default order. Use the selector beside the search field to choose **Most stars**, **Latest release**, or **Recently updated**, with higher counts or newer dates first. Release dates refer to the latest Release; update dates refer to the GitHub repository. Ties keep the default order, and entries without a valid date appear last when sorting by that date.
-
-Store cards show the repository update date after the developer, in your local time zone. Hover over the date for the full timestamp. Entries without a valid update time omit it.
-
-Before installing, check that the developer, requested domains, and permissions fit the plugin's purpose. Community plugins are provided by third parties and are not necessarily security-reviewed by the project.
+Use search and sorting to find plugins to install. Before installing, check that the developer, requested domains, and permissions fit the plugin's purpose. Community plugins are provided by third parties and are not necessarily security-reviewed by the project.
 
 ## Enable and configure
 
@@ -39,9 +33,8 @@ Check the following in order:
 2. Does its card show an error?
 3. Have you reopened the page so that it generates new requests?
 4. Are the plugin settings correct?
-5. Has the target site changed?
 
-If the issue persists, contact the plugin developer with the app version, plugin version, reproduction steps, and error message. Remove private information such as cookies and account details first.
+If the issue persists, open an issue in the plugin's GitHub repository with the app version, plugin version, reproduction steps, and error message. Remove private information such as cookies and account details before submitting.
 
 To create plugins, see the [plugin developer guide](../development/plugins.md).
 
