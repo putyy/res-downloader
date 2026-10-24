@@ -7,40 +7,15 @@ import (
 	"encoding/pem"
 	"errors"
 	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 	"unsafe"
 )
 
 func (s *SystemSetup) setProxy() error {
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.SET_VALUE)
-	if err != nil {
-		return err
-	}
-	defer key.Close()
-
-	err = key.SetStringValue("ProxyServer", "127.0.0.1:"+globalConfig.Port)
-	if err != nil {
-		return err
-	}
-
-	err = key.SetDWordValue("ProxyEnable", 1)
-	if err != nil {
-		return err
-	}
-	return nil
+	return windowsSystemProxy.set("127.0.0.1:" + globalConfig.Port)
 }
 
 func (s *SystemSetup) unsetProxy() error {
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.SET_VALUE)
-	if err != nil {
-		return err
-	}
-	defer key.Close()
-	err = key.SetDWordValue("ProxyEnable", 0)
-	if err != nil {
-		return err
-	}
-	return nil
+	return windowsSystemProxy.unset()
 }
 
 func (s *SystemSetup) installCert() (string, error) {
