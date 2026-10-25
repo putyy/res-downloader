@@ -59,62 +59,22 @@ func (s *Setup) getNetworkServices() ([]string, error) {
 }
 
 func (s *Setup) setProxy() error {
-	port := s.config.Snapshot().Port
 	services, err := s.getNetworkServices()
 	if err != nil {
 		return err
 	}
-
-	isSuccess := false
-	var errs strings.Builder
-	for _, serviceName := range services {
-		commands := [][]string{
-			{"networksetup", "-setwebproxy", serviceName, "127.0.0.1", port},
-			{"networksetup", "-setsecurewebproxy", serviceName, "127.0.0.1", port},
-		}
-		for _, cmd := range commands {
-			if output, err := s.runCommand(cmd); err != nil {
-				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
-			} else {
-				isSuccess = true
-			}
+	var targets []proxyChange
+	for _, service := range services {
+		for _, kind := range []string{"web", "secureweb"} {
+			targets = append(targets, proxyChange{key: kind + "\x00" + service,
+				own: networkProxy{enabled: true, server: "127.0.0.1", port: s.config.Snapshot().Port}})
 		}
 	}
-
-	if isSuccess {
-		return nil
-	}
-
-	return fmt.Errorf("failed to set proxy for any active network service, errs:%s", errs.String())
+	return s.proxyState.set(darwinProxyStore{run: s.runCommand, capture: true}, targets)
 }
 
 func (s *Setup) unsetProxy() error {
-	services, err := s.getNetworkServices()
-	if err != nil {
-		return err
-	}
-
-	isSuccess := false
-	var errs strings.Builder
-	for _, serviceName := range services {
-		commands := [][]string{
-			{"networksetup", "-setwebproxystate", serviceName, "off"},
-			{"networksetup", "-setsecurewebproxystate", serviceName, "off"},
-		}
-		for _, cmd := range commands {
-			if output, err := s.runCommand(cmd); err != nil {
-				errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
-			} else {
-				isSuccess = true
-			}
-		}
-	}
-
-	if isSuccess {
-		return nil
-	}
-
-	return fmt.Errorf("failed to unset proxy for any active network service, errs:%s", errs.String())
+	return s.proxyState.unset(darwinProxyStore{run: s.runCommand})
 }
 
 func (s *Setup) installCert() (string, error) {

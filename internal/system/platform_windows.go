@@ -108,35 +108,12 @@ func (s *Setup) uninstallCertificate(fingerprint string) (string, error) {
 
 func (s *Setup) setProxy() error {
 	port := s.config.Snapshot().Port
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.SET_VALUE)
-	if err != nil {
-		return err
-	}
-	defer key.Close()
-
-	err = key.SetStringValue("ProxyServer", "127.0.0.1:"+port)
-	if err != nil {
-		return err
-	}
-
-	err = key.SetDWordValue("ProxyEnable", 1)
-	if err != nil {
-		return err
-	}
-	return nil
+	value := registryProxy{{kind: registry.SZ, text: "127.0.0.1:" + port}, {kind: registry.DWORD, number: 1}}
+	return s.proxyState.set(windowsProxyStore{}, []proxyChange{{key: "system", own: value}})
 }
 
 func (s *Setup) unsetProxy() error {
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.SET_VALUE)
-	if err != nil {
-		return err
-	}
-	defer key.Close()
-	err = key.SetDWordValue("ProxyEnable", 0)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.proxyState.unset(windowsProxyStore{})
 }
 
 func (s *Setup) installCert() (string, error) {

@@ -17,6 +17,7 @@ type Setup struct {
 	app                        Environment
 	logger                     *logging.Logger
 	config                     *config.Config
+	proxyState                 *proxyState
 	CertFile                   string
 	Password                   string
 	LegacyCertificateMigration CertificateMigrationRecord
@@ -24,10 +25,11 @@ type Setup struct {
 
 func NewSetup(app Environment, config *config.Config, logger *logging.Logger) *Setup {
 	setup := &Setup{
-		app:      app,
-		logger:   logger,
-		config:   config,
-		CertFile: filepath.Join(app.UserDir, "mitm-ca.crt"),
+		app:        app,
+		logger:     logger,
+		config:     config,
+		proxyState: newProxyState(),
+		CertFile:   filepath.Join(app.UserDir, "mitm-ca.crt"),
 	}
 	setup.LegacyCertificateMigration = runLegacyCertificateMigration(setup)
 	return setup
@@ -62,6 +64,9 @@ func (s *Setup) SetProxy() error {
 }
 
 func (s *Setup) UnsetProxy() error {
+	if s == nil || s.proxyState == nil {
+		return nil
+	}
 	return s.unsetProxy()
 }
 

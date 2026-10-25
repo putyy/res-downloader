@@ -164,7 +164,7 @@ func (a *App) OpenSystemProxy(password string) error {
 }
 
 func (a *App) UnsetSystemProxy(password string) error {
-	if !a.IsProxy {
+	if a == nil || a.runtime == nil || a.runtime.System == nil {
 		return nil
 	}
 	if err := a.runtime.System.WithPassword(password).UnsetProxy(); err != nil {

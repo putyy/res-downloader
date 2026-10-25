@@ -192,39 +192,14 @@ func (s *Setup) runCommand(args []string, sudo bool) ([]byte, error) {
 
 func (s *Setup) setProxy() error {
 	port := s.config.Snapshot().Port
-	commands := [][]string{
-		{"gsettings", "set", "org.gnome.system.proxy", "mode", "manual"},
-		{"gsettings", "set", "org.gnome.system.proxy.http", "host", "127.0.0.1"},
-		{"gsettings", "set", "org.gnome.system.proxy.http", "port", port},
-		{"gsettings", "set", "org.gnome.system.proxy.https", "host", "127.0.0.1"},
-		{"gsettings", "set", "org.gnome.system.proxy.https", "port", port},
-	}
-
-	isSuccess := false
-	var errs strings.Builder
-
-	for _, cmd := range commands {
-		if output, err := s.runCommand(cmd, false); err != nil {
-			errs.WriteString(fmt.Sprintf("cmd: %v\noutput: %s\nerr: %s\n", cmd, output, err))
-		} else {
-			isSuccess = true
-		}
-	}
-
-	if isSuccess {
-		return nil
-	}
-
-	return fmt.Errorf("failed to set proxy:\n%s", errs.String())
+	value := linuxProxy{"false", "'127.0.0.1'", port, "'127.0.0.1'", port, "'manual'"}
+	store := linuxProxyStore{run: func(args []string) ([]byte, error) { return s.runCommand(args, false) }}
+	return s.proxyState.set(store, []proxyChange{{key: "system", own: value}})
 }
 
 func (s *Setup) unsetProxy() error {
-	cmd := []string{"gsettings", "set", "org.gnome.system.proxy", "mode", "none"}
-	output, err := s.runCommand(cmd, false)
-	if err != nil {
-		return fmt.Errorf("failed to unset proxy: %s\noutput: %s", err.Error(), string(output))
-	}
-	return nil
+	store := linuxProxyStore{run: func(args []string) ([]byte, error) { return s.runCommand(args, false) }}
+	return s.proxyState.unset(store)
 }
 
 func (s *Setup) installCert() (string, error) {
