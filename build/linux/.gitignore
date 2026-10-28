@@ -1,5 +1,0 @@
-!.gitkeep
-debian/usr/local/bin/*
-debian/DEBIAN/control
-AppImage/usr/bin/*
-AppImage/usr/lib/*

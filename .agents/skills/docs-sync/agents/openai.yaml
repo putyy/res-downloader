@@ -1,7 +1,0 @@
-interface:
-  display_name: "Docs Sync"
-  short_description: "Keep bilingual plugin and product docs concise and aligned"
-  default_prompt: "Use $docs-sync to update only the affected bilingual documentation, keep instructions concise, and check links and code consistency."
-
-policy:
-  allow_implicit_invocation: true

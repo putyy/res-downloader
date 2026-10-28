@@ -1,7 +1,0 @@
-interface:
-  display_name: "Plugin Dev"
-  short_description: "Develop and package plugins with Go authoring tools"
-  default_prompt: "Use $plugin-dev to create or update this plugin with the Go scaffold, preserve its release caller, validate within the current execution limits, and package the final ZIP."
-
-policy:
-  allow_implicit_invocation: true
