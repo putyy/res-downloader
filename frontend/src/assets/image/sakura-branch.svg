@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="360" height="280" viewBox="0 0 360 280" fill="none">
+  <defs>
+    <linearGradient id="petal" x1="0" y1="-23" x2="4" y2="2" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff9fc"/>
+      <stop offset=".55" stop-color="#f9dce8"/>
+      <stop offset="1" stop-color="#df8fad"/>
+    </linearGradient>
+    <linearGradient id="bud" x1="0" y1="-12" x2="4" y2="2" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fce4ef"/>
+      <stop offset="1" stop-color="#c66e93"/>
+    </linearGradient>
+    <path id="petal-shape" d="M0 2C-5-2-13-9-10-17C-9-21-5-23-1-20L0-17L2-21C7-24 12-19 11-14C10-7 5-2 0 2Z" fill="url(#petal)" stroke="#dba2b9" stroke-width=".55"/>
+    <g id="blossom">
+      <use xlink:href="#petal-shape"/>
+      <use xlink:href="#petal-shape" transform="rotate(72)"/>
+      <use xlink:href="#petal-shape" transform="rotate(144)"/>
+      <use xlink:href="#petal-shape" transform="rotate(216)"/>
+      <use xlink:href="#petal-shape" transform="rotate(288)"/>
+      <g stroke="#bc6f8c" stroke-width=".7" stroke-linecap="round">
+        <path d="M0 0L-2-9M0 0L7-5M0 0L8 4M0 0L0 9M0 0L-8 3M0 0L-8-5"/>
+      </g>
+      <g fill="#c18a59">
+        <circle cx="-2" cy="-9" r="1.2"/><circle cx="7" cy="-5" r="1.1"/>
+        <circle cx="8" cy="4" r="1.2"/><circle cy="9" r="1.1"/>
+        <circle cx="-8" cy="3" r="1.2"/><circle cx="-8" cy="-5" r="1.1"/>
+      </g>
+      <circle r="2.6" fill="#c97899"/>
+      <circle cx="-.7" cy="-.8" r="1" fill="#fff0e8"/>
+    </g>
+    <g id="closed-bud">
+      <path d="M0 2C-10-5-6-12 0-14C7-10 9-3 0 2Z" fill="url(#bud)" stroke="#cb88a6" stroke-width=".6"/>
+      <path d="M-4-1L0 3L4-1" stroke="#967783" stroke-width="1.2"/>
+    </g>
+  </defs>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M371-8C336 31 313 61 268 86C221 111 167 119 103 155" stroke="#926d7c" stroke-width="4.2"/>
+    <path d="M361 5C329 39 307 65 269 87C225 112 168 121 105 156" stroke="#c6a3ae" stroke-width="1.3"/>
+    <g stroke="#a67b8c" stroke-width="2">
+      <path d="M318 47C287 42 257 45 220 32M288 72C286 106 290 125 276 153"/>
+      <path d="M247 96C218 79 195 77 175 58M202 115C188 143 182 163 155 187"/>
+      <path d="M148 134C131 124 111 119 89 121M273 156C262 178 247 196 230 207"/>
+    </g>
+    <g stroke="#b991a0" stroke-width="1.1">
+      <path d="M226 34L218 12M246 41L242 61M177 60L156 50M193 79L186 98M284 127L310 144M277 151L258 140M174 167L187 186M153 186L128 193M111 146L91 164M94 121L73 110M251 185L267 203"/>
+    </g>
+  </g>
+  <g fill="#a9ad95" opacity=".65">
+    <path d="M301 58Q295 38 277 34Q282 53 301 58Z"/>
+    <path d="M205 111Q186 99 172 111Q191 120 205 111Z"/>
+    <path d="M271 164Q289 154 297 166Q280 174 271 164Z"/>
+  </g>
+  <use xlink:href="#blossom" transform="translate(322 42) rotate(12) scale(.86)"/>
+  <use xlink:href="#blossom" transform="translate(294 72) rotate(-19) scale(1.03)"/>
+  <use xlink:href="#blossom" transform="translate(263 86) rotate(24) scale(.78)"/>
+  <use xlink:href="#blossom" transform="translate(244 42) rotate(8) scale(.7)"/>
+  <use xlink:href="#blossom" transform="translate(211 31) rotate(-14) scale(.64)"/>
+  <use xlink:href="#blossom" transform="translate(197 82) rotate(31) scale(.8)"/>
+  <use xlink:href="#blossom" transform="translate(231 103) rotate(-8) scale(.95)"/>
+  <use xlink:href="#blossom" transform="translate(281 133) rotate(15) scale(.78)"/>
+  <use xlink:href="#blossom" transform="translate(270 163) rotate(-30) scale(.91)"/>
+  <use xlink:href="#blossom" transform="translate(173 155) rotate(16) scale(.74)"/>
+  <use xlink:href="#blossom" transform="translate(143 137) rotate(-18) scale(.66)"/>
+  <use xlink:href="#blossom" transform="translate(105 151) rotate(29) scale(.54)"/>
+  <use xlink:href="#blossom" transform="translate(239 196) rotate(11) scale(.6)"/>
+  <use xlink:href="#closed-bud" transform="translate(174 59) rotate(-43) scale(.8)"/>
+  <use xlink:href="#closed-bud" transform="translate(90 122) rotate(-75) scale(.75)"/>
+  <use xlink:href="#closed-bud" transform="translate(156 188) rotate(-125) scale(.85)"/>
+  <use xlink:href="#closed-bud" transform="translate(307 142) rotate(102) scale(.8)"/>
+  <use xlink:href="#closed-bud" transform="translate(217 15) rotate(-16) scale(.65)"/>
+  <g fill="#eab6cb" opacity=".8">
+    <path d="M211 226C199 219 196 233 204 239C205 232 210 233 211 226Z"/>
+    <path d="M133 216C129 205 117 210 119 219C125 216 127 222 133 216Z"/>
+    <path d="M66 175C58 173 56 183 63 187C63 182 68 180 66 175Z"/>
+  </g>
+</svg>

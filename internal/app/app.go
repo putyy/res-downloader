@@ -1,0 +1,273 @@
+package app
+
+import (
+	"context"
+	"embed"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	desktopsystem "res-downloader/internal/system"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"res-downloader/internal/events"
+	"res-downloader/internal/server"
+
+	"github.com/vrischmann/userdir"
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
+
+// ReleaseVersion is set by release builds to retain prerelease identity.
+var ReleaseVersion string
+
+type App struct {
+	ctx              context.Context
+	desktop          *application.App
+	window           *application.WebviewWindow
+	assets           embed.FS
+	runtime          *Runtime
+	events           *events.Emitter
+	exitMu           sync.Mutex
+	closing          bool
+	portRestart      *portRestart
+	shutdownOnce     sync.Once
+	shutdownErr      error
+	windowMu         sync.Mutex
+	windowClosed     bool
+	windowShown      bool
+	windowShowTimer  *time.Timer
+	AppName          string `json:"AppName"`
+	Version          string `json:"Version"`
+	Description      string `json:"Description"`
+	Copyright        string `json:"Copyright"`
+	UserDir          string `json:"-"`
+	PublicCrt        []byte `json:"-"`
+	PrivateKey       []byte `json:"-"`
+	CertificateError string `json:"CertificateError,omitempty"`
+	IsProxy          bool   `json:"IsProxy"`
+	IsReset          bool   `json:"-"`
+}
+
+func newApp(assets embed.FS, manifest string) (*App, error) {
+	matches := regexp.MustCompile(`"productVersion":\s*"([\d.]+)"`).FindStringSubmatch(manifest)
+	version := "1.0.1"
+	if len(matches) > 0 {
+		version = matches[1]
+	}
+	if ReleaseVersion != "" {
+		version = ReleaseVersion
+	}
+
+	app := &App{
+		assets: assets, AppName: "res-downloader", Version: version,
+		Description: "res-downloader是一款集网络资源嗅探 + 高速下载功能于一体的软件，高颜值、高性能和多样化，提供个人用户下载自己上传到各大平台的网络资源功能！",
+		Copyright:   "Copyright © 2023~" + strconv.Itoa(time.Now().Year()),
+	}
+	app.UserDir = filepath.Join(userdir.GetConfigHome(), app.AppName)
+	if err := os.MkdirAll(app.UserDir, 0750); err != nil {
+		return nil, fmt.Errorf("create user directory: %w", err)
+	}
+	return app, nil
+}
+
+func removeLegacyLocalFiles(userDir string) error {
+	var cleanupErrors []error
+	for _, name := range []string{"pass.cache", "install.lock", "cert.crt"} {
+		if err := os.Remove(filepath.Join(userDir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove %s: %w", name, err))
+		}
+	}
+	return errors.Join(cleanupErrors...)
+}
+
+func (a *App) emitEvent(eventType string, data interface{}) {
+	if a == nil || a.ctx == nil || a.events == nil {
+		return
+	}
+	_ = a.events.Emit(eventType, data)
+}
+
+func (a *App) Startup(ctx context.Context) {
+	if err := a.runtime.Start(ctx); err != nil {
+		a.exitMu.Lock()
+		closing := a.closing
+		a.exitMu.Unlock()
+		if closing || errors.Is(err, context.Canceled) {
+			return
+		}
+		a.runtime.Logger.Esg(err, "start application runtime")
+		if !server.IsPortUnavailable(err) {
+			a.errorDialog(err.Error())
+		}
+	}
+}
+
+func (a *App) installCertWithPassword(password string) (string, error) {
+	return a.installCertWith(a.runtime.System.WithPassword(password))
+}
+
+func (a *App) installCertWith(setup *SystemSetup) (string, error) {
+	if a.CertificateError != "" {
+		return "", fmt.Errorf("certificate authority is unavailable: %s", a.CertificateError)
+	}
+	out, err := setup.InstallCertificate()
+	if err != nil {
+		a.runtime.Logger.Esg(err, "%s", out)
+		return out, err
+	}
+	installed, err := setup.IsCertificateInstalled(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
+	if err != nil {
+		return out, fmt.Errorf("verify installed certificate: %w", err)
+	}
+	if !installed {
+		return out, fmt.Errorf("the current device certificate was not found in the system trust store after installation")
+	}
+	return out, nil
+}
+
+func (a *App) uninstallCertWithPassword(password string) (string, error) {
+	if a.CertificateError != "" {
+		return "", fmt.Errorf("certificate authority is unavailable: %s", a.CertificateError)
+	}
+	setup := a.runtime.System.WithPassword(password)
+	if a.IsProxy {
+		if err := setup.UnsetProxy(); err != nil {
+			return "", fmt.Errorf("disable system proxy before certificate removal: %w", err)
+		}
+		a.IsProxy = false
+	}
+	out, err := setup.UninstallCertificate(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
+	if err != nil {
+		a.runtime.Logger.Esg(err, "%s", out)
+		return out, err
+	}
+	installed, err := setup.IsCertificateInstalled(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
+	if err != nil {
+		return out, fmt.Errorf("verify certificate removal: %w", err)
+	}
+	if installed {
+		return out, fmt.Errorf("the current device certificate is still present in the system trust store")
+	}
+	return out, nil
+}
+
+func (a *App) OpenSystemProxy(password string) error {
+	if a.IsProxy {
+		return nil
+	}
+	if err := a.runtime.System.WithPassword(password).SetProxy(); err != nil {
+		return err
+	}
+	a.IsProxy = true
+	return nil
+}
+
+func (a *App) UnsetSystemProxy(password string) error {
+	if !a.IsProxy {
+		return nil
+	}
+	if err := a.runtime.System.WithPassword(password).UnsetProxy(); err != nil {
+		return err
+	}
+	a.IsProxy = false
+	return nil
+}
+
+func (a *App) PrepareReset(password string) error {
+	if a == nil || a.runtime == nil || a.runtime.System == nil {
+		return errors.New("certificate cleanup is unavailable")
+	}
+	a.exitMu.Lock()
+	defer a.exitMu.Unlock()
+	if a.closing || a.portRestart != nil {
+		return errors.New("application is already shutting down or updating")
+	}
+	setup := a.runtime.System.WithPassword(password)
+	if a.IsProxy {
+		if err := setup.UnsetProxy(); err != nil {
+			return fmt.Errorf("disable system proxy before reset: %w", err)
+		}
+		a.IsProxy = false
+	}
+	migration := desktopsystem.RetryLegacyCertificateMigration(a.runtime.System, password)
+	if migration.Status != "removed" && migration.Status != "notFound" {
+		message := strings.TrimSpace(migration.Message)
+		if message == "" {
+			message = migration.Status
+		}
+		return fmt.Errorf("remove legacy shared certificate before reset: %s", message)
+	}
+
+	certificate := a.PublicCrt
+	if len(certificate) == 0 {
+		stored, err := os.ReadFile(a.runtime.System.CertFile)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("read current device certificate before reset: %w", err)
+		}
+		certificate = stored
+	}
+	if len(certificate) > 0 {
+		fingerprint := desktopsystem.CurrentCertificateSHA1(certificate)
+		if fingerprint == "" {
+			return errors.New("the current device certificate is invalid; remove it manually before resetting the application")
+		}
+		installed, err := a.runtime.System.IsCertificateInstalled(fingerprint)
+		if err != nil {
+			return fmt.Errorf("check current device certificate before reset: %w", err)
+		}
+		if installed {
+			output, err := setup.UninstallCertificate(fingerprint)
+			if err != nil {
+				if detail := strings.TrimSpace(output); detail != "" {
+					return fmt.Errorf("remove current device certificate before reset: %w: %s", err, detail)
+				}
+				return fmt.Errorf("remove current device certificate before reset: %w", err)
+			}
+			remaining, err := a.runtime.System.IsCertificateInstalled(fingerprint)
+			if err != nil {
+				return fmt.Errorf("verify current device certificate cleanup: %w", err)
+			}
+			if remaining {
+				return errors.New("the current device certificate is still present after cleanup")
+			}
+		}
+	}
+
+	a.IsReset = true
+	return nil
+}
+
+func (a *App) ResetApp() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	exePath, err = filepath.Abs(exePath)
+	if err != nil {
+		return err
+	}
+	var cleanupErrors []error
+	for _, name := range []string{
+		"install.lock", "pass.cache", "config.json", "cert.crt",
+		"mitm-ca.crt", "mitm-ca.key", "resources.db", "tasks.db", "operations.db",
+		"certificate-migration-v1.json", "plugin-store-cache.json",
+	} {
+		if err := os.Remove(filepath.Join(a.UserDir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove %s: %w", name, err))
+		}
+	}
+	for _, name := range []string{"capture-cache"} {
+		if err := os.RemoveAll(filepath.Join(a.UserDir, name)); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove %s: %w", name, err))
+		}
+	}
+	if err := errors.Join(cleanupErrors...); err != nil {
+		return err
+	}
+	cmd := desktopsystem.RelaunchCommand(exePath)
+	return cmd.Start()
+}

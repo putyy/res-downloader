@@ -1,0 +1,14 @@
+{
+  "id": "test.javascript",
+  "name": "JavaScript fixture",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "runtime": "javascript",
+  "entry": "main.js",
+  "permissions": {
+    "domains": ["api.example.com"],
+    "capabilities": ["observe-response", "read-response-body", "emit-resource"]
+  },
+  "match": [{"stage": "response", "host": "api.example.com", "path": "/asset/*"}],
+  "resourceKinds": [{"id": "media.video"}]
+}

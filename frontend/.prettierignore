@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+index.html
+wailsjs/
+auto-imports.d.ts
+components.d.ts
+package-lock.json
+package.json.md5
+*.tsbuildinfo

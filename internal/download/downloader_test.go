@@ -1,0 +1,343 @@
+package download
+
+import (
+	"res-downloader/internal/config"
+	"res-downloader/internal/logging"
+)
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+func setupDownloaderTest() (*config.Config, *logging.Logger) {
+	config := &config.Config{
+		UseHeaders: "default",
+		UserAgent:  "res-downloader-test",
+	}
+	return config, logging.New(false, "")
+}
+
+func TestDownloaderDrainsProgressBeforeReturnOrFallback(t *testing.T) {
+	for _, fallback := range []bool{false, true} {
+		t.Run(fmt.Sprintf("fallback=%v", fallback), func(t *testing.T) {
+			cfg, logger := setupDownloaderTest()
+			fallbackStarted := make(chan struct{}, 1)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.Header.Get("Range") {
+				case "bytes=0-0":
+					w.WriteHeader(http.StatusPartialContent)
+					if !fallback {
+						_, _ = w.Write([]byte("a"))
+					}
+					// An empty first part exhausts immediate incomplete-response
+					// retries while the other part has a pending progress callback.
+				case "bytes=1-1":
+					w.WriteHeader(http.StatusPartialContent)
+					_, _ = w.Write([]byte("b"))
+				case "":
+					fallbackStarted <- struct{}{}
+					_, _ = w.Write([]byte("ab"))
+				default:
+					t.Errorf("unexpected Range %q", r.Header.Get("Range"))
+					w.WriteHeader(http.StatusBadRequest)
+				}
+			}))
+			defer srv.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			output := filepath.Join(t.TempDir(), "progress.part")
+			file, err := os.Create(output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			fd := NewFileDownloaderContext(ctx, srv.URL, output, "", 2, nil, cfg, logger)
+			fd.File, fd.TotalSize, fd.IsMultiPart = file, 2, true
+			fd.DownloadTaskList = []*DownloadTask{
+				{taskID: 0, rangeStart: 0, rangeEnd: 0},
+				{taskID: 1, rangeStart: 1, rangeEnd: 1},
+			}
+			callbackStarted, releaseCallback := make(chan struct{}), make(chan struct{})
+			var callbackOnce, releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(releaseCallback) }) }
+			defer release()
+			fd.progressCallback = func(float64, float64, int, float64) {
+				callbackOnce.Do(func() {
+					close(callbackStarted)
+					<-releaseCallback
+				})
+			}
+			done := make(chan error, 1)
+			go func() { done <- fd.startDownload() }()
+			select {
+			case <-callbackStarted:
+			case <-ctx.Done():
+				t.Fatal("progress callback did not start")
+			}
+			select {
+			case <-fallbackStarted:
+				t.Error("fallback started before the old progress callback finished")
+			case err := <-done:
+				t.Fatalf("download returned before its progress callback finished: %v", err)
+			case <-time.After(100 * time.Millisecond):
+			}
+			release()
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-ctx.Done():
+				t.Fatal("download did not finish after progress was released")
+			}
+			if fd.RetryOnError != fallback {
+				t.Fatalf("fallback occurred=%v, want %v", fd.RetryOnError, fallback)
+			}
+			got, err := os.ReadFile(output)
+			if err != nil || string(got) != "ab" {
+				t.Fatalf("downloaded content=%q err=%v", got, err)
+			}
+		})
+	}
+}
+
+func TestDownloaderResumesFromPersistentCheckpoint(t *testing.T) {
+	config, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("resumable-video-data"), 128*1024)
+	var rangesMu sync.Mutex
+	ranges := make([]string, 0)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		w.Header().Set("ETag", `"resume-fixture"`)
+		if r.Method == http.MethodHead {
+			return
+		}
+		start := 0
+		if value := r.Header.Get("Range"); value != "" {
+			rangesMu.Lock()
+			ranges = append(ranges, value)
+			rangesMu.Unlock()
+			text, _, _ := strings.Cut(strings.TrimPrefix(value, "bytes="), "-")
+			start, _ = strconv.Atoi(text)
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)-start))
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, len(body)-1, len(body)))
+			w.WriteHeader(http.StatusPartialContent)
+		}
+		for offset := start; offset < len(body); offset += 32 * 1024 {
+			end := offset + 32*1024
+			if end > len(body) {
+				end = len(body)
+			}
+			_, _ = w.Write(body[offset:end])
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}))
+	defer srv.Close()
+
+	directory := t.TempDir()
+	output := filepath.Join(directory, "input.part")
+	checkpoint := output + ".json"
+	ctx, cancel := context.WithCancel(context.Background())
+	first := NewFileDownloaderContext(ctx, srv.URL, output, checkpoint, 1, nil, config, logger)
+	var cancelOnce sync.Once
+	first.progressCallback = func(downloaded, _ float64, _ int, _ float64) {
+		if downloaded >= 128*1024 {
+			cancelOnce.Do(cancel)
+		}
+	}
+	if err := first.Start(); err == nil {
+		t.Fatal("expected the first download to be interrupted")
+	}
+	if _, err := os.Stat(checkpoint); err != nil {
+		t.Fatalf("checkpoint was not preserved: %v", err)
+	}
+
+	second := NewFileDownloaderContext(context.Background(), srv.URL, output, checkpoint, 1, nil, config, logger)
+	if err := second.Start(); err != nil {
+		t.Fatalf("resume failed: %v", err)
+	}
+	got, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("resumed content differs: got %d bytes, want %d", len(got), len(body))
+	}
+	rangesMu.Lock()
+	defer rangesMu.Unlock()
+	resumed := false
+	for _, value := range ranges {
+		if value != fmt.Sprintf("bytes=0-%d", len(body)-1) && value != "bytes=0-" {
+			resumed = true
+		}
+	}
+	if !resumed {
+		t.Fatalf("no non-zero resume range was requested: %#v", ranges)
+	}
+}
+
+func TestDownloaderDoesNotReuseBrowserPlaybackRange(t *testing.T) {
+	config, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("complete-video-data"), 1024)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Range"); got != "" {
+			t.Errorf("unexpected inherited Range on %s request: %q", r.Method, got)
+		}
+		w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+		if r.Method == http.MethodGet {
+			_, _ = w.Write(body)
+		}
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "out.mp4")
+	fd := NewFileDownloader(srv.URL, out, 1, map[string]string{
+		"Range": "bytes=0-1955",
+	}, config, logger)
+	if err := fd.Start(); err != nil {
+		t.Fatalf("download failed: %v", err)
+	}
+
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("downloaded content differs: got %d bytes, want %d", len(got), len(body))
+	}
+}
+
+func TestDownloaderFallsBackToRangeProbeWhenHeadFails(t *testing.T) {
+	config, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("mcdn-audio-data"), 128)
+	var headCount, rangeProbeCount, downloadCount int
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			headCount++
+			w.Header().Set("Content-Length", "18")
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("Range") == "bytes=0-0" {
+			rangeProbeCount++
+			w.Header().Set("Accept-Ranges", "bytes")
+			w.Header().Set("Content-Length", "1")
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-0/%d", len(body)))
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(body[:1])
+			return
+		}
+		downloadCount++
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "audio.m4a")
+	fd := NewFileDownloader(srv.URL, out, 1, nil, config, logger)
+	if err := fd.Start(); err != nil {
+		t.Fatalf("download failed: %v", err)
+	}
+
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("downloaded content differs: got %d bytes, want %d", len(got), len(body))
+	}
+	if headCount != 1 || rangeProbeCount != 1 || downloadCount != 1 {
+		t.Fatalf("request counts = HEAD %d, range probe %d, download %d; want 1 each", headCount, rangeProbeCount, downloadCount)
+	}
+}
+
+func TestDownloaderContinuesUnexpectedPartialResponse(t *testing.T) {
+	config, logger := setupDownloaderTest()
+	body := bytes.Repeat([]byte("complete-video-data"), 1024)
+	const firstPartSize = 1956
+	getCount := 0
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Accept-Ranges", "none")
+		if r.Method == http.MethodHead {
+			w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+			return
+		}
+
+		getCount++
+		if getCount == 1 {
+			w.Header().Set("Content-Length", fmt.Sprint(firstPartSize))
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-%d/%d", firstPartSize-1, len(body)))
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(body[:firstPartSize])
+			return
+		}
+
+		wantRange := fmt.Sprintf("bytes=%d-%d", firstPartSize, len(body)-1)
+		if got := r.Header.Get("Range"); got != wantRange {
+			t.Errorf("resume Range = %q, want %q", got, wantRange)
+		}
+		w.Header().Set("Content-Length", fmt.Sprint(len(body)-firstPartSize))
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", firstPartSize, len(body)-1, len(body)))
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(body[firstPartSize:])
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "out.mp4")
+	fd := NewFileDownloader(srv.URL, out, 1, map[string]string{
+		"Range": "bytes=0-1955",
+	}, config, logger)
+	if err := fd.Start(); err != nil {
+		t.Fatalf("download failed: %v", err)
+	}
+
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("downloaded content differs: got %d bytes, want %d", len(got), len(body))
+	}
+}
+
+func TestDownloaderDoesNotRetryPermanentHTTPStatus(t *testing.T) {
+	config, logger := setupDownloaderTest()
+	getCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1")
+		if r.Method == http.MethodGet {
+			getCount++
+			http.Error(w, "forbidden", http.StatusForbidden)
+		}
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "out.mp4")
+	fd := NewFileDownloader(srv.URL, out, 1, nil, config, logger)
+	err := fd.Start()
+	if err == nil || !strings.Contains(err.Error(), "unexpected status code: 403") {
+		t.Fatalf("download error = %v, want an actionable 403 error", err)
+	}
+	if getCount != 1 {
+		t.Fatalf("GET request count = %d, want 1", getCount)
+	}
+}

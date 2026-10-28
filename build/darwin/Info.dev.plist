@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>CFBundleExecutable</key>
+		<string>res-downloader</string>
+		<key>CFBundleGetInfoString</key>
+		<string>This is a high-value high-performance and diverse resource downloader called res-downloader.</string>
+		<key>CFBundleIconFile</key>
+		<string>icons</string>
+		<key>CFBundleIdentifier</key>
+		<string>com.wails.res-downloader</string>
+		<key>CFBundleName</key>
+		<string>res-downloader</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>4.0.0</string>
+		<key>CFBundleVersion</key>
+		<string>4.0.0</string>
+		<key>LSMinimumSystemVersion</key>
+		<string>12.0.0</string>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsLocalNetworking</key>
+			<true/>
+		</dict>
+		<key>NSHighResolutionCapable</key>
+		<string>true</string>
+		<key>NSHumanReadableCopyright</key>
+		<string>Copyright © 2023</string>
+	</dict>
+</plist>

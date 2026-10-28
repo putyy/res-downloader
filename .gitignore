@@ -1,0 +1,17 @@
+.idea
+.vscode
+#build/bin
+node_modules
+frontend/dist
+test
+examples/plugins/*.zip
+.DS_Store
+.task
+plugins/*
+!plugins/README.md
+.workbuddy-ai
+internal/plugin/bundled/*
+!internal/plugin/bundled/README.md
+res-downloader3.1.1/*
+docs/.vitepress/cache/
+docs/.vitepress/dist/

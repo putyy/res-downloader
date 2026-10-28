@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "4.0.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "4.0.0",
+			"CompanyName": "res-downloader",
+			"FileDescription": "A high-value high-performance and diverse resource downloader.",
+			"LegalCopyright": "Copyright © 2023",
+			"ProductName": "res-downloader",
+			"Comments": "This is a high-value high-performance and diverse resource downloader called res-downloader."
+		}
+	}
+}

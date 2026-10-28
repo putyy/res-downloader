@@ -1,0 +1,130 @@
+---
+description: 参与 res-downloader：了解 Pull Request 的范围、标题、描述和提交前检查要求，以及文档翻译、插件贡献和问题反馈的注意事项。
+---
+
+# 参与贡献
+
+欢迎通过修复问题、改进文档、开发插件或提交代码参与 res-downloader。以下说明与仓库根目录的 [CONTRIBUTING.md](https://github.com/putyy/res-downloader/blob/master/CONTRIBUTING.md) 保持一致，帮助你准备便于审核的 Pull Request。
+
+## 参与开发
+
+本项目采用 [Go](https://go.dev/doc/)、[Wails v3](https://v3.wails.io/) 和 [Vue](https://cn.vuejs.org/guide/introduction) 开发，相关技术请参阅对应官方文档。
+
+参与代码开发需要具备相关编程语言、开发工具和 Git 的基础，能够阅读现有代码，并独立完成基本的构建、调试和验证。维护者主要处理项目相关问题和 PR 审核，时间与精力有限，无法提供从零开始的编程教学或全程指导。基础知识请通过相关文档和教程自行学习，感谢理解。
+
+`你可以结合Ai参与贡献，但请自行描述问题与说明实现，包括 Issue 和 Pull Request 的标题与正文。`
+
+## 提交 PR 前
+
+Bug 修复和文档更新可以直接提交 PR。新功能、架构调整或大型重构建议先创建 Issue 讨论，确认方向后再开始开发；未经讨论的大型 PR 可能不会被审核，或被要求拆分后重新提交。
+
+**一个 PR 只解决一个独立问题。** 与该问题相关的代码、测试和文档可以一起提交；无关的依赖升级、格式整理或重构应另开 PR。例如，修复下载失败时，可以同时补充回归测试和更新故障说明，不要顺带重做设置页面。
+
+需要了解模块边界时，请先阅读[架构说明](architecture.md)。
+
+## PR 标题与描述
+
+标题使用 `<类型>: <简短描述>`，直接说明这次修改的目的：
+
+```text
+fix: 修复 Windows 下载路径错误
+docs: 补充英文安装说明
+feat: 新增代理配置功能
+```
+
+| 类型 | 用途 |
+| --- | --- |
+| `feat` | 新增功能 |
+| `fix` | 修复问题 |
+| `perf` | 性能优化 |
+| `refactor` | 不改变现有功能的代码重构 |
+| `test` | 增加或修改测试 |
+| `docs` | 文档、注释或示例更新 |
+| `ci` | CI/CD 或自动化流程修改 |
+| `chore` | 依赖更新、配置调整等维护工作 |
+
+PR 描述请交代：
+
+- **问题与目的**：关联已有 Issue，说明触发条件、当前行为和期望结果。
+- **修改效果**：说明修改后的行为，以及受影响的平台或功能；界面调整可附修改前后的截图。
+- **验证结果**：列出实际完成的检查、测试命令和结果，以及仍未验证的项目。不要将编译通过写成所有功能均已验证。
+
+填写时可参考仓库中的 [PR 模板](https://github.com/putyy/res-downloader/blob/master/.github/pull_request_template.md)。
+
+## 提交前检查
+
+- 确认代码能够编译，并完成与改动相关的检查和测试；修复问题时尽量补充能够复现该问题的回归测试。
+- 涉及界面、系统集成或平台行为时，说明人工验证的系统、操作步骤和结果；无法验证的部分请明确注明。
+- 检查差异中是否混入无关修改、本地配置、缓存或构建产物。不要提交 `node_modules/`、`frontend/dist/`、`docs/.vitepress/cache/` 和 `docs/.vitepress/dist/`。
+- 修改依赖时同步提交清单和锁文件；前端构建产生相关的 `auto-imports.d.ts` 或 `components.d.ts` 变更时，一并检查并提交。
+- 功能、配置、操作步骤或公开接口变化时，同步更新相关文档、示例和译文。
+- 对日志、截图和 fixture 脱敏，不要提交 Cookie、Authorization、账号、密码或带私人签名的资源地址。
+
+修改客户端前端时，需要 Node.js 22.12 或更高版本，在仓库根目录执行：
+
+```bash
+cd frontend
+npm ci
+npm run check
+npm run build
+```
+
+这些命令用于类型检查和静态构建；客户端交互仍需按实际改动进行人工验证。
+
+在 `frontend` 目录运行 `npm run format` 格式化代码，或运行 `npm run format:check` 检查格式。详见[前端开发说明](https://github.com/putyy/res-downloader/blob/master/frontend/README.md)。
+
+### 构建桌面应用
+
+后端与桌面壳使用 Go 1.27.1 和 Wails v3 构建。安装与 `go.mod` 中版本一致的 Wails v3 CLI 后，在仓库根目录执行：
+
+```bash
+go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+wails3 task dev     # 开发模式，前端热更新
+wails3 task build   # 生产构建
+```
+
+构建任务会自动安装前端依赖、生成 TypeScript 绑定与平台图标并编译二进制，产物位于 `build/bin/`。需要安装包时使用 `wails3 task package`（Windows 生成 NSIS 安装包）。本地未克隆内嵌插件仓库时，可追加 `SKIP_PLUGINS=true` 跳过内嵌插件准备。
+
+### 准备内嵌插件
+
+按 `app.json` 的 `plugins` 配置将插件仓库克隆到 `plugins/`，然后运行 `wails3 task dev` 或 `wails3 task build`。修改插件后重启开发进程。配置和构建要求见[维护应用内嵌插件](plugins.md#维护应用内嵌插件)。
+
+## 文档贡献
+
+修正文案、补充截图、完善操作步骤和帮助翻译都可以直接提交 PR。用户指南应优先说明在哪里操作、选项有什么作用、遇到问题怎么办。
+
+文档应围绕本项目的使用方法、配置含义、故障排查、接口约定和贡献流程展开。请保留必要的环境要求、构建命令和项目示例，避免加入与项目无直接关系的编程入门、语言语法或开发工具基础教程。通用知识可链接相关官方文档，无需重复编写。
+
+### 多语言文档
+
+- 中文和英文分别位于 `docs/zh/` 和 `docs/en/`，相对目录与文件名一一对应。新增或修改内容时，同步维护两个版本的标题、`description`、正文和链接文字。
+- 网站上的中文页面使用根路径，英文页面使用 `/en/` 前缀；源码目录不变。例如，`docs/zh/guide/settings.md` 对应 `/guide/settings.html`。首页和导航中的绝对链接应使用网站地址。
+- 每篇页面保留一个清晰的一级标题，并在 frontmatter 中填写简洁、准确的 `description`。
+- 文档之间使用相对 `.md` 链接。修改标题后检查文内锚点；新增、移动或删除页面时，同步更新两种语言的导航、首页及其他引用入口。
+- 图片和公开 SDK 文件共用 `docs/public/`，无需在语言目录下重复存放。文档中使用 `/images/`、`/plugin-sdk/` 等资源路径；仓库 README 使用 `docs/public/` 下的相对路径。
+- 新增语言时，确保译文、导航和界面文案完整，语言切换后能打开对应页面。
+
+### 检查文档修改
+
+文档依赖在 `docs/` 独立管理，需要 Node.js 22 或更高版本。在仓库根目录执行：
+
+```bash
+cd docs
+npm ci
+npm run check
+npm run build
+```
+
+提交前检查修改页的排版、图片、链接、锚点及中英文内容。需要本地预览时，可在 `docs/` 执行 `npm run dev`，默认地址为 `http://127.0.0.1:8088`。PR 中提交页面源码和必要资源即可。
+
+## 插件贡献
+
+新增站点适配时，优先开发独立插件，不要把站点判断写入通用下载器。请参考[插件开发指南](plugins.md)和[示例项目](https://github.com/putyy/res-downloader/tree/master/examples/plugins)，并提供至少一个不含隐私数据的离线 fixture。
+
+公开插件可按照[扩展商店发布说明](extension-store.md)发布，无需把插件代码合并到主项目。
+
+## 问题反馈与审核
+
+提交 [GitHub Issue](https://github.com/putyy/res-downloader/issues) 时，请提供操作系统、应用及相关插件版本、可重复的操作步骤、实际与期望结果，以及已脱敏的错误提示或日志。
+
+维护者可投入的时间有限，Issue 回复和 PR 审核可能存在延迟。请在原有讨论中补充信息，避免重复提交相同内容或频繁催促；收到审核意见后，继续在原 PR 中更新。

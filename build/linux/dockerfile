@@ -1,0 +1,33 @@
+FROM golang:1.27-bookworm
+
+WORKDIR /
+
+RUN apt-get update && \
+    apt-get install -y --fix-missing \
+    build-essential \
+    git \
+    jq \
+    kmod \
+    fuse \
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    nsis \
+    wget \
+    curl \
+    gnupg2 \
+    lsb-release \
+    libfuse-dev \
+    libfuse2 \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs
+
+COPY go.mod go.sum /tmp/res-downloader-module/
+
+RUN cd /tmp/res-downloader-module \
+    && wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)" \
+    && go install "github.com/wailsapp/wails/v3/cmd/wails3@$wails_version"
+
+RUN wails3 doctor

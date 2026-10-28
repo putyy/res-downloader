@@ -1,0 +1,20 @@
+{
+  "name": "res-downloader",
+  "plugins": [
+    {
+      "id": "official.wechat",
+      "repository": "https://github.com/putyy/resd-plugin-wechat.git"
+    }
+  ],
+  "author": {
+    "name": "putyy",
+    "email": "putyy@qq.com"
+  },
+  "info": {
+    "companyName": "res-downloader",
+    "productName": "res-downloader",
+    "productVersion": "4.0.0",
+    "copyright": "Copyright © 2023",
+    "comments": "This is a high-value high-performance and diverse resource downloader called res-downloader."
+  }
+}

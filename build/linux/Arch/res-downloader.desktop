@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=res-downloader
+Comment=This is a high-value and high-performance and diverse resource downloader called res-downloader
+Exec=res-downloader
+Icon=res-downloader.png
+Terminal=false
+Categories=Utility;
