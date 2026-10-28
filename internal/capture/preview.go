@@ -45,6 +45,11 @@ type previewReader struct {
 	err   error
 }
 
+<<<<<<< Updated upstream
+=======
+// Close releases the preview handle and decrements the entry's reader count so a
+// new capture may start. Repeated calls are safe and return the first error.
+>>>>>>> Stashed changes
 func (r *previewReader) Close() error {
 	r.once.Do(func() {
 		r.err = r.File.Close()

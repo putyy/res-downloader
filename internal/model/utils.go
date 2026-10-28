@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+<<<<<<< Updated upstream
+=======
+// Md5 returns the lowercase hex MD5 digest of data.
+>>>>>>> Stashed changes
 func Md5(data string) string {
 	hashNew := md5.New()
 	hashNew.Write([]byte(data))
@@ -24,6 +28,11 @@ func Md5(data string) string {
 	return hex.EncodeToString(hash)
 }
 
+<<<<<<< Updated upstream
+=======
+// FormatSize renders a byte count as a short human readable string such as
+// "1.50MB". Values are compared against 1024 and 1048576 as floats.
+>>>>>>> Stashed changes
 func FormatSize(size float64) string {
 	if size > 1048576 {
 		return fmt.Sprintf("%.2fMB", float64(size)/1048576)
@@ -34,6 +43,12 @@ func FormatSize(size float64) string {
 	return fmt.Sprintf("%.0fb", size)
 }
 
+<<<<<<< Updated upstream
+=======
+// GetTopLevelDomain returns the registrable domain of rawURL (for example
+// "video.qq.com" for a URL on "finder.video.qq.com"). When the input cannot be
+// parsed or resolved, the original host or input string is returned unchanged.
+>>>>>>> Stashed changes
 func GetTopLevelDomain(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err == nil && u.Host != "" {
@@ -46,6 +61,11 @@ func GetTopLevelDomain(rawURL string) string {
 	return domain
 }
 
+<<<<<<< Updated upstream
+=======
+// FileExist reports whether path exists and is a regular file. Directories and
+// stat errors both return false.
+>>>>>>> Stashed changes
 func FileExist(file string) bool {
 	info, err := os.Stat(file)
 	if err != nil {
@@ -54,6 +74,11 @@ func FileExist(file string) bool {
 	return !info.IsDir()
 }
 
+<<<<<<< Updated upstream
+=======
+// CreateDirIfNotExist creates dir with mode 0750 when it does not exist. An
+// existing directory is left untouched and reported as success.
+>>>>>>> Stashed changes
 func CreateDirIfNotExist(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return os.MkdirAll(dir, 0750)
@@ -61,10 +86,21 @@ func CreateDirIfNotExist(dir string) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// IsDevelopment reports whether APP_ENV is set to "development".
+>>>>>>> Stashed changes
 func IsDevelopment() bool {
 	return os.Getenv("APP_ENV") == "development"
 }
 
+<<<<<<< Updated upstream
+=======
+// GetFileNameFromURL extracts a filesystem-safe file name from the last path
+// segment of rawUrl. Reserved characters are replaced, trailing dots and spaces
+// are trimmed, and long names are shortened while keeping the extension. It
+// returns an empty string when the URL has no usable path segment.
+>>>>>>> Stashed changes
 func GetFileNameFromURL(rawUrl string) string {
 	parsedURL, err := url.Parse(rawUrl)
 	if err != nil {
@@ -104,6 +140,11 @@ func GetFileNameFromURL(rawUrl string) string {
 	return fileName
 }
 
+<<<<<<< Updated upstream
+=======
+// GetCurrentDateTimeFormatted returns the local time as "YYYYMMDDHHMMSS",
+// suitable for timestamped file names.
+>>>>>>> Stashed changes
 func GetCurrentDateTimeFormatted() string {
 	now := time.Now()
 	return fmt.Sprintf("%04d%02d%02d%02d%02d%02d",
@@ -115,6 +156,12 @@ func GetCurrentDateTimeFormatted() string {
 		now.Second())
 }
 
+<<<<<<< Updated upstream
+=======
+// GetUniqueFileName returns filePath when it is free, otherwise appends a
+// "(n)" counter before the extension until an unused name is found. The
+// returned path is not created on disk.
+>>>>>>> Stashed changes
 func GetUniqueFileName(filePath string) string {
 	if !FileExist(filePath) {
 		return filePath
@@ -133,6 +180,7 @@ func GetUniqueFileName(filePath string) string {
 	}
 }
 
+<<<<<<< Updated upstream
 func OpenFolder(filePath string) error {
 	var cmd *exec.Cmd
 
@@ -154,14 +202,51 @@ func OpenFolder(filePath string) error {
 					}
 				}
 			}
+=======
+// OpenFolder reveals filePath in the platform file manager, selecting the file
+// where the platform supports it. Linux tries several managers in order and
+// returns the last launch error when none is available. The command is started
+// asynchronously, so a nil error only means it launched.
+func OpenFolder(filePath string) error {
+	var commands [][]string
+	switch sysRuntime.GOOS {
+	case "darwin":
+		commands = [][]string{{"open", "-R", filePath}}
+	case "windows":
+		commands = [][]string{{"explorer", "/select,", filePath}}
+	case "linux":
+		commands = [][]string{
+			{"nautilus", filePath},
+			{"thunar", filePath},
+			{"dolphin", filePath},
+			{"pcmanfm", filePath},
+>>>>>>> Stashed changes
 		}
 	default:
 		return errors.New("unsupported platform")
 	}
 
+<<<<<<< Updated upstream
 	return cmd.Start()
 }
 
+=======
+	// Launch exactly once: an earlier fallback may already have started.
+	var lastErr error
+	for _, command := range commands {
+		if err := exec.Command(command[0], command[1:]...).Start(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	return lastErr
+}
+
+// OpenDirectory opens directoryPath in the platform file manager. It returns an
+// error when the path is missing or is not a directory, or when every candidate
+// launcher on the current platform fails.
+>>>>>>> Stashed changes
 func OpenDirectory(directoryPath string) error {
 	info, err := os.Stat(directoryPath)
 	if err != nil {

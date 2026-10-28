@@ -3,6 +3,10 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+<<<<<<< Updated upstream
+=======
+	"errors"
+>>>>>>> Stashed changes
 	"fmt"
 	"net/http"
 	"res-downloader/internal/config"
@@ -26,6 +30,11 @@ type ResponseData struct {
 	Data    interface{} `json:"data"`
 }
 
+<<<<<<< Updated upstream
+=======
+// NewResponse wraps data in the envelope shared by every endpoint: code 1 for
+// success and 0 for failure, plus a human readable message.
+>>>>>>> Stashed changes
 func NewResponse(code int, message string, data interface{}) *ResponseData {
 	return &ResponseData{Code: code, Message: message, Data: data}
 }
@@ -37,12 +46,26 @@ type pendingPluginArchive struct {
 	expiresAt time.Time
 }
 
+<<<<<<< Updated upstream
+=======
+// FileFilter narrows a native file dialog to matching files.
+type FileFilter struct {
+	DisplayName string
+	Pattern     string
+}
+
+>>>>>>> Stashed changes
 // Host contains the desktop-only capabilities used by the HTTP API. Keeping
 // these callbacks here prevents the transport package from depending on the
 // Wails application composition root.
 type Host struct {
 	Update                     func(context.Context, string, bool) (interface{}, error)
 	Context                    func() context.Context
+<<<<<<< Updated upstream
+=======
+	OpenFileDialog             func(title string, filters []FileFilter) (string, error)
+	OpenDirectoryDialog        func(title string) (string, error)
+>>>>>>> Stashed changes
 	AppInfo                    interface{}
 	PublicCertificate          func() []byte
 	InstallCertificateWithPass func(string) (string, error)
@@ -63,6 +86,23 @@ func (h Host) context() context.Context {
 	return context.Background()
 }
 
+<<<<<<< Updated upstream
+=======
+func (h Host) openFile(title string, filters []FileFilter) (string, error) {
+	if h.OpenFileDialog == nil {
+		return "", errors.New("native file dialog is unavailable")
+	}
+	return h.OpenFileDialog(title, filters)
+}
+
+func (h Host) openDirectory(title string) (string, error) {
+	if h.OpenDirectoryDialog == nil {
+		return "", errors.New("native directory dialog is unavailable")
+	}
+	return h.OpenDirectoryDialog(title)
+}
+
+>>>>>>> Stashed changes
 func (h Host) proxyEnabled() bool {
 	return h.ProxyEnabled != nil && h.ProxyEnabled()
 }
@@ -86,6 +126,12 @@ type Server struct {
 	sessionToken    string
 }
 
+<<<<<<< Updated upstream
+=======
+// New builds the API server and its gateway. sessionToken is the per-launch
+// bearer token clients must present; the gateway reads Host and Port from config
+// on every start so a port change does not need a new server.
+>>>>>>> Stashed changes
 func New(
 	host Host,
 	sessionToken string,
@@ -120,6 +166,11 @@ func New(
 	return h
 }
 
+<<<<<<< Updated upstream
+=======
+// SessionToken returns the bearer token issued for this launch. The desktop
+// frontend receives it through the Wails binding; it is empty on a nil server.
+>>>>>>> Stashed changes
 func (h *Server) SessionToken() string {
 	if h == nil {
 		return ""
@@ -127,6 +178,10 @@ func (h *Server) SessionToken() string {
 	return h.sessionToken
 }
 
+<<<<<<< Updated upstream
+=======
+// Start binds the gateway and prints the effective listen address.
+>>>>>>> Stashed changes
 func (h *Server) Start() error {
 	if err := h.gateway.Start(); err != nil {
 		return err
@@ -136,10 +191,18 @@ func (h *Server) Start() error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Close shuts the gateway down within ctx.
+>>>>>>> Stashed changes
 func (h *Server) Close(ctx context.Context) error {
 	return h.gateway.Close(ctx)
 }
 
+<<<<<<< Updated upstream
+=======
+// Active reports whether the gateway currently has a bound listener.
+>>>>>>> Stashed changes
 func (h *Server) Active() bool {
 	return h != nil && h.gateway != nil && h.gateway.Active()
 }
@@ -152,11 +215,21 @@ func (h *Server) writeJSON(w http.ResponseWriter, data *ResponseData) {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// error writes a failure response. The optional first argument is the message
+// and the optional second argument is the payload returned to the caller.
+// Non-string messages are stringified instead of panicking on a bad call site.
+>>>>>>> Stashed changes
 func (h *Server) error(w http.ResponseWriter, args ...interface{}) {
 	message := "ok"
 	var data interface{}
 	if len(args) > 0 {
+<<<<<<< Updated upstream
 		message = args[0].(string)
+=======
+		message = responseMessage(args[0])
+>>>>>>> Stashed changes
 	}
 	if len(args) > 1 {
 		data = args[1]
@@ -164,6 +237,11 @@ func (h *Server) error(w http.ResponseWriter, args ...interface{}) {
 	h.writeJSON(w, NewResponse(0, message, data))
 }
 
+<<<<<<< Updated upstream
+=======
+// success writes a success response. The optional first argument is the payload
+// and the optional second argument is the message.
+>>>>>>> Stashed changes
 func (h *Server) success(w http.ResponseWriter, args ...interface{}) {
 	message := "ok"
 	var data interface{}
@@ -171,7 +249,29 @@ func (h *Server) success(w http.ResponseWriter, args ...interface{}) {
 		data = args[0]
 	}
 	if len(args) > 1 {
+<<<<<<< Updated upstream
 		message = args[1].(string)
 	}
 	h.writeJSON(w, NewResponse(1, message, data))
 }
+=======
+		message = responseMessage(args[1])
+	}
+	h.writeJSON(w, NewResponse(1, message, data))
+}
+
+// responseMessage accepts the string messages used by every handler and falls
+// back to a formatted value so a mistyped argument cannot panic the API server.
+func responseMessage(value interface{}) string {
+	switch message := value.(type) {
+	case string:
+		return message
+	case nil:
+		return "ok"
+	case error:
+		return message.Error()
+	default:
+		return fmt.Sprint(message)
+	}
+}
+>>>>>>> Stashed changes

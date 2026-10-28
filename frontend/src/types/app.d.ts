@@ -379,4 +379,14 @@ export namespace appType {
     message: string
     data: T // T will be the specific type of your data
   }
+<<<<<<< Updated upstream
+=======
+
+  // Mirrors httpapi.ResponseData returned by the desktop bindings.
+  interface ResponseData<T = any> {
+    code: number
+    message: string
+    data: T
+  }
+>>>>>>> Stashed changes
 }

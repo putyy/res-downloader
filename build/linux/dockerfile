@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 FROM golang:1.25-bookworm
+=======
+FROM golang:1.27-bookworm
+>>>>>>> Stashed changes
 
 WORKDIR /
 
@@ -10,7 +14,7 @@ RUN apt-get update && \
     kmod \
     fuse \
     libgtk-3-dev \
-    libwebkit2gtk-4.0-dev \
+    libwebkit2gtk-4.1-dev \
     nsis \
     wget \
     curl \
@@ -25,9 +29,16 @@ RUN curl -sL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs
 
 COPY go.mod go.sum /tmp/res-downloader-module/
+<<<<<<< Updated upstream
 
 RUN cd /tmp/res-downloader-module \
     && wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)" \
     && go install "github.com/wailsapp/wails/v2/cmd/wails@$wails_version"
+=======
+>>>>>>> Stashed changes
 
-RUN wails doctor
+RUN cd /tmp/res-downloader-module \
+    && wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)" \
+    && go install "github.com/wailsapp/wails/v3/cmd/wails3@$wails_version"
+
+RUN wails3 doctor

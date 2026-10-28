@@ -57,6 +57,7 @@ Arch Linux 自 2024 年起仅提供 `webkit2gtk-4.1`，不再提供 `webkit2gtk-
 自行构建或维护 PKGBUILD 时，需要使用 WebKit2GTK 4.1：
 
 1. 将 `depends` / `makedepends` 中的 `webkit2gtk-4.0` 依赖改为 `webkit2gtk-4.1`。
+<<<<<<< Updated upstream
 2. 在 `build()` 中为 `wails build` 添加 `-tags webkit2_41` 构建标签。例如，构建 amd64 版本：
 
 ```bash
@@ -64,6 +65,15 @@ wails build -platform "linux/amd64" -tags webkit2_41 -upx
 ```
 
 `-upx` 用于压缩可执行文件，需要安装 UPX；不需要压缩时可省略。通过 `yay` 安装且 PKGBUILD 已包含上述配置时，无需手动调整。
+=======
+2. 在 `build()` 中使用 `wails3 task linux:build` 构建。Wails v3 默认使用 WebKit2GTK 4.1，不需要额外的构建标签：
+
+```bash
+wails3 task linux:build ARCH=amd64
+```
+
+如需压缩可执行文件，可在构建后自行运行 `upx`（需要安装 UPX）。通过 `yay` 安装且 PKGBUILD 已包含上述配置时，无需手动调整。
+>>>>>>> Stashed changes
 :::
 
 ### 独立程序

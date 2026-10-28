@@ -34,7 +34,11 @@ func TestPrepareCopiesOnlyRuntimeFilesAndKeepsPreviousOutputOnValidationFailure(
 	for name, content := range files {
 		writeFile(t, filepath.Join(source, filepath.FromSlash(name)), content)
 	}
+<<<<<<< Updated upstream
 	writeFile(t, filepath.Join(root, "wails.json"), `{"name":"Host","preBuildHooks":{},"plugins":[{"id":"official.example","repository":"https://github.com/example/resd-plugin-example.git"}]}`)
+=======
+	writeFile(t, filepath.Join(root, "app.json"), `{"name":"Host","preBuildHooks":{},"plugins":[{"id":"official.example","repository":"https://github.com/example/resd-plugin-example.git"}]}`)
+>>>>>>> Stashed changes
 	generated := filepath.Join(root, "internal", "plugin", "bundled")
 	writeFile(t, filepath.Join(generated, "README.md"), "bootstrap")
 	writeFile(t, filepath.Join(generated, "obsolete", "main.js"), "old plugin")
@@ -72,7 +76,11 @@ func TestPrepareRejectsMissingSourceAndConflictingConfiguration(t *testing.T) {
 		`{"plugins":[{"id":"official.example","repository":"https://github.com/a/plugin.git"},{"id":"official.other","repository":"https://github.com/b/plugin.git"}]}`,
 	} {
 		root := t.TempDir()
+<<<<<<< Updated upstream
 		writeFile(t, filepath.Join(root, "wails.json"), config)
+=======
+		writeFile(t, filepath.Join(root, "app.json"), config)
+>>>>>>> Stashed changes
 		writeFile(t, filepath.Join(root, "internal", "plugin", "bundled", "README.md"), "bootstrap")
 		if err := prepare(root, false); err == nil {
 			t.Fatalf("invalid preparation succeeded: %s", config)
@@ -80,6 +88,29 @@ func TestPrepareRejectsMissingSourceAndConflictingConfiguration(t *testing.T) {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+func TestPrepareRejectsBuildConfigVersionMismatch(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, manifestName), `{"info":{"productVersion":"4.0.0"},"plugins":[]}`)
+	writeFile(t, filepath.Join(root, "build", "config.yml"), "version: '3'"+"\n"+"info:"+"\n"+"  version: \"3.9.9\""+"\n")
+	err := prepare(root, false)
+	if err == nil || !strings.Contains(err.Error(), "must match") {
+		t.Fatalf("version mismatch was accepted: %v", err)
+	}
+}
+
+func TestPrepareAcceptsMatchingBuildConfigVersion(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, manifestName), `{"info":{"productVersion":"4.0.0"},"plugins":[]}`)
+	writeFile(t, filepath.Join(root, "build", "config.yml"), "version: '3'"+"\n"+"info:"+"\n"+"  version: \"4.0.0\""+"\n")
+	writeFile(t, filepath.Join(root, "internal", "plugin", "bundled", "README.md"), "bootstrap")
+	if err := prepare(root, false); err != nil {
+		t.Fatalf("matching version was rejected: %v", err)
+	}
+}
+
+>>>>>>> Stashed changes
 func writeFile(t *testing.T, name, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(name), 0750); err != nil {

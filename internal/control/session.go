@@ -22,14 +22,29 @@ type Session struct {
 	Token   string `json:"token"`
 }
 
+<<<<<<< Updated upstream
+=======
+// SessionPath returns the connection file path inside appDir.
+>>>>>>> Stashed changes
 func SessionPath(appDir string) string {
 	return filepath.Join(appDir, "control", "session.json")
 }
 
+<<<<<<< Updated upstream
+=======
+// DefaultSessionPath returns the connection file path in the current user's
+// configuration directory, matching where the desktop application writes it.
+>>>>>>> Stashed changes
 func DefaultSessionPath() string {
 	return SessionPath(filepath.Join(userdir.GetConfigHome(), "res-downloader"))
 }
 
+<<<<<<< Updated upstream
+=======
+// ReadSession loads and validates the connection file. Validation rejects
+// anything that is not a loopback http endpoint with the expected version and a
+// 64-character token, so a tampered file cannot redirect clients elsewhere.
+>>>>>>> Stashed changes
 func ReadSession(path string) (Session, error) {
 	var session Session
 	file, err := os.Open(path)

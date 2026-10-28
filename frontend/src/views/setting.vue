@@ -357,7 +357,11 @@ import {useI18n} from "vue-i18n"
 import {useRoute} from "vue-router"
 import {isValidHost, isValidPort, isValidUpstreamProxy} from "@/func"
 import {NButton, NIcon} from "naive-ui"
+<<<<<<< Updated upstream
 import * as bind from "../../wailsjs/go/app/Bind"
+=======
+import {Bind} from "@/services/bindings"
+>>>>>>> Stashed changes
 import {openDocumentation} from "@/services/documentation"
 import MediaEngineSettings from "@/components/settings/MediaEngineSettings.vue"
 import CertificateSettings from "@/components/settings/CertificateSettings.vue"
@@ -579,10 +583,17 @@ const prepareReset = async () => {
   }
   resetting.value = true
   try {
+<<<<<<< Updated upstream
     await bind.PrepareReset(resetPassword.value)
     localStorage.clear()
     showResetAuthorization.value = false
     bind.ResetApp()
+=======
+    await Bind.PrepareReset(resetPassword.value)
+    localStorage.clear()
+    showResetAuthorization.value = false
+    Bind.ResetApp()
+>>>>>>> Stashed changes
   } catch (error: any) {
     window.$message?.error(t("index.reset_app_failed", {message: String(error?.message ?? error)}), {duration: 10000})
   } finally {
@@ -593,7 +604,11 @@ const prepareReset = async () => {
 
 const openLogDirectory = async () => {
   try {
+<<<<<<< Updated upstream
     await bind.OpenLogDirectory()
+=======
+    await Bind.OpenLogDirectory()
+>>>>>>> Stashed changes
   } catch (error: any) {
     window.$message?.error(t("setting.open_log_directory_failed", {message: String(error?.message ?? error)}))
   }

@@ -9,8 +9,11 @@ import (
 	"res-downloader/internal/httpapi"
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/server"
+<<<<<<< Updated upstream
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+=======
+>>>>>>> Stashed changes
 )
 
 const maxFrontendErrorRunes = 16 * 1024
@@ -65,7 +68,11 @@ func (b *Bind) RestartWithNewPort() error {
 	if err := b.runtime.App.preparePortRestart(); err != nil {
 		return err
 	}
+<<<<<<< Updated upstream
 	runtime.Quit(b.runtime.App.ctx)
+=======
+	b.runtime.App.quit()
+>>>>>>> Stashed changes
 	return nil
 }
 
@@ -98,5 +105,9 @@ func (b *Bind) ResetApp() {
 	if !reset {
 		return
 	}
+<<<<<<< Updated upstream
 	runtime.Quit(b.runtime.App.ctx)
+=======
+	b.runtime.App.quit()
+>>>>>>> Stashed changes
 }

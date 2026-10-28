@@ -35,6 +35,11 @@ type PluginStoreRelease struct {
 	Accelerated bool   `json:"accelerated,omitempty"`
 }
 
+<<<<<<< Updated upstream
+=======
+// Version returns the release tag without its leading "v", so "v1.0.3" and
+// "1.0.3" compare equal against manifest versions.
+>>>>>>> Stashed changes
 func (release PluginStoreRelease) Version() string {
 	return strings.TrimPrefix(release.Tag, "v")
 }

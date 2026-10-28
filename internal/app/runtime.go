@@ -19,6 +19,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+<<<<<<< Updated upstream
+=======
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+>>>>>>> Stashed changes
 )
 
 // Runtime is the application composition root. Construction, startup and
@@ -34,6 +39,11 @@ type Runtime struct {
 	startupErr    error
 	closeOnce     sync.Once
 	closeErr      error
+<<<<<<< Updated upstream
+=======
+	ctx           context.Context
+	cancel        context.CancelFunc
+>>>>>>> Stashed changes
 
 	Updates    *updates.Manager
 	App        *App
@@ -53,8 +63,13 @@ type Runtime struct {
 	Control    *control.Server
 }
 
+<<<<<<< Updated upstream
 func NewRuntime(assets embed.FS, wailsConfig string) (*Runtime, error) {
 	app, err := newApp(assets, wailsConfig)
+=======
+func NewRuntime(assets embed.FS, appManifest string) (*Runtime, error) {
+	app, err := newApp(assets, appManifest)
+>>>>>>> Stashed changes
 	if err != nil {
 		return nil, err
 	}
@@ -66,16 +81,54 @@ func prepareRuntime(app *App) *Runtime {
 	eventEmitter := events.New()
 	app.events = eventEmitter
 	config := newConfig(app, logger)
+<<<<<<< Updated upstream
 	r := &Runtime{
 		startupDone: make(chan struct{}),
 		App:         app, Config: config, Logger: logger, Events: eventEmitter,
+=======
+	ctx, cancel := context.WithCancel(context.Background())
+	app.ctx = ctx
+	r := &Runtime{
+		startupDone: make(chan struct{}),
+		ctx:         ctx, cancel: cancel,
+		App: app, Config: config, Logger: logger, Events: eventEmitter,
+>>>>>>> Stashed changes
 	}
 	app.runtime = r
 	return r
 }
 
+<<<<<<< Updated upstream
 // initialise runs from OnDomReady, after Wails has checked its single-instance
 // lock. A duplicate desktop launch must not open databases or mutate plugins.
+=======
+// Context returns the application-lifetime context. It is cancelled once the
+// runtime has released every service.
+func (r *Runtime) Context() context.Context {
+	if r == nil || r.ctx == nil {
+		return context.Background()
+	}
+	return r.ctx
+}
+
+// AttachDesktop connects the native Wails application handles. It must run
+// before the application starts so window operations and events are available
+// from the first startup stage.
+func (r *Runtime) AttachDesktop(desktop *application.App, window *application.WebviewWindow) {
+	if r == nil || desktop == nil {
+		return
+	}
+	r.App.desktop = desktop
+	r.App.window = window
+	r.Events.SetEmitter(func(name string, data interface{}) {
+		desktop.Event.Emit(name, data)
+	})
+}
+
+// initialise runs once the native window reports runtime readiness, after Wails
+// has checked its single-instance lock. A duplicate desktop launch must not open
+// databases or mutate plugins.
+>>>>>>> Stashed changes
 func (r *Runtime) initialise(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -194,8 +247,13 @@ func (r *Runtime) Start(ctx context.Context) error {
 			r.startupErr = err
 			return
 		}
+<<<<<<< Updated upstream
 		// Events retain the Wails context after the startup-only context ends.
 		r.Events.SetContext(ctx)
+=======
+		// Events are emitted through the native application handle attached
+		// during startup.
+>>>>>>> Stashed changes
 		r.startupErr = r.start(startupCtx)
 		if r.startupErr != nil {
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -310,6 +368,12 @@ func (r *Runtime) closeServices(ctx context.Context) error {
 			first = fmt.Errorf("close capture cache: %w", err)
 		}
 	}
+<<<<<<< Updated upstream
+=======
+	if r.cancel != nil {
+		r.cancel()
+	}
+>>>>>>> Stashed changes
 	return first
 }
 

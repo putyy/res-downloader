@@ -31,6 +31,11 @@ type Set struct {
 	policies []Policy
 }
 
+<<<<<<< Updated upstream
+=======
+// New builds a rule set from policies. It fails when any policy is invalid, so
+// callers can reject a bad configuration before it reaches the proxy.
+>>>>>>> Stashed changes
 func New(policies []Policy) (*Set, error) {
 	rules := &Set{}
 	if err := rules.Load(policies); err != nil {
@@ -39,6 +44,11 @@ func New(policies []Policy) (*Set, error) {
 	return rules, nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Load validates policies and swaps them in atomically. Concurrent ShouldMITM
+// calls observe either the previous or the new set, never a partial one.
+>>>>>>> Stashed changes
 func (r *Set) Load(policies []Policy) error {
 	if err := Validate(policies); err != nil {
 		return err
@@ -50,6 +60,12 @@ func (r *Set) Load(policies []Policy) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Validate checks the policy list without mutating the rule set: at most
+// maxPolicies entries, unique identifiers, a known action, at least one domain
+// per policy, and well-formed domain patterns.
+>>>>>>> Stashed changes
 func Validate(policies []Policy) error {
 	if len(policies) > maxPolicies {
 		return fmt.Errorf("interception policies exceed %d entries", maxPolicies)
@@ -97,6 +113,11 @@ func validateDomainPattern(pattern string) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Clone returns a deep copy so the caller cannot mutate domain slices that are
+// still referenced by a loaded rule set.
+>>>>>>> Stashed changes
 func Clone(policies []Policy) []Policy {
 	out := make([]Policy, len(policies))
 	for index, policy := range policies {

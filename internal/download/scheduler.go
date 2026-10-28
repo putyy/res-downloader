@@ -776,8 +776,25 @@ func (s *Scheduler) cancelTask(id string, recordingOnly bool) error {
 		// The execution context also cancels its active PlanRunner. Looking up
 		// a runner by resource ID after unlocking could cancel a successor task.
 		cancel(context.Canceled)
+<<<<<<< Updated upstream
 	}
 	s.mu.Unlock()
+=======
+		s.mu.Unlock()
+		return nil
+	}
+	// A task can own its resource in an active state without a registered cancel
+	// function: execute registers one before publishing Resolving, so this only
+	// happens for records that never reached a worker, or for snapshots restored
+	// with a stale active state. Returning nil here would report a successful
+	// cancel while the task keeps holding its resource forever, so terminate it
+	// directly instead.
+	_ = s.cleanupWorkspace(task.ID, task.SaveDirectory, task.TempPath)
+	task.FinishedAt = time.Now().UnixMilli()
+	s.updateLocked(&task, shared.DownloadTaskCancelled, "", "cancelled")
+	s.mu.Unlock()
+	s.resources.EmitDownloadTaskEvent(task)
+>>>>>>> Stashed changes
 	return nil
 }
 

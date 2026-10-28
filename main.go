@@ -13,13 +13,18 @@ import (
 	"strconv"
 	"time"
 
+<<<<<<< Updated upstream
 	application "res-downloader/internal/app"
+=======
+	app "res-downloader/internal/app"
+>>>>>>> Stashed changes
 	"res-downloader/internal/automation"
 	"res-downloader/internal/config"
 	"res-downloader/internal/plugin"
 	"res-downloader/internal/system"
 	"res-downloader/internal/updates"
 
+<<<<<<< Updated upstream
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -28,6 +33,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+=======
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
+>>>>>>> Stashed changes
 )
 
 //go:embed all:frontend/dist
@@ -36,8 +45,8 @@ var assets embed.FS
 //go:embed build/appicon.png
 var icon []byte
 
-//go:embed wails.json
-var wailsJson string
+//go:embed app.json
+var appManifest string
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--wait-for-parent" {
@@ -70,7 +79,11 @@ func main() {
 				Version string `json:"productVersion"`
 			} `json:"info"`
 		}
+<<<<<<< Updated upstream
 		_ = json.Unmarshal([]byte(wailsJson), &metadata)
+=======
+		_ = json.Unmarshal([]byte(appManifest), &metadata)
+>>>>>>> Stashed changes
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		code := automation.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, metadata.Info.Version)
 		cancel()
@@ -84,21 +97,90 @@ func main() {
 		return
 	}
 	// Create an instance of the app structure
+<<<<<<< Updated upstream
 	appRuntime, runtimeErr := application.NewRuntime(assets, wailsJson)
 	if runtimeErr != nil {
 		log.Fatal(runtimeErr)
 	}
 	app := appRuntime.App
 	bind := application.NewBind(appRuntime)
+=======
+	appRuntime, runtimeErr := app.NewRuntime(assets, appManifest)
+	if runtimeErr != nil {
+		log.Fatal(runtimeErr)
+	}
+	state := appRuntime.App
+	bind := app.NewBind(appRuntime)
+>>>>>>> Stashed changes
 	isMac := runtime.GOOS == "darwin"
+	windowWidth, windowHeight := appRuntime.Config.WindowSize()
+
+	desktopApp := application.New(application.Options{
+		Name:        state.AppName,
+		Description: state.Description,
+		Icon:        icon,
+		Services: []application.Service{
+			application.NewService(bind),
+		},
+		Assets: application.AssetOptions{
+			Handler:    application.AssetFileServerFS(assets),
+			Middleware: appRuntime.Middleware,
+		},
+		// Wails acquires this lock while creating the application, before any
+		// window or service exists, so a duplicate launch never opens databases
+		// or mutates plugins.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID:               "res-downloader",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) { state.ActivateWindow() },
+		},
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		Windows: application.WindowsOptions{
+			WebviewBrowserPath: bundledWebView2Path(),
+		},
+		Linux: application.LinuxOptions{
+			ProgramName: state.AppName,
+		},
+		OnShutdown: func() {
+			state.OnExit()
+		},
+	})
+
+	window := desktopApp.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             "main",
+		Title:            state.AppName,
+		Width:            windowWidth,
+		Height:           windowHeight,
+		MinWidth:         config.MinWindowWidth,
+		MinHeight:        config.MinWindowHeight,
+		Frameless:        !isMac,
+		Hidden:           true,
+		BackgroundColour: application.NewRGB(243, 245, 244),
+		URL:              "/",
+		Mac: application.MacWindow{
+			Backdrop: application.MacBackdropNormal,
+			TitleBar: application.MacTitleBarHiddenInset,
+		},
+		Linux: application.LinuxWindow{
+			Icon:                icon,
+			WindowIsTranslucent: true,
+			WebviewGpuPolicy:    application.WebviewGpuPolicyOnDemand,
+		},
+	})
+
+	appRuntime.AttachDesktop(desktopApp, window)
+
 	// menu
-	appMenu := menu.NewMenu()
 	if isMac {
-		appMenu.Append(menu.AppMenu())
-		appMenu.Append(menu.EditMenu())
-		appMenu.Append(menu.WindowMenu())
+		appMenu := application.NewMenu()
+		appMenu.AddRole(application.AppMenu)
+		appMenu.AddRole(application.EditMenu)
+		appMenu.AddRole(application.WindowMenu)
+		desktopApp.Menu.Set(appMenu)
 	}
 
+<<<<<<< Updated upstream
 	// Create application with options
 	windowWidth, windowHeight := appRuntime.Config.WindowSize()
 	err := wails.Run(&options.App{
@@ -126,11 +208,35 @@ func main() {
 				app.SaveWindowSize(ctx)
 			})
 			logo := `
+=======
+	// Register the reveal listener before the frontend can emit it.
+	desktopApp.Event.On("window:ready", func(*application.CustomEvent) {
+		state.RevealStartupWindow()
+	})
+	desktopApp.Event.On("window:resized", func(*application.CustomEvent) {
+		state.SaveWindowSize()
+	})
+
+	window.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
+		state.SaveWindowSize()
+		state.BeginShutdown()
+	})
+
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		// Runtime readiness runs after the frontend has loaded, which is the
+		// earliest point where the API session token can be consumed.
+		state.PrepareStartupWindow()
+		go state.Startup(appRuntime.Context())
+	})
+
+	logo := `
+>>>>>>> Stashed changes
 	 _ __    ___   ___            __| |   ___   __      __  _ __   | |   ___     __ _     __| |   ___   _ __
 	| '__|  / _ \ / __|  _____   / _· |  / _ \  \ \ /\ / / | '_ \  | |  / _ \   / _· |   / _· |  / _ \ | ·__|
 	| |    |  __/ \__ \ |_____| | (_| | | (_) |  \ V  V /  | | | | | | | (_) | | (_| |  | (_| | |  __/ | |
 	|_|     \___| |___/          \__,_|  \___/    \_/\_/   |_| |_| |_|  \___/   \__ ,_|  \__,_|  \___| |_|`
 
+<<<<<<< Updated upstream
 			log.Println(logo)
 			fmt.Println("version:", app.Version)
 		},
@@ -175,10 +281,18 @@ func main() {
 			WindowIsTranslucent: true,
 		},
 	})
+=======
+	log.Println(logo)
+	fmt.Println("version:", state.Version)
+
+	// Run the application. This blocks until the application has been exited.
+	err := desktopApp.Run()
+>>>>>>> Stashed changes
 
 	if err != nil {
 		appRuntime.Logger.Esg(err, "run application")
 	}
+<<<<<<< Updated upstream
 	// Also covers failures before Wails reaches OnShutdown.
 	app.OnExit()
 }
@@ -200,6 +314,10 @@ func windowsRuntimeMessages() *windows.Messages {
 	messages.InvalidFixedWebview2 = "The bundled WebView2 Runtime is incomplete, inaccessible, or quarantined by security software. Reinstall the application and check your security software."
 	messages.WebView2ProcessCrash = "The WebView2 process crashed. Restart the application. If the problem persists, open the log directory and include the application log in your report."
 	return messages
+=======
+	// Also covers failures before Wails reaches the shutdown hook.
+	state.OnExit()
+>>>>>>> Stashed changes
 }
 
 func bundledWebView2Path() string {

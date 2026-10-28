@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+<<<<<<< Updated upstream
+=======
+// Resolver returns a proxy function for outbound application requests such as
+// update checks. It returns nil (no proxy) when direct or !enabled, rejects an
+// upstream that is not a bare http/https address, and rejects an upstream that
+// points back at the application's own capture port so requests cannot loop.
+// ownPort is the capture listener port as a string.
+>>>>>>> Stashed changes
 func Resolver(ownPort, upstream string, enabled, direct bool) func(*http.Request) (*url.URL, error) {
 	return func(_ *http.Request) (*url.URL, error) {
 		if direct || !enabled {

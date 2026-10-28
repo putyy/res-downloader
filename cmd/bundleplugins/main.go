@@ -3,6 +3,10 @@ package main
 
 import (
 	"encoding/json"
+<<<<<<< Updated upstream
+=======
+	"errors"
+>>>>>>> Stashed changes
 	"flag"
 	"fmt"
 	"io/fs"
@@ -16,6 +20,11 @@ import (
 	"strings"
 
 	"res-downloader/internal/plugin"
+<<<<<<< Updated upstream
+=======
+
+	"gopkg.in/yaml.v3"
+>>>>>>> Stashed changes
 )
 
 type bundledPlugin struct {
@@ -25,6 +34,13 @@ type bundledPlugin struct {
 
 var directoryName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
+<<<<<<< Updated upstream
+=======
+// manifestName is the project manifest shared with the runtime and the release
+// pipeline. It declares the bundled plugins and the application version.
+const manifestName = "app.json"
+
+>>>>>>> Stashed changes
 func main() {
 	download := flag.Bool("download", false, "use latest remote sources instead of local plugins (release preparation)")
 	flag.Parse()
@@ -38,14 +54,23 @@ func main() {
 	}
 }
 
+<<<<<<< Updated upstream
 // Wails executes build hooks from build/bin; manual invocations use the root.
+=======
+// The build tasks invoke this from the project root; manual invocations may
+// start in any subdirectory.
+>>>>>>> Stashed changes
 func projectRoot() (string, error) {
 	directory, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 	for {
+<<<<<<< Updated upstream
 		if _, err := os.Stat(filepath.Join(directory, "wails.json")); err == nil {
+=======
+		if _, err := os.Stat(filepath.Join(directory, manifestName)); err == nil {
+>>>>>>> Stashed changes
 			return directory, nil
 		}
 		parent := filepath.Dir(directory)
@@ -56,6 +81,37 @@ func projectRoot() (string, error) {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// checkBuildVersion keeps the Wails build metadata in sync with the manifest.
+// build/config.yml drives the Windows version resource, the macOS Info.plist
+// and the installer defines, so a stale value would ship a mislabelled build.
+func checkBuildVersion(root, productVersion string) error {
+	if productVersion == "" {
+		return nil
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "build", "config.yml"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var config struct {
+		Info struct {
+			Version string `yaml:"version"`
+		} `yaml:"info"`
+	}
+	if err := yaml.Unmarshal(raw, &config); err != nil {
+		return fmt.Errorf("parse build/config.yml: %w", err)
+	}
+	if config.Info.Version != productVersion {
+		return fmt.Errorf("build/config.yml info.version %q must match %s info.productVersion %q", config.Info.Version, manifestName, productVersion)
+	}
+	return nil
+}
+
+>>>>>>> Stashed changes
 func repositoryDirectory(repository string) (string, error) {
 	u, err := url.Parse(repository)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
@@ -69,18 +125,35 @@ func repositoryDirectory(repository string) (string, error) {
 }
 
 func prepare(root string, download bool) error {
+<<<<<<< Updated upstream
 	raw, err := os.ReadFile(filepath.Join(root, "wails.json"))
+=======
+	raw, err := os.ReadFile(filepath.Join(root, manifestName))
+>>>>>>> Stashed changes
 	if err != nil {
 		return err
 	}
 	var config struct {
 		Plugins []bundledPlugin `json:"plugins"`
+<<<<<<< Updated upstream
+=======
+		Info    struct {
+			ProductVersion string `json:"productVersion"`
+		} `json:"info"`
+>>>>>>> Stashed changes
 	}
 	if err := json.Unmarshal(raw, &config); err != nil {
 		return err
 	}
 	if config.Plugins == nil {
+<<<<<<< Updated upstream
 		return fmt.Errorf("wails.json requires a plugins array")
+=======
+		return fmt.Errorf("%s requires a plugins array", manifestName)
+	}
+	if err := checkBuildVersion(root, config.Info.ProductVersion); err != nil {
+		return err
+>>>>>>> Stashed changes
 	}
 	ids, names := map[string]bool{}, map[string]bool{}
 	for _, item := range config.Plugins {

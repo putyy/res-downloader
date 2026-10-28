@@ -15,6 +15,11 @@ var apiMethods = map[string]map[string]struct{}{
 	"/api/certificate/download": {http.MethodGet: {}},
 }
 
+<<<<<<< Updated upstream
+=======
+// Middleware serves /api requests through HandleAPI and passes everything else
+// to next, which is the embedded frontend asset server.
+>>>>>>> Stashed changes
 func (h *Server) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.HandleAPI(w, r) {
@@ -24,6 +29,14 @@ func (h *Server) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+<<<<<<< Updated upstream
+=======
+// HandleAPI applies the API guard chain and reports whether it wrote a
+// response. Requests outside /api return false untouched. For API paths it
+// validates Origin, publishes CORS headers, rejects unknown paths and
+// disallowed methods, and finally checks the session token (except for the
+// public certificate and HLS preview endpoints).
+>>>>>>> Stashed changes
 func (h *Server) HandleAPI(w http.ResponseWriter, r *http.Request) bool {
 	if !strings.HasPrefix(r.URL.Path, "/api") {
 		return false

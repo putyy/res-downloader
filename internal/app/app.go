@@ -18,6 +18,10 @@ import (
 	"res-downloader/internal/server"
 
 	"github.com/vrischmann/userdir"
+<<<<<<< Updated upstream
+=======
+	"github.com/wailsapp/wails/v3/pkg/application"
+>>>>>>> Stashed changes
 )
 
 // ReleaseVersion is set by release builds to retain prerelease identity.
@@ -25,6 +29,11 @@ var ReleaseVersion string
 
 type App struct {
 	ctx              context.Context
+<<<<<<< Updated upstream
+=======
+	desktop          *application.App
+	window           *application.WebviewWindow
+>>>>>>> Stashed changes
 	assets           embed.FS
 	runtime          *Runtime
 	events           *events.Emitter
@@ -49,8 +58,13 @@ type App struct {
 	IsReset          bool   `json:"-"`
 }
 
+<<<<<<< Updated upstream
 func newApp(assets embed.FS, wjs string) (*App, error) {
 	matches := regexp.MustCompile(`"productVersion":\s*"([\d.]+)"`).FindStringSubmatch(wjs)
+=======
+func newApp(assets embed.FS, manifest string) (*App, error) {
+	matches := regexp.MustCompile(`"productVersion":\s*"([\d.]+)"`).FindStringSubmatch(manifest)
+>>>>>>> Stashed changes
 	version := "1.0.1"
 	if len(matches) > 0 {
 		version = matches[1]
@@ -98,7 +112,11 @@ func (a *App) Startup(ctx context.Context) {
 		}
 		a.runtime.Logger.Esg(err, "start application runtime")
 		if !server.IsPortUnavailable(err) {
+<<<<<<< Updated upstream
 			a.dialogErr(err.Error())
+=======
+			a.errorDialog(err.Error())
+>>>>>>> Stashed changes
 		}
 	}
 }
@@ -164,7 +182,11 @@ func (a *App) OpenSystemProxy(password string) error {
 }
 
 func (a *App) UnsetSystemProxy(password string) error {
+<<<<<<< Updated upstream
 	if a == nil || a.runtime == nil || a.runtime.System == nil {
+=======
+	if !a.IsProxy {
+>>>>>>> Stashed changes
 		return nil
 	}
 	if err := a.runtime.System.WithPassword(password).UnsetProxy(); err != nil {

@@ -65,8 +65,13 @@ import {NButton, NIcon, useDialog} from "naive-ui"
 import {useI18n} from "vue-i18n"
 import {useIndexStore} from "@/stores"
 import Screen from "@/components/Screen.vue"
+<<<<<<< Updated upstream
 import {ClipboardSetText} from "../../wailsjs/runtime"
 import * as bind from "../../wailsjs/go/app/Bind"
+=======
+import {Clipboard} from "@wailsio/runtime"
+import {Bind} from "@/services/bindings"
+>>>>>>> Stashed changes
 import {frontendErrorDetails, reportFrontendError} from "@/services/diagnostics"
 import {revealStartupWindow} from "@/services/startupWindow"
 
@@ -133,7 +138,11 @@ const confirmPortRestart = () => {
     onPositiveClick: async () => {
       changingPort.value = true
       try {
+<<<<<<< Updated upstream
         await bind.RestartWithNewPort()
+=======
+        await Bind.RestartWithNewPort()
+>>>>>>> Stashed changes
       } catch (error) {
         const details = `stage: port-recovery\n${frontendErrorDetails(error)}`
         store.startupError = details
@@ -149,7 +158,12 @@ const copyDiagnostics = async () => {
   const details = diagnosticText()
   let copied = false
   try {
+<<<<<<< Updated upstream
     copied = await ClipboardSetText(details)
+=======
+    await Clipboard.SetText(details)
+    copied = true
+>>>>>>> Stashed changes
   } catch {
     try {
       await navigator.clipboard.writeText(details)
@@ -164,7 +178,11 @@ const copyDiagnostics = async () => {
 
 const openLogDirectory = async () => {
   try {
+<<<<<<< Updated upstream
     await bind.OpenLogDirectory()
+=======
+    await Bind.OpenLogDirectory()
+>>>>>>> Stashed changes
   } catch (error: any) {
     window.$message?.error(t("startup.open_logs_failed", {message: String(error?.message ?? error)}))
   }

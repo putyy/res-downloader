@@ -27,8 +27,16 @@
 !endif
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINST_KEY_NAME}"
 
+!ifndef WAILS_INSTALL_SCOPE
+    !define WAILS_INSTALL_SCOPE "machine"
+!endif
+
 !ifndef REQUEST_EXECUTION_LEVEL
-    !define REQUEST_EXECUTION_LEVEL "admin"
+    !if "${WAILS_INSTALL_SCOPE}" == "user"
+        !define REQUEST_EXECUTION_LEVEL "user"
+    !else
+        !define REQUEST_EXECUTION_LEVEL "admin"
+    !endif
 !endif
 
 RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
@@ -115,14 +123,19 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
     SetRegView 64
+<<<<<<< Updated upstream
     !ifdef WAILS_INSTALL_SCOPE
       !if "${WAILS_INSTALL_SCOPE}" == "user"
+=======
+    !if "${WAILS_INSTALL_SCOPE}" == "user"
+>>>>>>> Stashed changes
         WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${INFO_COMPANYNAME}"
         WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${INFO_PRODUCTNAME}"
         WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${INFO_PRODUCTVERSION}"
         WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\${PRODUCT_EXECUTABLE}"
         WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
         WriteRegStr HKCU "${UNINST_KEY}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+<<<<<<< Updated upstream
       !else
         WriteRegStr HKLM "${UNINST_KEY}" "Publisher" "${INFO_COMPANYNAME}"
         WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "${INFO_PRODUCTNAME}"
@@ -150,6 +163,22 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
         WriteRegDWORD HKLM "${UNINST_KEY}" "EstimatedSize" "$0"
       !endif
     !else
+=======
+
+        ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+        IntFmt $0 "0x%08X" $0
+        WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" "$0"
+    !else
+        WriteRegStr HKLM "${UNINST_KEY}" "Publisher" "${INFO_COMPANYNAME}"
+        WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "${INFO_PRODUCTNAME}"
+        WriteRegStr HKLM "${UNINST_KEY}" "DisplayVersion" "${INFO_PRODUCTVERSION}"
+        WriteRegStr HKLM "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+        WriteRegStr HKLM "${UNINST_KEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+        WriteRegStr HKLM "${UNINST_KEY}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+
+        ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+        IntFmt $0 "0x%08X" $0
+>>>>>>> Stashed changes
         WriteRegDWORD HKLM "${UNINST_KEY}" "EstimatedSize" "$0"
     !endif
 !macroend
@@ -158,6 +187,7 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
     Delete "$INSTDIR\uninstall.exe"
 
     SetRegView 64
+<<<<<<< Updated upstream
 
     !ifdef WAILS_INSTALL_SCOPE
       !if "${WAILS_INSTALL_SCOPE}" == "user"
@@ -165,6 +195,10 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
       !else
         DeleteRegKey HKLM "${UNINST_KEY}"
       !endif
+=======
+    !if "${WAILS_INSTALL_SCOPE}" == "user"
+        DeleteRegKey HKCU "${UNINST_KEY}"
+>>>>>>> Stashed changes
     !else
         DeleteRegKey HKLM "${UNINST_KEY}"
     !endif
@@ -199,17 +233,17 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
             Goto ok
         ${EndIf}
      ${EndIf}
-
+    
 	SetDetailsPrint both
     DetailPrint "${WAILS_INSTALL_WEBVIEW_DETAILPRINT}"
     SetDetailsPrint listonly
-
+    
     InitPluginsDir
     CreateDirectory "$pluginsdir\webview2bootstrapper"
     SetOutPath "$pluginsdir\webview2bootstrapper"
-    File "tmp\MicrosoftEdgeWebview2Setup.exe"
+    File "MicrosoftEdgeWebview2Setup.exe"
     ExecWait '"$pluginsdir\webview2bootstrapper\MicrosoftEdgeWebview2Setup.exe" /silent /install'
-
+    
     SetDetailsPrint both
     ok:
 !macroend

@@ -1,6 +1,7 @@
 package app
 
 import (
+<<<<<<< Updated upstream
 	"context"
 	"time"
 
@@ -24,6 +25,23 @@ func (a *App) PrepareStartupWindow(ctx context.Context) {
 	a.windowShowTimer = time.AfterFunc(10*time.Second, func() {
 		a.reportStartupWindowTimeout(ctx)
 	})
+=======
+	"time"
+)
+
+const startupWindowTimeout = 10 * time.Second
+
+// PrepareStartupWindow arms the fallback that reports a startup failure when the
+// frontend never signals readiness. The native window stays hidden until
+// RevealStartupWindow runs.
+func (a *App) PrepareStartupWindow() {
+	a.windowMu.Lock()
+	defer a.windowMu.Unlock()
+	if a.window == nil || a.windowClosed || a.windowShown || a.windowShowTimer != nil {
+		return
+	}
+	a.windowShowTimer = time.AfterFunc(startupWindowTimeout, a.reportStartupWindowTimeout)
+>>>>>>> Stashed changes
 }
 
 // A launch received during startup needs no extra action: the initial ready
@@ -31,6 +49,7 @@ func (a *App) PrepareStartupWindow(ctx context.Context) {
 func (a *App) ActivateWindow() {
 	a.windowMu.Lock()
 	defer a.windowMu.Unlock()
+<<<<<<< Updated upstream
 	if a.windowClosed || !a.windowShown || a.ctx == nil {
 		return
 	}
@@ -42,6 +61,19 @@ func (a *App) ActivateWindow() {
 }
 
 func (a *App) reportStartupWindowTimeout(ctx context.Context) {
+=======
+	if a.window == nil || a.windowClosed || !a.windowShown {
+		return
+	}
+	if a.window.IsMinimised() {
+		a.window.UnMinimise()
+	}
+	a.window.Show()
+	a.window.Focus()
+}
+
+func (a *App) reportStartupWindowTimeout() {
+>>>>>>> Stashed changes
 	a.windowMu.Lock()
 	if a.windowClosed || a.windowShown {
 		a.windowMu.Unlock()
@@ -50,11 +82,15 @@ func (a *App) reportStartupWindowTimeout(ctx context.Context) {
 	a.runtime.Logger.Error().Msg("frontend did not prepare a startup view before the startup deadline")
 	a.windowMu.Unlock()
 
+<<<<<<< Updated upstream
 	_, _ = runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
 		Type: runtime.ErrorDialog, Title: "Startup failed",
 		Message: "The app could not start. Please reopen the app.",
 		Buttons: []string{"OK"}, DefaultButton: "OK", CancelButton: "OK",
 	})
+=======
+	a.errorDialog("The app could not start. Please reopen the app.")
+>>>>>>> Stashed changes
 
 	a.windowMu.Lock()
 	if a.windowClosed || a.windowShown {
@@ -63,6 +99,7 @@ func (a *App) reportStartupWindowTimeout(ctx context.Context) {
 	}
 	a.windowClosed = true
 	a.windowMu.Unlock()
+<<<<<<< Updated upstream
 	runtime.Quit(ctx)
 }
 
@@ -70,17 +107,33 @@ func (a *App) showStartupWindow(ctx context.Context) {
 	a.windowMu.Lock()
 	defer a.windowMu.Unlock()
 	if a.windowClosed || a.windowShown {
+=======
+	a.quit()
+}
+
+// RevealStartupWindow shows the native window once the frontend has rendered
+// its first view.
+func (a *App) RevealStartupWindow() {
+	a.windowMu.Lock()
+	defer a.windowMu.Unlock()
+	if a.window == nil || a.windowClosed || a.windowShown {
+>>>>>>> Stashed changes
 		return
 	}
 	a.windowShown = true
 	if a.windowShowTimer != nil {
 		a.windowShowTimer.Stop()
 	}
+<<<<<<< Updated upstream
 	runtime.WindowShow(ctx)
+=======
+	a.window.Show()
+>>>>>>> Stashed changes
 }
 
 // SaveWindowSize reads native window dimensions, which use the same units as
 // the startup options regardless of webview zoom or display scaling.
+<<<<<<< Updated upstream
 func (a *App) SaveWindowSize(ctx context.Context) {
 	a.windowMu.Lock()
 	defer a.windowMu.Unlock()
@@ -91,6 +144,18 @@ func (a *App) SaveWindowSize(ctx context.Context) {
 		return
 	}
 	width, height := runtime.WindowGetSize(ctx)
+=======
+func (a *App) SaveWindowSize() {
+	a.windowMu.Lock()
+	defer a.windowMu.Unlock()
+	if a.window == nil || a.windowClosed {
+		return
+	}
+	if a.window.IsMinimised() || a.window.IsMaximised() || a.window.IsFullscreen() {
+		return
+	}
+	width, height := a.window.Size()
+>>>>>>> Stashed changes
 	if err := a.runtime.Config.SaveWindowSize(width, height); err != nil {
 		a.runtime.Logger.Esg(err, "save window size")
 	}

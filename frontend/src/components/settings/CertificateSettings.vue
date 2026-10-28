@@ -33,7 +33,11 @@
     <NCard v-if="status" size="small" :title="t('setting.certificate_phone_status')">
       <NAlert type="warning" :show-icon="false">{{ t("setting.certificate_phone_tip") }}</NAlert>
       <div class="mt-4">
+<<<<<<< Updated upstream
         <NButton type="primary" secondary @click="BrowserOpenURL(certificateUrl)">{{ t("setting.certificate_download") }} </NButton>
+=======
+        <NButton type="primary" secondary @click="Browser.OpenURL(certificateUrl)">{{ t("setting.certificate_download") }} </NButton>
+>>>>>>> Stashed changes
       </div>
     </NCard>
     <NCard v-if="status" size="small" :title="t('setting.certificate_legacy_status')">
@@ -65,7 +69,11 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from "vue"
 import {useI18n} from "vue-i18n"
+<<<<<<< Updated upstream
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
+=======
+import {Browser} from "@wailsio/runtime"
+>>>>>>> Stashed changes
 import appApi from "@/api/app"
 import type {appType} from "@/types/app"
 import {useIndexStore} from "@/stores"

@@ -58,6 +58,12 @@ func (p *DefaultPlugin) Handle(_ context.Context, obs shared.Observation) (share
 	if p.isKnownHLSSegment(obs.Request.URL) {
 		return shared.PluginResult{}, nil
 	}
+<<<<<<< Updated upstream
+=======
+	if partialByteRange(obs) {
+		return shared.PluginResult{}, nil
+	}
+>>>>>>> Stashed changes
 	rules, err := DecodeCaptureRules(obs.Settings["rules"])
 	if err != nil {
 		return shared.PluginResult{}, err

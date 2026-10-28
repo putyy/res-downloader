@@ -57,6 +57,7 @@ Since 2024, Arch Linux has provided only `webkit2gtk-4.1`, with `webkit2gtk-4.0`
 When building from source or maintaining the PKGBUILD, use WebKit2GTK 4.1:
 
 1. Replace `webkit2gtk-4.0` with `webkit2gtk-4.1` in `depends` / `makedepends`.
+<<<<<<< Updated upstream
 2. Add the `-tags webkit2_41` build tag to `wails build` in `build()`. For example, to build for amd64:
 
 ```bash
@@ -64,6 +65,15 @@ wails build -platform "linux/amd64" -tags webkit2_41 -upx
 ```
 
 `-upx` compresses the executable and requires UPX to be installed; omit it if compression is unnecessary. When installing through `yay` with a PKGBUILD that already includes these settings, no manual changes are needed.
+=======
+2. Build with `wails3 task linux:build` in `build()`. Wails v3 uses WebKit2GTK 4.1 by default, so no extra build tag is required:
+
+```bash
+wails3 task linux:build ARCH=amd64
+```
+
+Run `upx` on the built executable afterwards if compression is required (UPX must be installed). When installing through `yay` with a PKGBUILD that already includes these settings, no manual changes are needed.
+>>>>>>> Stashed changes
 :::
 
 ### Standalone executable

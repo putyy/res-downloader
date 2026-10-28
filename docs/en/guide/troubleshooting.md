@@ -48,9 +48,13 @@ Some phone apps may still be impossible to capture even after setup.
 
 ## No internet access after quitting the app
 
+<<<<<<< Updated upstream
 On normal exit, the app restores the proxy settings it took over: the original enabled flag and address on Windows, the HTTP / HTTPS proxies for the originally captured network services on macOS, and the proxy endpoints, authentication switch, and mode in the GNOME backend on Linux. If you or another proxy client changed a captured configuration, the app leaves that configuration as it is.
 
 On macOS, an existing authenticated proxy is left intact and the app asks you to connect to the capture proxy manually, so credentials that cannot be restored automatically are not overwritten. On Linux, the PAC URL, bypass rules, and authentication credentials are not modified. If the process exits abnormally, capture proxy settings may remain. Restore your previous proxy in the system's network settings, or disable the HTTP / HTTPS proxy if you do not need one, then restart the app.
+=======
+Disable the HTTP / HTTPS proxy in your system's network settings, then restart the app.
+>>>>>>> Stashed changes
 
 ## App fails to start
 

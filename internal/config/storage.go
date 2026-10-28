@@ -11,6 +11,11 @@ type Storage struct {
 	def      []byte
 }
 
+<<<<<<< Updated upstream
+=======
+// NewStorage returns a file-backed store for filename under root. def is the
+// content written when the file does not exist yet.
+>>>>>>> Stashed changes
 func NewStorage(root, filename string, def []byte) *Storage {
 	return &Storage{
 		fileName: filepath.Join(root, filename),
@@ -18,6 +23,12 @@ func NewStorage(root, filename string, def []byte) *Storage {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// Load reads the file, creating it from the default payload when missing, and
+// restricts the file mode to 0600. It returns the raw bytes and any read,
+// create or chmod error.
+>>>>>>> Stashed changes
 func (l *Storage) Load() ([]byte, error) {
 	if !shared.FileExist(l.fileName) {
 		err := l.Store(l.def)
@@ -36,6 +47,13 @@ func (l *Storage) Load() ([]byte, error) {
 	return d, nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Store writes data atomically: the payload goes to a temporary file in the same
+// directory, is synced, and is then renamed over the target. When the rename
+// fails (for example because the target is locked on Windows) it retries once
+// after moving the existing file aside, restoring the backup on failure.
+>>>>>>> Stashed changes
 func (l *Storage) Store(data []byte) error {
 	directory := filepath.Dir(l.fileName)
 	temporary, err := os.CreateTemp(directory, ".res-downloader-config-*")

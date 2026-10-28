@@ -1,6 +1,6 @@
 {
-  "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "res-downloader",
+<<<<<<< Updated upstream:wails.json
   "outputfilename": "res-downloader",
   "frontend:install": "npm ci",
   "frontend:build": "npm run build",
@@ -9,6 +9,8 @@
   "preBuildHooks": {
     "*/*": "go run ../../cmd/bundleplugins"
   },
+=======
+>>>>>>> Stashed changes:app.json
   "plugins": [
     {
       "id": "official.wechat",

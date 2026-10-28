@@ -92,7 +92,11 @@ import {NAlert, NButton, NModal, NProgress, NScrollbar, NTag} from "naive-ui"
 import {useIndexStore} from "@/stores"
 import {useUpdateStore} from "@/stores/update"
 import request from "@/api/request"
+<<<<<<< Updated upstream
 import {BrowserOpenURL} from "../../wailsjs/runtime"
+=======
+import {Browser} from "@wailsio/runtime"
+>>>>>>> Stashed changes
 
 type UpdateStatus = {
   state: string
@@ -156,7 +160,11 @@ const accept = (next: UpdateStatus) => {
   emit("available", next.available)
 }
 const openWebsite = () => {
+<<<<<<< Updated upstream
   if (status.value.website) BrowserOpenURL(status.value.website)
+=======
+  if (status.value.website) Browser.OpenURL(status.value.website)
+>>>>>>> Stashed changes
 }
 const check = async (manual = true) => {
   if (working.value || !canCheck.value) return

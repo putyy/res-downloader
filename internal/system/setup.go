@@ -17,7 +17,10 @@ type Setup struct {
 	app                        Environment
 	logger                     *logging.Logger
 	config                     *config.Config
+<<<<<<< Updated upstream
 	proxyState                 *proxyState
+=======
+>>>>>>> Stashed changes
 	CertFile                   string
 	Password                   string
 	LegacyCertificateMigration CertificateMigrationRecord
@@ -25,11 +28,18 @@ type Setup struct {
 
 func NewSetup(app Environment, config *config.Config, logger *logging.Logger) *Setup {
 	setup := &Setup{
+<<<<<<< Updated upstream
 		app:        app,
 		logger:     logger,
 		config:     config,
 		proxyState: newProxyState(),
 		CertFile:   filepath.Join(app.UserDir, "mitm-ca.crt"),
+=======
+		app:      app,
+		logger:   logger,
+		config:   config,
+		CertFile: filepath.Join(app.UserDir, "mitm-ca.crt"),
+>>>>>>> Stashed changes
 	}
 	setup.LegacyCertificateMigration = runLegacyCertificateMigration(setup)
 	return setup
@@ -64,9 +74,12 @@ func (s *Setup) SetProxy() error {
 }
 
 func (s *Setup) UnsetProxy() error {
+<<<<<<< Updated upstream
 	if s == nil || s.proxyState == nil {
 		return nil
 	}
+=======
+>>>>>>> Stashed changes
 	return s.unsetProxy()
 }
 

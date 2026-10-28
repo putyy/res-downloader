@@ -17,11 +17,26 @@ import (
 const (
 	defaultFilenameTemplate = "{{title|default:resource|sanitize|truncate:80}}_{{date:20060102_150405}}.{{ext}}"
 	maxFilenameTemplateSize = 4096
+<<<<<<< Updated upstream
+=======
+	// Default layouts used when a template writes {{date}} or {{time}} without an
+	// explicit layout argument, and by formatMetadataTimestamp for created_at.
+	defaultDateLayout = "20060102"
+	defaultTimeLayout = "150405"
+>>>>>>> Stashed changes
 	// Keep room below the common 255-byte component limit for conflict suffixes
 	// such as "(1)" and for filesystem-specific normalization.
 	MaxFilenameSegmentBytes = 240
 )
 
+<<<<<<< Updated upstream
+=======
+// RenderResourcePath expands template for resource and plan into an absolute
+// path under directory, then appends the output extension when the template did
+// not already produce it. now supplies {{date}}, {{time}} and relative
+// created_at formatting. It returns an error when the template is invalid, when
+// it renders an empty path, or when the result would escape directory.
+>>>>>>> Stashed changes
 func RenderResourcePath(directory, template string, resource shared.ResourceCandidate, plan shared.DownloadPlan, now time.Time) (string, error) {
 	if err := ValidateFilenameTemplate(template); err != nil {
 		return "", err
@@ -43,8 +58,13 @@ func RenderResourcePath(directory, template string, resource shared.ResourceCand
 		"height":  positiveIntegerString(track.Height),
 		"bitrate": positiveInt64String(track.Bitrate),
 		"ext":     extension,
+<<<<<<< Updated upstream
 		"date":    now.Format("20060102"),
 		"time":    now.Format("150405"),
+=======
+		"date":    now.Format(defaultDateLayout),
+		"time":    now.Format(defaultTimeLayout),
+>>>>>>> Stashed changes
 	}
 	if author := metadataString(resource.Metadata, "author"); author != "" {
 		variables["author"] = author
@@ -164,6 +184,15 @@ func rejectUnsafeFilenamePath(value string) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// ExpandFilenameTemplate replaces every {{variable|filter:arg}} expression in
+// template. variables supplies caller-known values and may be nil; metadata
+// supplies created_at/published_at and meta.* lookups and may be nil. now is the
+// clock behind date, time and timestamp formatting. It returns the rendered
+// string, or an error for an unclosed expression, an empty variable/filter or an
+// unsupported filter.
+>>>>>>> Stashed changes
 func ExpandFilenameTemplate(template string, variables map[string]string, metadata map[string]interface{}, now time.Time) (string, error) {
 	var output strings.Builder
 	for len(template) > 0 {
@@ -196,10 +225,25 @@ func evaluateFilenameExpression(expression string, variables map[string]string, 
 	}
 	variable, variableArgument, _ := strings.Cut(strings.TrimSpace(parts[0]), ":")
 	var value string
+<<<<<<< Updated upstream
 	if variable == "date" && variableArgument != "" {
 		value = now.Format(variableArgument)
 	} else if variable == "time" && variableArgument != "" {
 		value = now.Format(variableArgument)
+=======
+	if variable == "date" || variable == "time" {
+		// The layout is optional and documented to default to 20060102 / 150405.
+		// Deriving it here keeps the exported ExpandFilenameTemplate usable with a
+		// nil variables map instead of silently rendering an empty string.
+		layout := variableArgument
+		if layout == "" {
+			layout = defaultDateLayout
+			if variable == "time" {
+				layout = defaultTimeLayout
+			}
+		}
+		value = now.Format(layout)
+>>>>>>> Stashed changes
 	} else if variable == "created_at" || variable == "published_at" {
 		key := "createdAt"
 		if variable == "published_at" {
@@ -267,7 +311,11 @@ func formatMetadataTimestamp(raw interface{}, layout string, location *time.Loca
 		return ""
 	}
 	if layout == "" {
+<<<<<<< Updated upstream
 		layout = "20060102"
+=======
+		layout = defaultDateLayout
+>>>>>>> Stashed changes
 	}
 	timestamp := time.UnixMilli(int64(milliseconds)).In(location)
 	if timestamp.Year() < 1 || timestamp.Year() > 9999 {
@@ -322,6 +370,13 @@ func safeRelativeResourcePath(value string) (string, error) {
 	return strings.Join(parts, "/"), nil
 }
 
+<<<<<<< Updated upstream
+=======
+// SanitizeFilenameSegment makes value usable as one path component on every
+// supported platform: control characters and reserved characters become "_",
+// trailing dots and spaces are removed, and Windows device names (CON, PRN,
+// NUL, COM1..9, LPT1..9) get a leading underscore. It may return an empty string.
+>>>>>>> Stashed changes
 func SanitizeFilenameSegment(value string) string {
 	value = strings.Map(func(char rune) rune {
 		if unicode.IsControl(char) || strings.ContainsRune(`<>:"/\|?*＜＞：＂／＼｜？＊`, char) {
@@ -429,6 +484,11 @@ func scalarString(value interface{}) string {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// TruncateRunes returns value shortened to at most limit runes. Counting runes
+// rather than bytes keeps multi-byte titles from being cut mid-character.
+>>>>>>> Stashed changes
 func TruncateRunes(value string, limit int) string {
 	runes := []rune(value)
 	if len(runes) <= limit {
@@ -451,6 +511,12 @@ func positiveInt64String(value int64) string {
 	return strconv.FormatInt(value, 10)
 }
 
+<<<<<<< Updated upstream
+=======
+// ResolveFilenameConflict applies strategy ("rename", "overwrite" or "skip") to
+// path using only the filesystem state, and returns the path to write. "skip"
+// reports an error when the destination exists; an empty strategy means "rename".
+>>>>>>> Stashed changes
 func ResolveFilenameConflict(path, strategy string) (string, error) {
 	return ResolveFilenameConflictWith(path, strategy, nil)
 }

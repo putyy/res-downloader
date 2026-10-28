@@ -49,7 +49,11 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 
 | Module | Main responsibility                                                                                 | Key dependencies or output |
 | --- |-----------------------------------------------------------------------------------------------------| --- |
+<<<<<<< Updated upstream
 | Wails | Load the embedded frontend, provide window lifecycle and a few Bind methods                         | `frontend/dist`, `app.Bind` |
+=======
+| Wails v3 | Load the embedded frontend, provide window lifecycle and a few Service methods                    | `frontend/dist`, `app.Bind` |
+>>>>>>> Stashed changes
 | `app.Runtime` | Create modules, wire dependencies, and manage startup and shutdown order                            | Settings, events, proxy, HTTP, plugins, resources, downloads |
 | `server.Gateway` | Manage the capture proxy listener and route local API versus proxy requests                         | `httpapi.Server`, `proxy.Engine` |
 | `control.Server` | Manage the local automation listener, separate credentials, and discovery file                      | Loopback only; reuses resource and download HTTP handlers |
@@ -69,11 +73,19 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 
 ### Construction
 
+<<<<<<< Updated upstream
 `NewRuntime` prepares application directories, logging, settings, and events for window sizing, Bind methods, and middleware. It does not open business databases or load plugins.
 
 ### Startup
 
 The desktop entry point uses Wails `SingleInstanceLock`; another launch activates the existing window. `OnDomReady` calls `Runtime.Start` asynchronously after the instance check, initializing device certificates, capture storage, the resource database, plugins, the task database, proxy, and HTTP services. Frontend assets load immediately, while app information and API requests wait for backend readiness. Failed initialization releases business resources already created. Shutdown cancels subsequent startup stages; the current synchronous initialization operation finishes before cleanup proceeds safely.
+=======
+`NewRuntime` prepares application directories, logging, settings, and events for window sizing, Service methods, and middleware. It does not open business databases or load plugins.
+
+### Startup
+
+The desktop entry point uses the Wails v3 `SingleInstance` lock, acquired while the application is created, and another launch activates the existing window. The window runtime-ready event (`WindowRuntimeReady`) calls `Runtime.Start` asynchronously after the instance check, initializing device certificates, capture storage, the resource database, plugins, the task database, proxy, and HTTP services. Frontend assets load immediately, while app information and API requests wait for backend readiness. Failed initialization releases business resources already created. Shutdown cancels subsequent startup stages; the current synchronous initialization operation finishes before cleanup proceeds safely.
+>>>>>>> Stashed changes
 
 When settings are applied, the runtime updates upstream proxy transport, download worker count, and HTTPS interception rules as needed without reconstructing the entire app.
 
@@ -118,7 +130,11 @@ Plain HTTP and captured-file plans can retain checkpoint state. Pause/resume sup
 
 The frontend does not reference internal Go modules directly. It primarily uses three channels:
 
+<<<<<<< Updated upstream
 - **Wails Bind**: a small set of startup capabilities such as app information, a settings snapshot, the API session token, and reset operations.
+=======
+- **Wails Service**: the `app.Bind` service exposes a small set of startup capabilities such as app information, a settings snapshot, the API session token, and reset operations.
+>>>>>>> Stashed changes
 - **Local HTTP API**: resources, previews, download tasks, plugins, certificates, and settings. Except for a few public certificate-download or HLS-preview paths, requests require a per-launch random bearer token and pass origin and method checks.
 - **Wails events**: the backend wraps business events as `{type, data}` and sends them through a single `event` channel. A Pinia event store dispatches them to business stores and pages.
 
@@ -135,7 +151,11 @@ Plugins receive structured observations and return structured resource candidate
 Plugins have three sources:
 
 - **Built-in plugins**: implemented in Go, such as the generic resource detector.
+<<<<<<< Updated upstream
 - **Bundled official plugins**: configured in `wails.json`, shipped with the app and installed into the user's plugin directory.
+=======
+- **Bundled official plugins**: configured in `app.json`, shipped with the app and installed into the user's plugin directory.
+>>>>>>> Stashed changes
 - **User plugins**: installed under `plugins/` in the user data directory, from the extension store or a local ZIP.
 
 Site-specific API detection, correlation, signature calculation, URL refresh, and non-DRM byte transformations belong in plugins. Extend the host API only for reusable capabilities that multiple plugins may need and that the existing protocol cannot safely express. Such changes must synchronize Go models, runtime validation, Schema, TypeScript declarations, examples, and documentation.
@@ -170,7 +190,11 @@ If the resource or task database cannot open, that module logs an error and fall
 | Directory | Responsibility                                                                                  |
 | --- |-------------------------------------------------------------------------------------------------|
 | `frontend/` | Vue, Pinia, Naive UI frontend and Wails-generated bridge code                                   |
+<<<<<<< Updated upstream
 | `internal/app/` | Composition root, Wails Bind, and backend module adapters                                       |
+=======
+| `internal/app/` | Composition root, Wails Service, and backend module adapters                                    |
+>>>>>>> Stashed changes
 | `internal/server/` | Shared listener and API/proxy routing, without business handlers                                |
 | `internal/control/` | Local control listener, discovery, and platform-specific credential file permissions            |
 | `internal/automation/` | CLI arguments, MCP tools, and shared local API client                                           |

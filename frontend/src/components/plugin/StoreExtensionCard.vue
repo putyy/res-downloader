@@ -112,7 +112,11 @@ import {computed} from "vue"
 import {useI18n} from "vue-i18n"
 import {RefreshOutline} from "@vicons/ionicons5"
 import type {appType} from "@/types/app"
+<<<<<<< Updated upstream
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
+=======
+import {Browser} from "@wailsio/runtime"
+>>>>>>> Stashed changes
 import {localizedStoreEntry, storePluginOwner, storePluginVersion} from "./store"
 
 const props = defineProps<{
@@ -156,7 +160,11 @@ const hiddenCapabilityCount = computed(() => capabilities.value.length - visible
 const openRepository = () => {
   try {
     const parsed = new URL(`https://github.com/${props.extension.repository}`)
+<<<<<<< Updated upstream
     if (parsed.origin === "https://github.com") BrowserOpenURL(parsed.href)
+=======
+    if (parsed.origin === "https://github.com") Browser.OpenURL(parsed.href)
+>>>>>>> Stashed changes
   } catch (_) {
     window?.$message?.error(t("plugin.invalid_homepage"))
   }

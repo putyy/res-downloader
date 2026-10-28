@@ -12,8 +12,11 @@ import (
 	shared "res-downloader/internal/model"
 	"runtime"
 	"strings"
+<<<<<<< Updated upstream
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+=======
+>>>>>>> Stashed changes
 )
 
 func (h *Server) downloadCertificate(w http.ResponseWriter, _ *http.Request) {
@@ -30,10 +33,14 @@ func (h *Server) downloadCertificate(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *Server) openDirectoryDialog(w http.ResponseWriter, _ *http.Request) {
+<<<<<<< Updated upstream
 	folder, err := wailsruntime.OpenDirectoryDialog(h.host.context(), wailsruntime.OpenDialogOptions{
 		DefaultDirectory: "",
 		Title:            "Select a folder",
 	})
+=======
+	folder, err := h.host.openDirectory("Select a folder")
+>>>>>>> Stashed changes
 	if err != nil {
 		h.error(w, err.Error())
 		return
@@ -57,7 +64,11 @@ func (h *Server) openFileDialog(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
+<<<<<<< Updated upstream
 	filePath, err := wailsruntime.OpenFileDialog(h.host.context(), options)
+=======
+	filePath, err := h.host.openFile(options.Title, options.Filters)
+>>>>>>> Stashed changes
 	if err != nil {
 		h.error(w, err.Error())
 		return
@@ -65,11 +76,19 @@ func (h *Server) openFileDialog(w http.ResponseWriter, r *http.Request) {
 	h.success(w, respData{"file": filePath})
 }
 
+<<<<<<< Updated upstream
 func fileDialogOptions(purpose string) (wailsruntime.OpenDialogOptions, error) {
 	switch strings.ToLower(strings.TrimSpace(purpose)) {
 	case "", "video":
 		return wailsruntime.OpenDialogOptions{
 			Filters: []wailsruntime.FileFilter{{DisplayName: "MP4 video (*.mp4)", Pattern: "*.mp4"}},
+=======
+func fileDialogOptions(purpose string) (dialogOptions, error) {
+	switch strings.ToLower(strings.TrimSpace(purpose)) {
+	case "", "video":
+		return dialogOptions{
+			Filters: []FileFilter{{DisplayName: "MP4 video (*.mp4)", Pattern: "*.mp4"}},
+>>>>>>> Stashed changes
 			Title:   "Select an MP4 video",
 		}, nil
 	case "ffmpeg":
@@ -77,6 +96,7 @@ func fileDialogOptions(purpose string) (wailsruntime.OpenDialogOptions, error) {
 	case "ffprobe":
 		return mediaToolDialogOptions("FFprobe", "ffprobe"), nil
 	default:
+<<<<<<< Updated upstream
 		return wailsruntime.OpenDialogOptions{}, fmt.Errorf("unsupported file dialog purpose %q", purpose)
 	}
 }
@@ -85,6 +105,16 @@ func mediaToolDialogOptions(displayName, executableName string) wailsruntime.Ope
 	options := wailsruntime.OpenDialogOptions{Title: "Select the " + displayName + " executable"}
 	if runtime.GOOS == "windows" {
 		options.Filters = []wailsruntime.FileFilter{{
+=======
+		return dialogOptions{}, fmt.Errorf("unsupported file dialog purpose %q", purpose)
+	}
+}
+
+func mediaToolDialogOptions(displayName, executableName string) dialogOptions {
+	options := dialogOptions{Title: "Select the " + displayName + " executable"}
+	if runtime.GOOS == "windows" {
+		options.Filters = []FileFilter{{
+>>>>>>> Stashed changes
 			DisplayName: displayName + " executable (" + executableName + ".exe)",
 			Pattern:     executableName + ".exe",
 		}}
@@ -92,6 +122,16 @@ func mediaToolDialogOptions(displayName, executableName string) wailsruntime.Ope
 	return options
 }
 
+<<<<<<< Updated upstream
+=======
+// dialogOptions describes a native file dialog request independently of the
+// desktop framework that renders it.
+type dialogOptions struct {
+	Title   string
+	Filters []FileFilter
+}
+
+>>>>>>> Stashed changes
 func (h *Server) openFolder(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		FilePath string `json:"filePath"`

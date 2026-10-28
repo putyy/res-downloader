@@ -128,6 +128,11 @@ type PluginActionDefinition struct {
 	Locales         map[string]PluginLocale `json:"locales,omitempty" yaml:"locales,omitempty"`
 }
 
+<<<<<<< Updated upstream
+=======
+// IsEnabled reports the effective enabled flag. An omitted flag defaults to
+// true so manifests written before the field existed stay loadable.
+>>>>>>> Stashed changes
 func (m PluginManifest) IsEnabled() bool {
 	return m.Enabled == nil || *m.Enabled
 }
@@ -138,6 +143,11 @@ type PluginPermissions struct {
 	BodyLimit    int64    `json:"bodyLimit,omitempty" yaml:"bodyLimit,omitempty"`
 }
 
+<<<<<<< Updated upstream
+=======
+// Has reports whether the manifest declared capability. Comparison is exact and
+// case-sensitive, matching the capability names validated at load time.
+>>>>>>> Stashed changes
 func (p PluginPermissions) Has(capability string) bool {
 	for _, item := range p.Capabilities {
 		if item == capability {

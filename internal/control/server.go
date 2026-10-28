@@ -77,6 +77,12 @@ func (s *Server) removeSession() error {
 	return err
 }
 
+<<<<<<< Updated upstream
+=======
+// Close removes this instance's connection file and shuts the listener down.
+// When the graceful shutdown exceeds ctx it falls back to a hard close. Both
+// errors are reported together; a missing session file is not an error.
+>>>>>>> Stashed changes
 func (s *Server) Close(ctx context.Context) error {
 	if s == nil {
 		return nil

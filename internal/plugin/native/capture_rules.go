@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+<<<<<<< Updated upstream
+=======
+	"net/http"
+>>>>>>> Stashed changes
 	"net/url"
 	"path/filepath"
 	shared "res-downloader/internal/model"
@@ -341,6 +345,46 @@ func MatchCaptureRule(rules []shared.CaptureRule, observation shared.Observation
 	return nil, size
 }
 
+<<<<<<< Updated upstream
+=======
+// partialByteRange reports whether a response carries only a slice of the
+// resource body. A Range fragment is never a complete file: its Content-Length
+// describes the slice, and downloading it again yields the same unusable
+// fragment, so such responses must not become resources of their own.
+// A 206 that covers the whole body (end+1 == total) or that omits a usable
+// Content-Range is treated as complete and keeps the previous behaviour.
+func partialByteRange(observation shared.Observation) bool {
+	if observation.Response == nil || observation.Response.StatusCode != http.StatusPartialContent {
+		return false
+	}
+	_, end, total, ok := parseContentRangeHeader(firstHeader(observation.Response.Headers, "Content-Range"))
+	return ok && total > 0 && end+1 < total
+}
+
+func parseContentRangeHeader(value string) (int64, int64, int64, bool) {
+	const prefix = "bytes "
+	value = strings.TrimSpace(value)
+	if len(value) <= len(prefix) || !strings.EqualFold(value[:len(prefix)], prefix) {
+		return 0, 0, 0, false
+	}
+	parts := strings.SplitN(strings.TrimSpace(value[len(prefix):]), "/", 2)
+	if len(parts) != 2 || parts[1] == "*" {
+		return 0, 0, 0, false
+	}
+	span := strings.SplitN(strings.TrimSpace(parts[0]), "-", 2)
+	if len(span) != 2 {
+		return 0, 0, 0, false
+	}
+	start, startErr := strconv.ParseInt(strings.TrimSpace(span[0]), 10, 64)
+	end, endErr := strconv.ParseInt(strings.TrimSpace(span[1]), 10, 64)
+	total, totalErr := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+	if startErr != nil || endErr != nil || totalErr != nil || start < 0 || end < start || total <= 0 {
+		return 0, 0, 0, false
+	}
+	return start, end, total, true
+}
+
+>>>>>>> Stashed changes
 func inferGenericBinaryCaptureRule(rules []shared.CaptureRule, observation shared.Observation, size int64) (*shared.CaptureRule, string, string) {
 	extension, source := observedFileExtension(observation)
 	inference, exists := genericBinaryExtensions[extension]

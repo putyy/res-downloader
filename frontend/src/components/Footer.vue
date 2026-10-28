@@ -49,7 +49,7 @@
 
 <script lang="ts" setup>
 import {useIndexStore} from "@/stores"
-import {BrowserOpenURL} from "../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 import {computed} from "vue"
 import {useI18n} from "vue-i18n"
 
@@ -65,6 +65,6 @@ const changeShow = (value: boolean) => {
 }
 
 const toWebsite = (url: string) => {
-  BrowserOpenURL(url)
+  Browser.OpenURL(url)
 }
 </script>

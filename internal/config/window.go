@@ -12,6 +12,11 @@ const (
 	MinWindowHeight     = 600
 )
 
+<<<<<<< Updated upstream
+=======
+// WindowSize returns the persisted window dimensions, or the defaults when the
+// stored values are below the minimum supported size.
+>>>>>>> Stashed changes
 func (c *Config) WindowSize() (int, int) {
 	snapshot := c.Snapshot()
 	if snapshot.WindowWidth < MinWindowWidth || snapshot.WindowHeight < MinWindowHeight {

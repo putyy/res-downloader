@@ -79,7 +79,11 @@ import {CloudOutline, DownloadOutline, ExtensionPuzzleOutline, HelpCircleOutline
 import {useIndexStore} from "@/stores"
 import Footer from "@/components/Footer.vue"
 import Screen from "@/components/Screen.vue"
+<<<<<<< Updated upstream
 import {BrowserOpenURL} from "../../../wailsjs/runtime"
+=======
+import {Browser} from "@wailsio/runtime"
+>>>>>>> Stashed changes
 import {useI18n} from "vue-i18n"
 import UpdateDialog from "@/components/UpdateDialog.vue"
 import {useUpdateStore} from "@/stores/update"
@@ -172,7 +176,11 @@ const handleFooterUpdate = (key: string, item?: MenuOption) => {
   }
 
   if (key === "github") {
+<<<<<<< Updated upstream
     BrowserOpenURL("https://github.com/putyy/res-downloader")
+=======
+    Browser.OpenURL("https://github.com/putyy/res-downloader")
+>>>>>>> Stashed changes
     return
   }
 

@@ -2,9 +2,14 @@ import {defineStore} from "pinia"
 import {ref} from "vue"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
+<<<<<<< Updated upstream
 import {Environment} from "../../wailsjs/runtime"
 import * as bind from "../../wailsjs/go/app/Bind"
 import {httpapi} from "../../wailsjs/go/models"
+=======
+import {System} from "@wailsio/runtime"
+import {Bind} from "@/services/bindings"
+>>>>>>> Stashed changes
 import {frontendErrorDetails, reportFrontendError} from "@/services/diagnostics"
 import axios from "axios"
 import i18n from "@/i18n"
@@ -91,11 +96,19 @@ export const useIndexStore = defineStore("index-store", () => {
     let timeout: ReturnType<typeof setTimeout> | undefined
     try {
       const configuration = (await Promise.race([
+<<<<<<< Updated upstream
         bind.Config(),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(() => reject(new Error("Configuration initialization timed out")), 5000)
         }),
       ])) as httpapi.ResponseData
+=======
+        Bind.Config(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Configuration initialization timed out")), 5000)
+        }),
+      ])) as appType.ResponseData
+>>>>>>> Stashed changes
       if (configuration.code !== 1) throw new Error(configuration.message || "Configuration initialization failed")
       globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
       savedConfig = cloneConfig(globalConfig.value)
@@ -114,16 +127,32 @@ export const useIndexStore = defineStore("index-store", () => {
     try {
       if (!configLoaded) await loadConfig()
       stage = "environment"
+<<<<<<< Updated upstream
       envInfo.value = await Environment()
 
       stage = "application-info"
       const info = (await bind.AppInfo()) as httpapi.ResponseData
+=======
+      const environment = await System.Environment()
+      envInfo.value = {
+        buildType: environment.Debug ? "dev" : "production",
+        platform: environment.OS,
+        arch: environment.Arch,
+      }
+
+      stage = "application-info"
+      const info = (await Bind.AppInfo()) as appType.ResponseData
+>>>>>>> Stashed changes
       if (info.code !== 1) throw new Error(info.message || "Application information initialization failed")
       appInfo.value = Object.assign({}, appInfo.value, info.data)
       isProxy.value = info.data.IsProxy
 
       stage = "backend-startup"
+<<<<<<< Updated upstream
       const session = (await bind.APISession()) as httpapi.ResponseData
+=======
+      const session = (await Bind.APISession()) as appType.ResponseData
+>>>>>>> Stashed changes
       if (session.code !== 1) {
         startupPortUnavailable.value = session.data?.portUnavailable === true
         if (startupPortUnavailable.value) {

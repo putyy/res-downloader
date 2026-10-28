@@ -34,6 +34,12 @@ var preference struct {
 	source string
 }
 
+<<<<<<< Updated upstream
+=======
+// Preferred returns the metadata mirror to try first: the domestic source on a
+// zh system locale, the overseas source otherwise. It caches the last choice so
+// repeated fetches in one session stay on the same host.
+>>>>>>> Stashed changes
 func Preferred() string {
 	preference.Lock()
 	defer preference.Unlock()
@@ -119,6 +125,12 @@ func fetch(ctx context.Context, path string, validate func([]byte) error, read f
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// Read downloads address with a 4 MiB response cap and no proxy, accepting only
+// URLs that belong to a known metadata source. It returns the raw body, which
+// the caller must still validate.
+>>>>>>> Stashed changes
 func Read(ctx context.Context, address string, maximum int64) ([]byte, error) {
 	return readWithProxy(ctx, address, maximum, nil)
 }
@@ -173,6 +185,11 @@ func readWithProxy(ctx context.Context, address string, maximum int64, proxy fun
 	return raw, nil
 }
 
+<<<<<<< Updated upstream
+=======
+// InstallationURL returns the installation guide address for the given metadata
+// source and UI locale, or an empty string when the page is unknown.
+>>>>>>> Stashed changes
 func InstallationURL(source, locale string) string {
 	return DocumentationURL(source, locale, "installation")
 }

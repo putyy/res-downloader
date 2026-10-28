@@ -10,6 +10,11 @@ import (
 
 const ResourceSchemaVersion = 1
 
+<<<<<<< Updated upstream
+=======
+// ValidateRemoteURL reports whether value is an absolute http or https URL with
+// a non-empty host. It rejects every other scheme, including file and data URLs.
+>>>>>>> Stashed changes
 func ValidateRemoteURL(value string) error {
 	parsed, err := url.Parse(value)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
@@ -18,6 +23,13 @@ func ValidateRemoteURL(value string) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// PrimaryResourceTrack returns the track whose role is "primary" or "video",
+// falling back to the first track. The returned pointer aliases tracks, so
+// callers must not retain it after the slice is reallocated. It returns nil
+// only for an empty slice.
+>>>>>>> Stashed changes
 func PrimaryResourceTrack(tracks []ResourceTrack) *ResourceTrack {
 	for index := range tracks {
 		if tracks[index].Role == "primary" || tracks[index].Role == "video" {
@@ -30,6 +42,12 @@ func PrimaryResourceTrack(tracks []ResourceTrack) *ResourceTrack {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// NormalizeCandidateState sets candidate.State to ready, or to partial when any
+// role listed in RequiredTracks has no track with a URL or capture key. It
+// reads candidate.Tracks and candidate.RequiredTracks and mutates State in place.
+>>>>>>> Stashed changes
 func NormalizeCandidateState(candidate *ResourceCandidate) {
 	available := make(map[string]bool, len(candidate.Tracks))
 	for _, track := range candidate.Tracks {
@@ -46,6 +64,14 @@ func NormalizeCandidateState(candidate *ResourceCandidate) {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// NormalizeResourceCandidate fills the derived fields of a plugin-supplied
+// candidate: primary type, traits, technical MIME/container and lifecycle
+// timestamps. now is the clock used for discovered/updated times and for
+// expiring already stale resources, so callers can make the result testable.
+// Existing values are preserved; only empty or inconsistent fields are replaced.
+>>>>>>> Stashed changes
 func NormalizeResourceCandidate(candidate *ResourceCandidate, now time.Time) {
 	// Stream kinds remain opaque and plugin-extensible, while the two built-in
 	// audiovisual stream kinds have stable main-type and trait semantics.
@@ -110,6 +136,11 @@ func NormalizeResourceCandidate(candidate *ResourceCandidate, now time.Time) {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// ValidPrimaryResourceType reports whether value is one of the built-in primary
+// resource types understood by the UI filters.
+>>>>>>> Stashed changes
 func ValidPrimaryResourceType(value string) bool {
 	switch value {
 	case ResourceTypeVideo, ResourceTypeAudio, ResourceTypeImage, ResourceTypeDocument, ResourceTypeArchive, ResourceTypeCollection, ResourceTypeOther:
@@ -119,6 +150,12 @@ func ValidPrimaryResourceType(value string) bool {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// ValidResourceTrait accepts either a single identifier ("streaming") or a
+// namespaced identifier with exactly one colon ("vendor:custom"), each part
+// limited to letters, digits, dots, dashes and underscores.
+>>>>>>> Stashed changes
 func ValidResourceTrait(value string) bool {
 	if validResourceIdentifier(value) {
 		return true
@@ -127,6 +164,13 @@ func ValidResourceTrait(value string) bool {
 	return len(parts) == 2 && validResourceIdentifier(parts[0]) && validResourceIdentifier(parts[1])
 }
 
+<<<<<<< Updated upstream
+=======
+// ResourceNeedsRecaptureForHeaders reports whether any track is missing a
+// header that the resource declared as non-persistent. Such a resource cannot
+// be downloaded from persisted state and must be captured again, because the
+// header values are not written to the database.
+>>>>>>> Stashed changes
 func ResourceNeedsRecaptureForHeaders(candidate ResourceCandidate) bool {
 	for _, track := range candidate.Tracks {
 		for _, name := range track.NonPersistentHeaders {

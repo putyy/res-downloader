@@ -1045,6 +1045,7 @@ fixture 只保留匹配和生成资源所需的字段。保留真实域名，私
 
 ## 维护应用内嵌插件
 
+<<<<<<< Updated upstream
 在 `wails.json` 的 `plugins` 中配置官方插件的 `id` 和 `repository`。本地开发前，将对应仓库克隆到 `plugins/`，目录名使用仓库名（去掉 `.git`）：
 
 ```bash
@@ -1053,6 +1054,16 @@ wails dev
 ```
 
 `wails dev` 和 `wails build` 会自动校验本地插件并生成内嵌文件。修改插件后，重启开发进程生效。
+=======
+在 `app.json` 的 `plugins` 中配置官方插件的 `id` 和 `repository`。本地开发前，将对应仓库克隆到 `plugins/`，目录名使用仓库名（去掉 `.git`）：
+
+```bash
+git clone https://github.com/putyy/resd-plugin-wechat.git plugins/resd-plugin-wechat
+wails3 task dev
+```
+
+`wails3 task dev` 和 `wails3 task build` 会自动校验本地插件并生成内嵌文件（`go run ./cmd/bundleplugins`）。修改插件后，重启开发进程生效。
+>>>>>>> Stashed changes
 
 `internal/plugin/bundled/` 中的插件目录由构建生成，不提交到 Git，仅包含运行文件和许可证。测试和 fixture 保留在插件源码仓库。
 

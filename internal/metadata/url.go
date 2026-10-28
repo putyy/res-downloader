@@ -46,6 +46,11 @@ func WithinSource(target *url.URL, source string) bool {
 	return baseOK && targetOK && strings.HasPrefix(targetPath, basePath+"/")
 }
 
+<<<<<<< Updated upstream
+=======
+// ValidHTTPSURL reports whether u is a plain https URL with a host and without
+// embedded credentials, an opaque part or a fragment.
+>>>>>>> Stashed changes
 func ValidHTTPSURL(u *url.URL) bool {
 	return u != nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.Opaque == "" && u.Fragment == ""
 }

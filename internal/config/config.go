@@ -50,7 +50,14 @@ type ValidationError struct {
 	Err   error
 }
 
+<<<<<<< Updated upstream
 func (e *ValidationError) Error() string { return e.Err.Error() }
+=======
+// Error returns the underlying validation message.
+func (e *ValidationError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the underlying error so errors.Is and errors.As work.
+>>>>>>> Stashed changes
 func (e *ValidationError) Unwrap() error { return e.Err }
 
 type configState struct {
@@ -58,6 +65,12 @@ type configState struct {
 	applyMu sync.Mutex
 }
 
+<<<<<<< Updated upstream
+=======
+// New loads the configuration stored under userDir, falling back to built-in
+// defaults when the file is missing or unreadable. defaultLocale selects the
+// initial UI language and is normalised to "zh" or "en".
+>>>>>>> Stashed changes
 func New(userDir string, logger *logging.Logger, defaultLocale string) *Config {
 	if defaultLocale != "zh" {
 		defaultLocale = "en"
@@ -157,6 +170,14 @@ func getDefaultDownloadDir() string {
 	return ""
 }
 
+<<<<<<< Updated upstream
+=======
+// Apply validates value, swaps it in and persists it. Window dimensions are
+// always taken from the current state, because the desktop lifecycle owns them.
+// When the apply hook or the write fails, the previous configuration is
+// restored and the hook is replayed in reverse, so listeners never keep a
+// snapshot that was not persisted.
+>>>>>>> Stashed changes
 func (c *Config) Apply(config Config) error {
 	if c.state == nil {
 		c.state = &configState{}
@@ -332,6 +353,12 @@ func validateMediaToolPath(path string) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Snapshot returns a copy that is safe to read after the caller releases the
+// configuration lock. Interception policies are cloned. A nil receiver yields a
+// zero Config.
+>>>>>>> Stashed changes
 func (c *Config) Snapshot() Config {
 	if c == nil {
 		return Config{}
@@ -367,12 +394,22 @@ func (c *Config) replace(value Config) {
 	c.InterceptionPolicies = rules.Clone(value.InterceptionPolicies)
 }
 
+<<<<<<< Updated upstream
+=======
+// MarshalJSON encodes the current snapshot instead of the live struct, so the
+// output is consistent even while another goroutine applies a change.
+>>>>>>> Stashed changes
 func (c *Config) MarshalJSON() ([]byte, error) {
 	type configJSON Config
 	snapshot := c.Snapshot()
 	return json.Marshal(configJSON(snapshot))
 }
 
+<<<<<<< Updated upstream
+=======
+// Get returns a single configuration value by its exported field name, or nil
+// for an unknown key. It reads from a snapshot, so it is safe concurrently.
+>>>>>>> Stashed changes
 func (c *Config) Get(key string) interface{} {
 	snapshot := c.Snapshot()
 	switch key {
@@ -419,6 +456,11 @@ func (c *Config) Get(key string) interface{} {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// SetApplyHook installs the callback invoked after a successful Apply and,
+// reversed, after a rollback. Passing nil removes the hook.
+>>>>>>> Stashed changes
 func (c *Config) SetApplyHook(hook func(previous, current Config) error) {
 	if c.state == nil {
 		c.state = &configState{}

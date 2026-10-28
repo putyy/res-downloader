@@ -5,8 +5,11 @@ import (
 	"net/http"
 	shared "res-downloader/internal/model"
 	"strings"
+<<<<<<< Updated upstream
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+=======
+>>>>>>> Stashed changes
 )
 
 func (h *Server) filterResources(w http.ResponseWriter, r *http.Request) {
@@ -144,10 +147,17 @@ func (h *Server) processFileResourceAction(w http.ResponseWriter, candidate shar
 	if pattern == "" {
 		pattern = "*"
 	}
+<<<<<<< Updated upstream
 	filePath, err := runtime.OpenFileDialog(h.host.context(), runtime.OpenDialogOptions{
 		Filters: []runtime.FileFilter{{DisplayName: h.pluginActionDisplayName(definition), Pattern: pattern}},
 		Title:   h.pluginActionDisplayName(definition),
 	})
+=======
+	filePath, err := h.host.openFile(h.pluginActionDisplayName(definition), []FileFilter{{
+		DisplayName: h.pluginActionDisplayName(definition),
+		Pattern:     pattern,
+	}})
+>>>>>>> Stashed changes
 	if err != nil {
 		h.error(w, err.Error())
 		return

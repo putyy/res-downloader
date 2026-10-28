@@ -8,7 +8,11 @@ You can contribute by fixing issues, improving documentation, developing plugins
 
 ## Development prerequisites
 
+<<<<<<< Updated upstream
 This project is built with [Go](https://go.dev/doc/), [Wails](https://wails.io/docs/introduction/), and [Vue](https://vuejs.org/guide/introduction.html). Refer to their official documentation for details on these technologies.
+=======
+This project is built with [Go](https://go.dev/doc/), [Wails v3](https://v3.wails.io/), and [Vue](https://vuejs.org/guide/introduction.html). Refer to their official documentation for details on these technologies.
+>>>>>>> Stashed changes
 
 Code contributors need a working knowledge of the relevant programming languages, development tools, and Git, and should be able to read existing code and independently perform basic builds, debugging, and validation. Maintainers focus on project issues and PR reviews. Their time and capacity are limited, so they cannot provide programming lessons from scratch or guidance throughout the entire development process. Please use relevant documentation and tutorials to learn the fundamentals. Thank you for your understanding.
 
@@ -73,9 +77,27 @@ These commands check types and produce a static build. Manually verify client in
 
 In `frontend`, run `npm run format` to format code or `npm run format:check` to check formatting. See the [frontend development guide](https://github.com/putyy/res-downloader/blob/master/frontend/README.md) (Chinese).
 
+<<<<<<< Updated upstream
 ### Prepare bundled plugins
 
 Clone the repositories configured under `plugins` in `wails.json` into `plugins/`, then run `wails dev` or `wails build`. Restart the development process after editing a plugin. See [Maintaining bundled plugins](plugins.md#maintaining-bundled-plugins) for configuration and build requirements.
+=======
+### Building the desktop application
+
+The backend and desktop shell are built with Go 1.27.1 and Wails v3. Install the Wails v3 CLI that matches the version in `go.mod`, then run from the repository root:
+
+```bash
+go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+wails3 task dev     # development mode with frontend hot reload
+wails3 task build   # production build
+```
+
+The build tasks install the frontend dependencies, generate the TypeScript bindings and platform icons, and compile the binary into `build/bin/`. Use `wails3 task package` for installers (NSIS on Windows). When the bundled plugin repositories are not cloned locally, append `SKIP_PLUGINS=true` to skip the bundled plugin preparation.
+
+### Prepare bundled plugins
+
+Clone the repositories configured under `plugins` in `app.json` into `plugins/`, then run `wails3 task dev` or `wails3 task build`. Restart the development process after editing a plugin. See [Maintaining bundled plugins](plugins.md#maintaining-bundled-plugins) for configuration and build requirements.
+>>>>>>> Stashed changes
 
 ## Documentation contributions
 

@@ -6,7 +6,11 @@ PR 描述可参考 [PR 模板](.github/pull_request_template.md)。
 
 ### 1. 提交前须知
 
+<<<<<<< Updated upstream
 本项目采用 [Go](https://go.dev/doc/)、[Wails](https://wails.io/docs/introduction/) 和 [Vue](https://cn.vuejs.org/guide/introduction) 开发，相关技术请参阅对应官方文档。
+=======
+本项目采用 [Go](https://go.dev/doc/)、[Wails v3](https://v3.wails.io/) 和 [Vue](https://cn.vuejs.org/guide/introduction) 开发，相关技术请参阅对应官方文档。
+>>>>>>> Stashed changes
 
 参与代码开发需要具备相关编程语言、开发工具和 Git 的基础，能够阅读现有代码，并独立完成基本的构建、调试和验证。维护者主要处理项目相关问题和 PR 审核，时间与精力有限，无法提供从零开始的编程教学或全程指导。基础知识请通过相关文档和教程自行学习，感谢理解。
 

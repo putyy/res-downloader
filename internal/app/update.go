@@ -7,8 +7,11 @@ import (
 	"os"
 	"runtime"
 	"time"
+<<<<<<< Updated upstream
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+=======
+>>>>>>> Stashed changes
 )
 
 func (a *App) update(ctx context.Context, action string, direct bool) (interface{}, error) {
@@ -58,7 +61,11 @@ func (a *App) quitForUpdate() {
 	if runtime.GOOS == "windows" {
 		// Windows native-window teardown can stall before OnShutdown runs.
 		// Release application resources while the UI message loop is still alive.
+<<<<<<< Updated upstream
 		a.SaveWindowSize(a.ctx)
+=======
+		a.SaveWindowSize()
+>>>>>>> Stashed changes
 		a.runtime.Logger.Info().Msg("preparing Windows update shutdown; process will exit after cleanup")
 		if err := a.shutdown(); err != nil {
 			// Release withheld the helper gate. Never force an update through a
@@ -70,5 +77,9 @@ func (a *App) quitForUpdate() {
 			time.AfterFunc(5*time.Second, func() { os.Exit(0) })
 		}
 	}
+<<<<<<< Updated upstream
 	wailsruntime.Quit(a.ctx)
+=======
+	a.quit()
+>>>>>>> Stashed changes
 }

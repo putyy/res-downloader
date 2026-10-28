@@ -166,6 +166,47 @@ func TestDefaultPluginUsesStructuredCustomRule(t *testing.T) {
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+func TestDefaultPluginSkipsIncompleteByteRangeFragments(t *testing.T) {
+	plugin := &DefaultPlugin{}
+	tests := []struct {
+		name         string
+		status       int
+		contentRange string
+		wantCount    int
+	}{
+		{name: "first fragment", status: 206, contentRange: "bytes 0-262143/1553002", wantCount: 0},
+		{name: "middle fragment", status: 206, contentRange: "bytes 262144-524287/1553002", wantCount: 0},
+		{name: "complete range", status: 206, contentRange: "bytes 0-1553001/1553002", wantCount: 1},
+		{name: "unknown total", status: 206, contentRange: "bytes 0-262143/*", wantCount: 1},
+		{name: "missing content range", status: 206, contentRange: "", wantCount: 1},
+		{name: "full response", status: 200, contentRange: "bytes 0-262143/1553002", wantCount: 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			headers := shared.HeaderMap{"Content-Length": []string{"262144"}}
+			if test.contentRange != "" {
+				headers["Content-Range"] = []string{test.contentRange}
+			}
+			result, err := plugin.Handle(context.Background(), shared.Observation{
+				Stage: shared.StageResponse,
+				Request: shared.RequestSnapshot{
+					URL: "https://finder.video.qq.com/251/20302/stodownload?encfilekey=1&token=2", Host: "finder.video.qq.com",
+				},
+				Response: &shared.ResponseSnapshot{StatusCode: test.status, ContentType: "video/mp4", Headers: headers},
+			})
+			if err != nil {
+				t.Fatalf("handle: %v", err)
+			}
+			if len(result.Resources) != test.wantCount {
+				t.Fatalf("resources = %d, want %d", len(result.Resources), test.wantCount)
+			}
+		})
+	}
+}
+
+>>>>>>> Stashed changes
 func TestValidateCaptureRulesRejectsCatchAllAndDuplicateIDs(t *testing.T) {
 	rule := shared.CaptureRule{
 		ID: "all", Enabled: true,

@@ -17,7 +17,11 @@ import NaiveProvider from "@/components/NaiveProvider.vue"
 import {enUS, zhCN} from "naive-ui"
 import {useIndexStore} from "@/stores"
 import {computed, onMounted, onUnmounted, watch} from "vue"
+<<<<<<< Updated upstream
 import {EventsEmit, WindowSetBackgroundColour} from "../wailsjs/runtime"
+=======
+import {Events, Window} from "@wailsio/runtime"
+>>>>>>> Stashed changes
 import {useEventStore} from "@/stores/event"
 import type {appType} from "@/types/app"
 import {useI18n} from "vue-i18n"
@@ -33,7 +37,11 @@ const {locale} = useI18n()
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
 const rememberWindowSize = () => {
   clearTimeout(resizeTimer)
+<<<<<<< Updated upstream
   resizeTimer = setTimeout(() => EventsEmit("window:resized"), 300)
+=======
+  resizeTimer = setTimeout(() => Events.Emit("window:resized"), 300)
+>>>>>>> Stashed changes
 }
 
 onMounted(() => window.addEventListener("resize", rememberWindowSize))
@@ -54,7 +62,11 @@ watch(
       document.documentElement.style.setProperty(name, value)
     })
     const background = Number.parseInt(theme.preview.background.slice(1), 16)
+<<<<<<< Updated upstream
     WindowSetBackgroundColour((background >> 16) & 255, (background >> 8) & 255, background & 255, 255)
+=======
+    Window.SetBackgroundColour((background >> 16) & 255, (background >> 8) & 255, background & 255, 255)
+>>>>>>> Stashed changes
   },
   {immediate: true},
 )

@@ -52,6 +52,12 @@ type Store struct {
 	closed  bool
 }
 
+<<<<<<< Updated upstream
+=======
+// New opens (and creates) the capture cache directory under root, then removes
+// expired entries left by a previous run. The directory is private to the
+// current user (mode 0700).
+>>>>>>> Stashed changes
 func New(root string) (*Store, error) {
 	if strings.TrimSpace(root) == "" {
 		return nil, errors.New("capture cache directory is empty")
@@ -64,6 +70,13 @@ func New(root string) (*Store, error) {
 	return store, nil
 }
 
+<<<<<<< Updated upstream
+=======
+// Begin reserves the byte range described by response for key and returns a
+// writer that appends into that range. It rejects sizes outside the supported
+// range, a concurrent preview reader, and a size or mode change while another
+// response for the same key is still active. The caller must Close the writer.
+>>>>>>> Stashed changes
 func (s *Store) Begin(key string, response *http.Response) (io.WriteCloser, error) {
 	if s == nil || response == nil {
 		return nil, errors.New("capture store is unavailable")
@@ -250,6 +263,13 @@ func (s *Store) AbortStream(key string) error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+// CopyComplete copies the fully captured payload for key into destination,
+// reporting (copied, total) to progress when it is not nil. It waits for an
+// active response to finish, fails once no response is active and the capture is
+// still incomplete, and returns context.Cause(ctx) when ctx ends while waiting.
+>>>>>>> Stashed changes
 func (s *Store) CopyComplete(ctx context.Context, key, destination string, progress func(int64, int64)) error {
 	if s == nil {
 		return errors.New("capture store is unavailable")
@@ -282,6 +302,12 @@ func (s *Store) CopyComplete(ctx context.Context, key, destination string, progr
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+// Close marks the store closed and wakes every waiter so blocked readers and
+// writers observe the shutdown. Cached files are left on disk for the next
+// start to prune.
+>>>>>>> Stashed changes
 func (s *Store) Close() error {
 	if s == nil {
 		return nil
@@ -340,6 +366,12 @@ type rangeWriter struct {
 	closed bool
 }
 
+<<<<<<< Updated upstream
+=======
+// Write appends value at the writer's current offset inside the reserved range,
+// truncating anything past the end of that range. It reports os.ErrClosed after
+// Close and io.ErrShortWrite once the range is exhausted.
+>>>>>>> Stashed changes
 func (w *rangeWriter) Write(value []byte) (int, error) {
 	if w == nil || w.file == nil || w.closed {
 		return 0, os.ErrClosed
@@ -355,6 +387,12 @@ func (w *rangeWriter) Write(value []byte) (int, error) {
 	return written, err
 }
 
+<<<<<<< Updated upstream
+=======
+// Close releases the file, records the written range in the entry metadata,
+// clears the active flag and notifies waiters. It is idempotent and returns the
+// first error from closing the file or persisting the metadata.
+>>>>>>> Stashed changes
 func (w *rangeWriter) Close() error {
 	if w == nil || w.closed {
 		return nil

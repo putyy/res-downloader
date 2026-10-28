@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 import * as bind from "../../wailsjs/go/app/Bind"
+=======
+import {Bind} from "@/services/bindings"
+>>>>>>> Stashed changes
 import axios from "axios"
 
 const requestTarget = (url?: string, baseURL?: string): string => {
@@ -37,7 +41,11 @@ export const frontendErrorDetails = (error: unknown): string => {
 export const reportFrontendError = async (source: string, error: unknown): Promise<string> => {
   const details = frontendErrorDetails(error)
   try {
+<<<<<<< Updated upstream
     await bind.LogFrontendError(`[${source}] ${details}`)
+=======
+    await Bind.LogFrontendError(`[${source}] ${details}`)
+>>>>>>> Stashed changes
   } catch {
     // The Wails bridge itself may be the reason startup failed. The error
     // still remains visible and copyable in the startup failure screen.

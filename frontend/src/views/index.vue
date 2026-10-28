@@ -147,11 +147,19 @@
       class="text-app-muted [&_span]:transition-colors [&_span]:duration-[160ms] [&_span]:ease-[ease] [&_span:hover]:text-app-accent flex items-center justify-center"
       id="bottom"
     >
+<<<<<<< Updated upstream
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL(certUrl)">{{ t("footer.cert_download") }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="openDocumentation('home')">{{ t("footer.documentation") }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader')">{{ t("footer.source_code") }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/issues')">{{ t("footer.help") }}</span>
       <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="BrowserOpenURL('https://github.com/putyy/res-downloader/releases')">{{
+=======
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="Browser.OpenURL(certUrl)">{{ t("footer.cert_download") }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="openDocumentation('home')">{{ t("footer.documentation") }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="Browser.OpenURL('https://github.com/putyy/res-downloader')">{{ t("footer.source_code") }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="Browser.OpenURL('https://github.com/putyy/res-downloader/issues')">{{ t("footer.help") }}</span>
+      <span class="cursor-pointer px-2 py-1 [--wails-draggable:no-drag]" @click="Browser.OpenURL('https://github.com/putyy/res-downloader/releases')">{{
+>>>>>>> Stashed changes
         t("footer.update_log")
       }}</span>
     </div>
@@ -185,7 +193,11 @@ import ImportJson from "@/components/ImportJson.vue"
 import {useEventStore} from "@/stores/event"
 import {useDownloadStore} from "@/stores/download"
 import {activeTaskStates} from "@/components/task/taskState"
+<<<<<<< Updated upstream
 import {BrowserOpenURL, ClipboardSetText} from "../../wailsjs/runtime"
+=======
+import {Browser, Clipboard} from "@wailsio/runtime"
+>>>>>>> Stashed changes
 import Password from "@/components/Password.vue"
 import {useI18n} from "vue-i18n"
 import {Apps, ArrowRedoCircleOutline, CloseOutline, DownloadOutline, ServerOutline, TrashOutline} from "@vicons/ionicons5"
@@ -888,6 +900,7 @@ const dataAction = (row: appType.ResourceView, index: number, type: string) => {
       break
     }
     case "copy":
+<<<<<<< Updated upstream
       ClipboardSetText(primaryURL(row)).then((is: boolean) => {
         if (is) {
           window?.$message?.success(t("common.copy_success"))
@@ -907,6 +920,19 @@ const dataAction = (row: appType.ResourceView, index: number, type: string) => {
       break
     case "open":
       BrowserOpenURL(primaryURL(row))
+=======
+      Clipboard.SetText(primaryURL(row))
+        .then(() => window?.$message?.success(t("common.copy_success")))
+        .catch(() => window?.$message?.error(t("common.copy_fail")))
+      break
+    case "json":
+      Clipboard.SetText(encodeURIComponent(JSON.stringify(exportableResource(row))))
+        .then(() => window?.$message?.success(t("common.copy_success")))
+        .catch(() => window?.$message?.error(t("common.copy_fail")))
+      break
+    case "open":
+      Browser.OpenURL(primaryURL(row))
+>>>>>>> Stashed changes
       break
     case "delete":
       if (!canDeleteResource(row)) {

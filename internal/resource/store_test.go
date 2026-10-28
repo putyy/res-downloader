@@ -5,6 +5,10 @@ import (
 	"path/filepath"
 	"res-downloader/internal/config"
 	shared "res-downloader/internal/model"
+<<<<<<< Updated upstream
+=======
+	"runtime"
+>>>>>>> Stashed changes
 	"testing"
 )
 
@@ -50,12 +54,26 @@ func TestResourceStorePersistsCandidates(t *testing.T) {
 	if options["seed"] != "secret" {
 		t.Fatalf("action options = %#v", options)
 	}
+<<<<<<< Updated upstream
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.Mode().Perm()&0077 != 0 {
 		t.Fatalf("database permissions = %o", info.Mode().Perm())
+=======
+	// Windows has no POSIX permission bits: os.Stat always reports 0666 and
+	// os.Chmod cannot restrict a file, so the mode assertion only applies where
+	// the platform actually models it.
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0077 != 0 {
+			t.Fatalf("database permissions = %o", info.Mode().Perm())
+		}
+>>>>>>> Stashed changes
 	}
 }
 

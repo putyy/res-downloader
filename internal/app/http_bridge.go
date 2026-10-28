@@ -25,7 +25,13 @@ func NewHTTPServer(
 		Context: func() context.Context {
 			return app.ctx
 		},
+<<<<<<< Updated upstream
 		AppInfo: app,
+=======
+		OpenFileDialog:      app.openFileDialog,
+		OpenDirectoryDialog: app.openDirectoryDialog,
+		AppInfo:             app,
+>>>>>>> Stashed changes
 		PublicCertificate: func() []byte {
 			return app.PublicCrt
 		},

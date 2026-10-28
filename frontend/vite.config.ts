@@ -4,10 +4,25 @@ import {fileURLToPath} from "node:url"
 import AutoImport from "unplugin-auto-import/vite"
 import Components from "unplugin-vue-components/vite"
 import {NaiveUiResolver} from "unplugin-vue-components/resolvers"
+<<<<<<< Updated upstream
 
 export default defineConfig({
   plugins: [
     vue(),
+=======
+import wails from "@wailsio/runtime/plugins/vite"
+
+export default defineConfig({
+  server: {
+    host: "127.0.0.1",
+    port: Number(process.env.WAILS_VITE_PORT) || 9245,
+    strictPort: true,
+  },
+  plugins: [
+    vue(),
+    // Adds typed custom events from the Wails-generated bindings.
+    wails("./bindings"),
+>>>>>>> Stashed changes
     AutoImport({
       dts: "auto-imports.d.ts",
       imports: [
@@ -25,6 +40,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+<<<<<<< Updated upstream
+=======
+      "@bindings": fileURLToPath(new URL("./bindings", import.meta.url)),
+>>>>>>> Stashed changes
     },
   },
   build: {

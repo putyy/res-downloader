@@ -47,7 +47,11 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 
 | 模块 | 主要职责                               | 关键依赖或输出 |
 | --- |------------------------------------| --- |
+<<<<<<< Updated upstream
 | Wails | 加载内嵌前端、提供窗口生命周期和少量 Bind 方法         | `frontend/dist`、`app.Bind` |
+=======
+| Wails v3 | 加载内嵌前端、提供窗口生命周期和少量 Service 方法    | `frontend/dist`、`app.Bind` |
+>>>>>>> Stashed changes
 | `app.Runtime` | 创建模块、连接依赖、管理启动与关闭顺序                | 配置、事件、代理、HTTP、插件、资源、下载 |
 | `server.Gateway` | 管理抓取代理监听器，并在本地 API 与代理请求之间分流       | `httpapi.Server`、`proxy.Engine` |
 | `control.Server` | 管理本机自动化监听器、独立凭据及连接发现文件             | 仅监听回环地址，复用资源与下载 HTTP 处理器 |
@@ -71,7 +75,11 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 
 ### 启动阶段
 
+<<<<<<< Updated upstream
 桌面入口使用 Wails `SingleInstanceLock`；重复启动会唤起已有窗口。`OnDomReady` 异步调用 `Runtime.Start`，在单实例检查之后依次初始化设备证书、捕获缓存、资源数据库、插件、任务数据库、代理和 HTTP 服务。前端静态资源可立即加载，应用信息和 API 请求等待后端就绪；初始化失败会释放已创建的业务资源。退出时取消后续启动阶段，当前同步初始化操作完成后再安全清理。
+=======
+桌面入口使用 Wails v3 `SingleInstance` 单实例锁，该锁在创建应用时获取，重复启动会唤起已有窗口。窗口运行时就绪事件（`WindowRuntimeReady`）异步调用 `Runtime.Start`，在单实例检查之后依次初始化设备证书、捕获缓存、资源数据库、插件、任务数据库、代理和 HTTP 服务。前端静态资源可立即加载，应用信息和 API 请求等待后端就绪；初始化失败会释放已创建的业务资源。退出时取消后续启动阶段，当前同步初始化操作完成后再安全清理。
+>>>>>>> Stashed changes
 
 配置应用后，运行时会按需更新上游代理传输、下载工作协程数量和 HTTPS 拦截规则，不需要重新创建整个应用。
 
@@ -116,7 +124,11 @@ CLI / MCP 通过独立的本机控制入口调用现有 HTTP 业务处理器：`
 
 前端不会直接引用 Go 内部模块，主要通过三条通道通信：
 
+<<<<<<< Updated upstream
 - **Wails Bind**：提供应用信息、配置快照、API Session Token 和重置入口等少量启动能力。
+=======
+- **Wails Service**：以 `app.Bind` 服务的形式提供应用信息、配置快照、API Session Token 和重置入口等少量启动能力。
+>>>>>>> Stashed changes
 - **本地 HTTP API**：处理资源、预览、下载任务、插件管理、证书和设置请求。除少数公开的证书下载或 HLS 预览路径外，请求需要本次启动随机生成的 Bearer Token，并校验来源和请求方法。
 - **Wails 事件**：后端将不同业务事件封装为 `{type, data}`，统一通过 `event` 通道发送；Pinia 事件 Store 再分发给业务 Store 和页面。
 
@@ -133,7 +145,11 @@ CLI 与 MCP 另经本机控制监听器访问资源查询及下载任务操作�
 插件来源分为三类：
 
 - **内置插件**：由 Go 实现，例如通用资源识别器。
+<<<<<<< Updated upstream
 - **内嵌官方插件**：由 `wails.json` 配置，随应用发布并安装到用户插件目录。
+=======
+- **内嵌官方插件**：由 `app.json` 配置，随应用发布并安装到用户插件目录。
+>>>>>>> Stashed changes
 - **用户插件**：安装在用户数据目录的 `plugins/` 下，可以来自扩展商店或本地 ZIP。
 
 站点专用的接口识别、数据关联、签名计算、地址刷新和非 DRM 字节转换应保留在插件中。只有多个插件都可能复用、且当前协议无法安全表达的能力，才应扩展宿主 API；扩展时需要同步 Go 模型、运行时校验、Schema、TypeScript 声明、示例和文档。
@@ -168,7 +184,11 @@ CLI 与 MCP 另经本机控制监听器访问资源查询及下载任务操作�
 | 目录 | 职责                                   |
 | --- |--------------------------------------|
 | `frontend/` | Vue、Pinia、Naive UI 前端及 Wails 生成的桥接代码 |
+<<<<<<< Updated upstream
 | `internal/app/` | 应用组合根、Wails Bind 和各后端模块的适配层          |
+=======
+| `internal/app/` | 应用组合根、Wails Service 和各后端模块的适配层       |
+>>>>>>> Stashed changes
 | `internal/server/` | 统一监听器及 API / 代理分流，不包含业务处理            |
 | `internal/control/` | 本机控制监听器、连接发现及跨平台凭据文件权限               |
 | `internal/automation/` | CLI 参数、MCP 工具和共用的本机 API 客户端          |

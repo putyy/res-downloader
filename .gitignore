@@ -1,11 +1,16 @@
 .idea
 .vscode
+<<<<<<< Updated upstream
 build/bin
+=======
+#build/bin
+>>>>>>> Stashed changes
 node_modules
 frontend/dist
 test
 examples/plugins/*.zip
 .DS_Store
+<<<<<<< Updated upstream
 
 plugins/*
 !plugins/README.md
@@ -13,5 +18,14 @@ plugins/*
 internal/plugin/bundled/*
 !internal/plugin/bundled/README.md
 
+=======
+.task
+plugins/*
+!plugins/README.md
+.workbuddy-ai
+internal/plugin/bundled/*
+!internal/plugin/bundled/README.md
+res-downloader3.1.1/*
+>>>>>>> Stashed changes
 docs/.vitepress/cache/
 docs/.vitepress/dist/
