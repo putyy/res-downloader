@@ -315,10 +315,20 @@ func numericOption(value interface{}) (int64, bool) {
 }
 
 func (r *PlanRunner) acquireHTTP(input shared.DownloadInput, directory string, taskNumber int) (string, error) {
+	return runXHSImageFallback(r.ctx, input, func(attempt shared.DownloadInput, backup bool) (string, error) {
+		return r.acquireHTTPOnce(attempt, directory, taskNumber, backup)
+	})
+}
+
+func (r *PlanRunner) acquireHTTPOnce(input shared.DownloadInput, directory string, taskNumber int, backup bool) (string, error) {
 	path := ""
 	checkpointPath := ""
 	if r.workDir != "" {
-		digest := sha256.Sum256([]byte(input.ID))
+		key := input.ID
+		if backup {
+			key += ":xiaohongshu-backup"
+		}
+		digest := sha256.Sum256([]byte(key))
 		path = filepath.Join(r.workDir, fmt.Sprintf("input-%x.part", digest[:8]))
 		checkpointPath = path + ".json"
 	} else {
