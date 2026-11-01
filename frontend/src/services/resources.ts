@@ -84,10 +84,13 @@ export const primaryURL = (row: appType.ResourceView): string => {
 }
 
 export const resourcePreviewURL = (row: appType.ResourceView): string => {
+  // Media uses the existing HTTP gateway so native players can request ranges.
+  // Keep the startup address even while edited settings await an app restart.
+  if (!window.$previewBaseUrl) throw new Error("Preview HTTP service is not ready")
   const query = new URLSearchParams()
   if (row.id) query.set("id", row.id)
   if (window.$apiToken) query.set("access_token", window.$apiToken)
-  return window?.$baseUrl + "/api/preview?" + query.toString()
+  return window.$previewBaseUrl + "/api/preview?" + query.toString()
 }
 
 export const resourceDomain = (row: appType.ResourceView): string => {

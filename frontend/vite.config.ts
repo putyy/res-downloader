@@ -6,6 +6,10 @@ import Components from "unplugin-vue-components/vite"
 import {NaiveUiResolver} from "unplugin-vue-components/resolvers"
 
 export default defineConfig({
+  server: {
+    port: Number(process.env.WAILS_VITE_PORT) || 9245,
+    strictPort: true,
+  },
   plugins: [
     vue(),
     AutoImport({
@@ -28,7 +32,7 @@ export default defineConfig({
     },
   },
   build: {
-    // Preserve the Vite 3 output target for the desktop WebViews.
+    // Keep the output compatible with the desktop WebViews.
     target: ["es2020", "edge88", "firefox78", "chrome87", "safari13"],
     cssMinify: "esbuild",
   },

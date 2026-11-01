@@ -223,7 +223,7 @@ func trustedAPIOrigin(origin string) bool {
 	}
 	host := strings.ToLower(parsed.Hostname())
 	if parsed.Scheme == "wails" {
-		return host == "wails.localhost" || host == "wails"
+		return host == "localhost" || host == "wails.localhost" || host == "wails"
 	}
 	return (parsed.Scheme == "http" || parsed.Scheme == "https") &&
 		(host == "wails.localhost" || host == "localhost" || host == "127.0.0.1" || host == "::1")

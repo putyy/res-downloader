@@ -16,8 +16,8 @@
 import NaiveProvider from "@/components/NaiveProvider.vue"
 import {enUS, zhCN} from "naive-ui"
 import {useIndexStore} from "@/stores"
-import {computed, onMounted, onUnmounted, watch} from "vue"
-import {EventsEmit, WindowSetBackgroundColour} from "../wailsjs/runtime"
+import {computed, watch} from "vue"
+import {Window} from "@wailsio/runtime"
 import {useEventStore} from "@/stores/event"
 import type {appType} from "@/types/app"
 import {useI18n} from "vue-i18n"
@@ -29,18 +29,6 @@ import {revealStartupWindow} from "@/services/startupWindow"
 const store = useIndexStore()
 const eventStore = useEventStore()
 const {locale} = useI18n()
-
-let resizeTimer: ReturnType<typeof setTimeout> | undefined
-const rememberWindowSize = () => {
-  clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(() => EventsEmit("window:resized"), 300)
-}
-
-onMounted(() => window.addEventListener("resize", rememberWindowSize))
-onUnmounted(() => {
-  window.removeEventListener("resize", rememberWindowSize)
-  clearTimeout(resizeTimer)
-})
 
 const activeTheme = computed(() => resolveAppTheme(store.globalConfig.Theme))
 
@@ -54,7 +42,7 @@ watch(
       document.documentElement.style.setProperty(name, value)
     })
     const background = Number.parseInt(theme.preview.background.slice(1), 16)
-    WindowSetBackgroundColour((background >> 16) & 255, (background >> 8) & 255, background & 255, 255)
+    void Window.SetBackgroundColour((background >> 16) & 255, (background >> 8) & 255, background & 255, 255)
   },
   {immediate: true},
 )
@@ -101,7 +89,7 @@ watch(
 watch(
   () => store.startupState,
   (state) => {
-    if (state === "ready") void revealStartupWindow()
+    if (state === "ready" || state === "failed") void revealStartupWindow()
   },
   {flush: "post"},
 )

@@ -36,7 +36,7 @@ instance.interceptors.response.use(
 )
 
 const request = ({url, method, params, data, timeout}: RequestOptions): Promise<any> => {
-  return instance({url, method, params, data, timeout, baseURL: window.$baseUrl})
+  return instance({url, method, params, data, timeout})
 }
 
 export default request

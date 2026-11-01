@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 var errPluginArchiveToken = errors.New("invalid or expired plugin package token")
@@ -71,10 +71,10 @@ func (h *Server) inspectPluginFile(w http.ResponseWriter, r *http.Request) {
 		h.error(w, "plugin management request origin is not allowed")
 		return
 	}
-	fileName, err := runtime.OpenFileDialog(h.host.context(), runtime.OpenDialogOptions{
+	fileName, err := h.host.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:   "Select a plugin ZIP",
-		Filters: []runtime.FileFilter{{DisplayName: "Plugin ZIP (*.zip)", Pattern: "*.zip"}},
-	})
+		Filters: []application.FileFilter{{DisplayName: "Plugin ZIP (*.zip)", Pattern: "*.zip"}},
+	}).PromptForSingleSelection()
 	if err != nil {
 		h.error(w, err.Error())
 		return

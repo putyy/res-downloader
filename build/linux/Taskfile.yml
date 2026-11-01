@@ -1,0 +1,83 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application for Linux
+    deps:
+      - task: common:build:frontend
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+          PRODUCTION:
+            ref: .PRODUCTION
+      - task: common:generate:icons
+    cmds:
+      - task: common:bundle:plugins
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}
+    vars:
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -X res-downloader/internal/app.ReleaseVersion={{.RELEASE_VERSION}}"{{else}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{end}}'
+    env:
+      GOOS: linux
+      CGO_ENABLED: 1
+      GOARCH: '{{.ARCH | default ARCH}}'
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+
+  package:
+    summary: Packages a production build of the application for Linux
+    deps:
+      - task: build
+        vars:
+          PRODUCTION: "true"
+    cmds:
+      - task: create:appimage
+      - task: create:deb
+
+  create:appimage:
+    summary: Creates an AppImage
+    deps:
+      - task: build
+        vars:
+          PRODUCTION: "true"
+      - task: generate:dotdesktop
+    cmds:
+      - wails3 generate appimage -binary {{.BIN_DIR}}/{{.APP_NAME}} -icon build/appicon.png -desktopfile build/linux/{{.APP_NAME}}.desktop -outputdir {{.BIN_DIR}} -builddir build/linux/appimage/build
+
+  create:deb:
+    summary: Creates a deb package
+    deps:
+      - task: build
+        vars:
+          PRODUCTION: "true"
+    cmds:
+      - task: generate:dotdesktop
+      - task: generate:deb
+
+  generate:deb:
+    summary: Creates a deb package
+    cmds:
+      - wails3 tool package -name {{.APP_NAME}} -format deb -config ./build/linux/nfpm/res-downloader.yaml -out {{.ROOT_DIR}}/bin
+    env:
+      GOARCH: '{{.ARCH | default ARCH}}'
+      RESD_PRODUCT_VERSION: '{{.PRODUCT_VERSION}}'
+    vars:
+      PRODUCT_VERSION:
+        sh: "sed -n 's/^  version: *//p' build/config.yml"
+
+  generate:dotdesktop:
+    summary: Generates a `.desktop` file
+    dir: build
+    cmds:
+      - wails3 generate .desktop -name "{{.APP_NAME}}" -exec "{{.EXEC}}" -icon "{{.ICON}}" -outputfile {{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop -categories "{{.CATEGORIES}}"
+    vars:
+      APP_NAME: '{{.APP_NAME}}'
+      EXEC: '{{.APP_NAME}}'
+      ICON: 'appicon'
+      CATEGORIES: 'Utility;'
+      OUTPUTFILE: '{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop'
+
+  run:
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}'

@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    {
+      "id": "official.wechat",
+      "repository": "https://github.com/putyy/resd-plugin-wechat.git"
+    }
+  ]
+}

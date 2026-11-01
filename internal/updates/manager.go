@@ -128,12 +128,10 @@ func (m *Manager) Check(ctx context.Context) error {
 	target, kind := installationTarget()
 	m.target, m.kind = target, kind
 	m.status.CanInstall = false
-	for _, a := range manifest.Assets {
-		if a.Platform == runtime.GOOS && (a.Arch == runtime.GOARCH || a.Arch == "universal") && a.Variant == kind {
-			m.asset = a
-			m.status.CanInstall = target != "" && checkInstallationTarget(target, kind) == nil
-			break
-		}
+	m.asset = Asset{}
+	if asset, ok := selectAsset(manifest.Assets, runtime.GOOS, runtime.GOARCH, kind); ok {
+		m.asset = asset
+		m.status.CanInstall = target != "" && checkInstallationTarget(target, kind) == nil
 	}
 	return nil
 }
@@ -372,4 +370,16 @@ func (m *Manager) Release(shutdownErr error) error {
 		return errors.Join(cancelErr, reportErr)
 	}
 	return os.WriteFile(m.job.Gate, []byte("ready"), 0600)
+}
+
+// selectAsset prefers a native package regardless of manifest ordering.
+func selectAsset(assets []Asset, platform, arch, variant string) (Asset, bool) {
+	for _, candidateArch := range []string{arch, "universal"} {
+		for _, asset := range assets {
+			if asset.Platform == platform && asset.Arch == candidateArch && asset.Variant == variant {
+				return asset, true
+			}
+		}
+	}
+	return Asset{}, false
 }

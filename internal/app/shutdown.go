@@ -15,9 +15,10 @@ func (a *App) BeginShutdown() {
 	a.exitMu.Unlock()
 	a.runtime.cancelStartup()
 
-	// Drain any pending size save before configuration reset or logger shutdown.
+	// Stop the startup timeout and prevent later window operations during shutdown.
 	a.windowMu.Lock()
 	a.windowClosed = true
+	a.cancelWindowSizeSaveLocked()
 	if a.windowShowTimer != nil {
 		a.windowShowTimer.Stop()
 	}

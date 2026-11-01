@@ -69,24 +69,24 @@
 
 <script lang="ts" setup>
 import {ref} from "vue"
-import {Quit, WindowFullscreen, WindowMinimise, WindowUnfullscreen} from "../../wailsjs/runtime"
+import {Application, Window} from "@wailsio/runtime"
 import {useI18n} from "vue-i18n"
 
 const {t} = useI18n()
 const isMaximized = ref(false)
 
 const closeWindow = () => {
-  Quit()
+  void Application.Quit()
 }
 const minimizeWindow = () => {
-  WindowMinimise()
+  void Window.Minimise()
 }
 const maximizeWindow = () => {
   isMaximized.value = !isMaximized.value
   if (isMaximized.value) {
-    WindowFullscreen()
+    void Window.Fullscreen()
   } else {
-    WindowUnfullscreen()
+    void Window.UnFullscreen()
   }
 }
 </script>

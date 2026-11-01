@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	desktopsystem "res-downloader/internal/system"
 	"strconv"
 	"strings"
@@ -18,42 +17,61 @@ import (
 	"res-downloader/internal/server"
 
 	"github.com/vrischmann/userdir"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"gopkg.in/yaml.v3"
 )
 
 // ReleaseVersion is set by release builds to retain prerelease identity.
 var ReleaseVersion string
 
 type App struct {
-	ctx              context.Context
-	assets           embed.FS
-	runtime          *Runtime
-	events           *events.Emitter
-	exitMu           sync.Mutex
-	closing          bool
-	portRestart      *portRestart
-	shutdownOnce     sync.Once
-	shutdownErr      error
-	windowMu         sync.Mutex
-	windowClosed     bool
-	windowShown      bool
-	windowShowTimer  *time.Timer
-	AppName          string `json:"AppName"`
-	Version          string `json:"Version"`
-	Description      string `json:"Description"`
-	Copyright        string `json:"Copyright"`
-	UserDir          string `json:"-"`
-	PublicCrt        []byte `json:"-"`
-	PrivateKey       []byte `json:"-"`
-	CertificateError string `json:"CertificateError,omitempty"`
-	IsProxy          bool   `json:"IsProxy"`
-	IsReset          bool   `json:"-"`
+	assets               embed.FS
+	desktop              *application.App
+	window               *application.WebviewWindow
+	runtime              *Runtime
+	events               *events.Emitter
+	exitMu               sync.Mutex
+	closing              bool
+	portRestart          *portRestart
+	shutdownOnce         sync.Once
+	shutdownErr          error
+	windowMu             sync.Mutex
+	windowClosed         bool
+	windowShown          bool
+	windowShowTimer      *time.Timer
+	windowSizeTimer      *time.Timer
+	windowSizeGeneration uint64
+	AppName              string `json:"AppName"`
+	Version              string `json:"Version"`
+	Description          string `json:"Description"`
+	Copyright            string `json:"Copyright"`
+	UserDir              string `json:"-"`
+	PublicCrt            []byte `json:"-"`
+	PrivateKey           []byte `json:"-"`
+	CertificateError     string `json:"CertificateError,omitempty"`
+	IsProxy              bool   `json:"IsProxy"`
+	IsReset              bool   `json:"-"`
 }
 
-func newApp(assets embed.FS, wjs string) (*App, error) {
-	matches := regexp.MustCompile(`"productVersion":\s*"([\d.]+)"`).FindStringSubmatch(wjs)
-	version := "1.0.1"
-	if len(matches) > 0 {
-		version = matches[1]
+func ConfigVersion(buildConfig string) (string, error) {
+	var config struct {
+		Info struct {
+			Version string `yaml:"version"`
+		} `yaml:"info"`
+	}
+	if err := yaml.Unmarshal([]byte(buildConfig), &config); err != nil {
+		return "", fmt.Errorf("parse build configuration: %w", err)
+	}
+	if config.Info.Version == "" {
+		return "", errors.New("build configuration has no info.version")
+	}
+	return config.Info.Version, nil
+}
+
+func newApp(assets embed.FS, buildConfig string) (*App, error) {
+	version, err := ConfigVersion(buildConfig)
+	if err != nil {
+		return nil, err
 	}
 	if ReleaseVersion != "" {
 		version = ReleaseVersion
@@ -82,7 +100,7 @@ func removeLegacyLocalFiles(userDir string) error {
 }
 
 func (a *App) emitEvent(eventType string, data interface{}) {
-	if a == nil || a.ctx == nil || a.events == nil {
+	if a == nil || a.events == nil {
 		return
 	}
 	_ = a.events.Emit(eventType, data)

@@ -8,4 +8,4 @@ go run main.go plugin lint ./plugins/resd-plugin-wechat
 go run main.go plugin pack ./plugins/resd-plugin-wechat
 ```
 
-`wails.json` 的 `plugins` 配置中的官方插件会在 `wails dev` 和 `wails build` 时自动内嵌。详见[维护应用内嵌插件](../docs/zh/development/plugins.md#维护应用内嵌插件)。
+`build/bundled-plugins.json` 的 `plugins` 配置中的官方插件会在 `wails3 task dev` 和 `wails3 build` 时自动内嵌。详见[维护应用内嵌插件](../docs/zh/development/plugins.md#维护应用内嵌插件)。

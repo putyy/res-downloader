@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"strings"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func (h *Server) downloadCertificate(w http.ResponseWriter, _ *http.Request) {
@@ -30,10 +30,10 @@ func (h *Server) downloadCertificate(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *Server) openDirectoryDialog(w http.ResponseWriter, _ *http.Request) {
-	folder, err := wailsruntime.OpenDirectoryDialog(h.host.context(), wailsruntime.OpenDialogOptions{
-		DefaultDirectory: "",
-		Title:            "Select a folder",
-	})
+	folder, err := h.host.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		CanChooseDirectories: true,
+		Title:                "Select a folder",
+	}).PromptForSingleSelection()
 	if err != nil {
 		h.error(w, err.Error())
 		return
@@ -57,7 +57,7 @@ func (h *Server) openFileDialog(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
-	filePath, err := wailsruntime.OpenFileDialog(h.host.context(), options)
+	filePath, err := h.host.Dialog.OpenFileWithOptions(&options).PromptForSingleSelection()
 	if err != nil {
 		h.error(w, err.Error())
 		return
@@ -65,11 +65,11 @@ func (h *Server) openFileDialog(w http.ResponseWriter, r *http.Request) {
 	h.success(w, respData{"file": filePath})
 }
 
-func fileDialogOptions(purpose string) (wailsruntime.OpenDialogOptions, error) {
+func fileDialogOptions(purpose string) (application.OpenFileDialogOptions, error) {
 	switch strings.ToLower(strings.TrimSpace(purpose)) {
 	case "", "video":
-		return wailsruntime.OpenDialogOptions{
-			Filters: []wailsruntime.FileFilter{{DisplayName: "MP4 video (*.mp4)", Pattern: "*.mp4"}},
+		return application.OpenFileDialogOptions{
+			Filters: []application.FileFilter{{DisplayName: "MP4 video (*.mp4)", Pattern: "*.mp4"}},
 			Title:   "Select an MP4 video",
 		}, nil
 	case "ffmpeg":
@@ -77,14 +77,14 @@ func fileDialogOptions(purpose string) (wailsruntime.OpenDialogOptions, error) {
 	case "ffprobe":
 		return mediaToolDialogOptions("FFprobe", "ffprobe"), nil
 	default:
-		return wailsruntime.OpenDialogOptions{}, fmt.Errorf("unsupported file dialog purpose %q", purpose)
+		return application.OpenFileDialogOptions{}, fmt.Errorf("unsupported file dialog purpose %q", purpose)
 	}
 }
 
-func mediaToolDialogOptions(displayName, executableName string) wailsruntime.OpenDialogOptions {
-	options := wailsruntime.OpenDialogOptions{Title: "Select the " + displayName + " executable"}
+func mediaToolDialogOptions(displayName, executableName string) application.OpenFileDialogOptions {
+	options := application.OpenFileDialogOptions{Title: "Select the " + displayName + " executable"}
 	if runtime.GOOS == "windows" {
-		options.Filters = []wailsruntime.FileFilter{{
+		options.Filters = []application.FileFilter{{
 			DisplayName: displayName + " executable (" + executableName + ".exe)",
 			Pattern:     executableName + ".exe",
 		}}
@@ -255,8 +255,7 @@ func (h *Server) setConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.config.Apply(data); err != nil {
-		var validationError *config.ValidationError
-		if errors.As(err, &validationError) {
+		if validationError, ok := errors.AsType[*config.ValidationError](err); ok {
 			h.error(w, err.Error(), respData{"field": validationError.Field})
 			return
 		}

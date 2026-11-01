@@ -1,5 +1,5 @@
 import {nextTick} from "vue"
-import {EventsEmit} from "../../wailsjs/runtime"
+import {Events} from "@wailsio/runtime"
 
 let revealScheduled = false
 
@@ -18,7 +18,7 @@ export const revealStartupWindow = async () => {
     // Flush the initial styles before enabling subsequent theme transitions.
     document.body.getBoundingClientRect()
     document.documentElement.classList.remove("app-starting")
-    EventsEmit("window:ready")
+    void Events.Emit("window:ready")
   }
 
   // Hidden webviews may suspend animation frames; never depend on them alone.

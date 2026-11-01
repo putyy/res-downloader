@@ -74,3 +74,31 @@ func TestCancelledHelperDoesNotRepeatConsumedFailure(t *testing.T) {
 		t.Fatalf("consumed failure was recreated: %v", err)
 	}
 }
+
+func TestSelectAssetArchitecturePreference(t *testing.T) {
+	universal := Asset{Platform: "darwin", Arch: "universal", Variant: "dmg", Name: "universal.dmg"}
+	intel := Asset{Platform: "darwin", Arch: "amd64", Variant: "dmg", Name: "intel.dmg"}
+	arm := Asset{Platform: "darwin", Arch: "arm64", Variant: "dmg", Name: "arm.dmg"}
+	for _, tc := range []struct {
+		name   string
+		assets []Asset
+		arch   string
+		want   string
+	}{
+		{"Intel native after universal", []Asset{universal, arm, intel}, "amd64", intel.Name},
+		{"ARM native after universal", []Asset{universal, intel, arm}, "arm64", arm.Name},
+		{"native before universal", []Asset{arm, universal}, "arm64", arm.Name},
+		{"universal fallback", []Asset{intel, universal}, "arm64", universal.Name},
+		{"wrong architecture", []Asset{intel}, "arm64", ""},
+		{"wrong platform", []Asset{{Platform: "linux", Arch: "arm64", Variant: "dmg"}}, "arm64", ""},
+		{"wrong variant", []Asset{{Platform: "darwin", Arch: "arm64", Variant: "binary"}}, "arm64", ""},
+		{"empty manifest", nil, "arm64", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := selectAsset(tc.assets, "darwin", tc.arch, "dmg")
+			if ok != (tc.want != "") || got.Name != tc.want {
+				t.Fatalf("selected %q, found=%t; want %q", got.Name, ok, tc.want)
+			}
+		})
+	}
+}

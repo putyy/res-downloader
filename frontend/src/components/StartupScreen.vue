@@ -65,8 +65,8 @@ import {NButton, NIcon, useDialog} from "naive-ui"
 import {useI18n} from "vue-i18n"
 import {useIndexStore} from "@/stores"
 import Screen from "@/components/Screen.vue"
-import {ClipboardSetText} from "../../wailsjs/runtime"
-import * as bind from "../../wailsjs/go/app/Bind"
+import {Clipboard} from "@wailsio/runtime"
+import * as bind from "../../bindings/res-downloader/internal/app/bind"
 import {frontendErrorDetails, reportFrontendError} from "@/services/diagnostics"
 import {revealStartupWindow} from "@/services/startupWindow"
 
@@ -149,7 +149,8 @@ const copyDiagnostics = async () => {
   const details = diagnosticText()
   let copied = false
   try {
-    copied = await ClipboardSetText(details)
+    await Clipboard.SetText(details)
+    copied = true
   } catch {
     try {
       await navigator.clipboard.writeText(details)

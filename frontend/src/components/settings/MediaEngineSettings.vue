@@ -28,7 +28,7 @@
           <NButton type="primary" secondary :disabled="checking" @click="detect">
             {{ t("setting.media_detect") }}
           </NButton>
-          <NButton text type="primary" @click="BrowserOpenURL(ffmpegWebsite)">
+          <NButton text type="primary" @click="void Browser.OpenURL(ffmpegWebsite)">
             {{ t("setting.media_install_website") }}
           </NButton>
         </div>
@@ -67,7 +67,7 @@ import {useI18n} from "vue-i18n"
 import appApi from "@/api/app"
 import {useIndexStore} from "@/stores"
 import type {appType} from "@/types/app"
-import {BrowserOpenURL} from "../../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 
 const props = defineProps<{
   config: appType.Config

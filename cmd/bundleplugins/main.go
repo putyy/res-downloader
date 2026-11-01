@@ -38,14 +38,14 @@ func main() {
 	}
 }
 
-// Wails executes build hooks from build/bin; manual invocations use the root.
+// Find the repository root from Task, CI, or a manual invocation.
 func projectRoot() (string, error) {
 	directory, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(directory, "wails.json")); err == nil {
+		if _, err := os.Stat(filepath.Join(directory, "build", "bundled-plugins.json")); err == nil {
 			return directory, nil
 		}
 		parent := filepath.Dir(directory)
@@ -69,7 +69,7 @@ func repositoryDirectory(repository string) (string, error) {
 }
 
 func prepare(root string, download bool) error {
-	raw, err := os.ReadFile(filepath.Join(root, "wails.json"))
+	raw, err := os.ReadFile(filepath.Join(root, "build", "bundled-plugins.json"))
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func prepare(root string, download bool) error {
 		return err
 	}
 	if config.Plugins == nil {
-		return fmt.Errorf("wails.json requires a plugins array")
+		return fmt.Errorf("build/bundled-plugins.json requires a plugins array")
 	}
 	ids, names := map[string]bool{}, map[string]bool{}
 	for _, item := range config.Plugins {

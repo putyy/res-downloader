@@ -1,23 +1,22 @@
 package events
 
 import (
-	"context"
 	"encoding/json"
 	"sync"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type Emitter struct {
 	mu  sync.RWMutex
-	ctx context.Context
+	app *application.App
 }
 
 func New() *Emitter { return &Emitter{} }
 
-func (e *Emitter) SetContext(ctx context.Context) {
+func (e *Emitter) SetApplication(app *application.App) {
 	e.mu.Lock()
-	e.ctx = ctx
+	e.app = app
 	e.mu.Unlock()
 }
 
@@ -27,10 +26,10 @@ func (e *Emitter) Emit(eventType string, data interface{}) error {
 		return err
 	}
 	e.mu.RLock()
-	ctx := e.ctx
+	app := e.app
 	e.mu.RUnlock()
-	if ctx != nil {
-		runtime.EventsEmit(ctx, "event", string(raw))
+	if app != nil {
+		app.Event.Emit("event", string(raw))
 	}
 	return nil
 }

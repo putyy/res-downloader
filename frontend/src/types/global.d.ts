@@ -3,8 +3,8 @@ interface Window {
   $dialog?: import("naive-ui").DialogProviderInst
   $message?: import("naive-ui").MessageProviderInst
   $notification?: import("naive-ui").NotificationProviderInst
-  $baseUrl?: string
   $apiToken?: string
+  $previewBaseUrl?: string
 }
 
 declare module "*.vue" {

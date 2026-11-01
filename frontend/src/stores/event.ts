@@ -1,5 +1,5 @@
 import {defineStore} from "pinia"
-import {EventsOn} from "../../wailsjs/runtime"
+import {Events} from "@wailsio/runtime"
 import {appType} from "@/types/app"
 
 export const useEventStore = defineStore("ws-store", () => {
@@ -9,8 +9,8 @@ export const useEventStore = defineStore("ws-store", () => {
   const init = () => {
     if (initialized) return
     initialized = true
-    EventsOn("event", (res: any) => {
-      const data = JSON.parse(res)
+    Events.On("event", (event) => {
+      const data = JSON.parse(String(event.data))
       for (const handler of handles.get(data.type) ?? []) {
         handler(data.data)
       }

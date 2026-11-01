@@ -1045,14 +1045,14 @@ See [Extension Store](extension-store.md) for listing requirements, repository c
 
 ## Maintaining bundled plugins
 
-Configure each official plugin's `id` and `repository` under `plugins` in `wails.json`. Before local development, clone the repositories into `plugins/`, using repository names without `.git` as directory names:
+Configure each official plugin's `id` and `repository` under `plugins` in `build/bundled-plugins.json`. Before local development, clone the repositories into `plugins/`, using repository names without `.git` as directory names:
 
 ```bash
 git clone https://github.com/putyy/resd-plugin-wechat.git plugins/resd-plugin-wechat
-wails dev
+wails3 task dev
 ```
 
-Both `wails dev` and `wails build` automatically validate local plugins and prepare embedded files. Restart the development process after editing a plugin.
+Both `wails3 task dev` and `wails3 build` automatically validate local plugins and prepare embedded files. Restart the development process after editing a plugin.
 
 Plugin directories under `internal/plugin/bundled/` are generated and excluded from Git. They contain only runtime files and licenses; tests and fixtures stay in the plugin source repositories.
 

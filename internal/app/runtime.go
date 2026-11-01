@@ -53,8 +53,8 @@ type Runtime struct {
 	Control    *control.Server
 }
 
-func NewRuntime(assets embed.FS, wailsConfig string) (*Runtime, error) {
-	app, err := newApp(assets, wailsConfig)
+func NewRuntime(assets embed.FS, buildConfig string) (*Runtime, error) {
+	app, err := newApp(assets, buildConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func prepareRuntime(app *App) *Runtime {
 	return r
 }
 
-// initialise runs from OnDomReady, after Wails has checked its single-instance
+// initialise runs after ApplicationStarted, after Wails has checked its single-instance
 // lock. A duplicate desktop launch must not open databases or mutate plugins.
 func (r *Runtime) initialise(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
@@ -194,8 +194,6 @@ func (r *Runtime) Start(ctx context.Context) error {
 			r.startupErr = err
 			return
 		}
-		// Events retain the Wails context after the startup-only context ends.
-		r.Events.SetContext(ctx)
 		r.startupErr = r.start(startupCtx)
 		if r.startupErr != nil {
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

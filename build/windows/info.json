@@ -1,15 +1,15 @@
 {
 	"fixed": {
-		"file_version": "{{.Info.ProductVersion}}"
+		"file_version": "4.0.0"
 	},
 	"info": {
-		"0000": {
-			"ProductVersion": "{{.Info.ProductVersion}}",
-			"CompanyName": "{{.Info.CompanyName}}",
-			"FileDescription": "{{.Info.ProductName}}",
-			"LegalCopyright": "{{.Info.Copyright}}",
-			"ProductName": "{{.Info.ProductName}}",
-			"Comments": "{{.Info.Comments}}"
+		"0409": {
+			"ProductVersion": "4.0.0",
+			"CompanyName": "res-downloader",
+			"FileDescription": "A resource downloader with network capture and fast downloads",
+			"LegalCopyright": "Copyright © 2023",
+			"ProductName": "res-downloader",
+			"Comments": "A resource downloader with network capture and fast downloads"
 		}
 	}
 }

@@ -1,4 +1,4 @@
-import * as bind from "../../wailsjs/go/app/Bind"
+import * as bind from "../../bindings/res-downloader/internal/app/bind"
 import axios from "axios"
 
 const requestTarget = (url?: string, baseURL?: string): string => {

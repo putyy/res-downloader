@@ -70,11 +70,11 @@
           <NTag
             v-for="capability in visibleCapabilities"
             :key="capability"
-            class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:truncate"
+            class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:max-w-full"
             size="small"
             type="warning"
           >
-            {{ capability }}
+            <span class="block min-w-0 truncate">{{ capability }}</span>
           </NTag>
           <NTag v-if="hiddenCapabilityCount" class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:truncate" size="small" type="warning">
             +{{ hiddenCapabilityCount }}
@@ -112,7 +112,7 @@ import {computed} from "vue"
 import {useI18n} from "vue-i18n"
 import {RefreshOutline} from "@vicons/ionicons5"
 import type {appType} from "@/types/app"
-import {BrowserOpenURL} from "../../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 import {localizedStoreEntry, storePluginOwner, storePluginVersion} from "./store"
 
 const props = defineProps<{
@@ -156,7 +156,7 @@ const hiddenCapabilityCount = computed(() => capabilities.value.length - visible
 const openRepository = () => {
   try {
     const parsed = new URL(`https://github.com/${props.extension.repository}`)
-    if (parsed.origin === "https://github.com") BrowserOpenURL(parsed.href)
+    if (parsed.origin === "https://github.com") void Browser.OpenURL(parsed.href)
   } catch (_) {
     window?.$message?.error(t("plugin.invalid_homepage"))
   }

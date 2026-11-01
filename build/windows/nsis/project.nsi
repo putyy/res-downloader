@@ -8,22 +8,22 @@ Unicode true
 ## from outside of Wails for debugging and development of the installer.
 ##
 ## For development first make a wails nsis build to populate the "wails_tools.nsh":
-## > wails build --target windows/amd64 --nsis
+## > wails3 task windows:create:nsis:installer ARCH=amd64
 ## Then you can call makensis on this file with specifying the path to your binary:
 ## For a AMD64 only installer:
-## > makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\app.exe
+## > makensis -DARG_WAILS_AMD64_BINARY=..\..\..\bin\app.exe
 ## For a ARM64 only installer:
-## > makensis -DARG_WAILS_ARM64_BINARY=..\..\bin\app.exe
+## > makensis -DARG_WAILS_ARM64_BINARY=..\..\..\bin\app.exe
 ## For a installer with both architectures:
-## > makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\app-amd64.exe -DARG_WAILS_ARM64_BINARY=..\..\bin\app-arm64.exe
+## > makensis -DARG_WAILS_AMD64_BINARY=..\..\..\bin\app-amd64.exe -DARG_WAILS_ARM64_BINARY=..\..\..\bin\app-arm64.exe
 ####
-## The following information is taken from the ProjectInfo file, but they can be overwritten here.
+## The following information is generated from build/config.yml, but may be overridden here.
 ####
-## !define INFO_PROJECTNAME    "MyProject" # Default "{{.Name}}"
-## !define INFO_COMPANYNAME    "MyCompany" # Default "{{.Info.CompanyName}}"
-## !define INFO_PRODUCTNAME    "MyProduct" # Default "{{.Info.ProductName}}"
-## !define INFO_PRODUCTVERSION "1.0.0"     # Default "{{.Info.ProductVersion}}"
-## !define INFO_COPYRIGHT      "Copyright" # Default "{{.Info.Copyright}}"
+## !define INFO_PROJECTNAME    "res-downloader"
+## !define INFO_COMPANYNAME    "res-downloader"
+## !define INFO_PRODUCTNAME    "res-downloader"
+## !define INFO_PRODUCTVERSION "X.Y.Z"
+## !define INFO_COPYRIGHT      "Copyright © 2023"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
 ## !define UNINST_KEY_NAME     "UninstKeyInRegistry"  # Default "${INFO_COMPANYNAME}${INFO_PRODUCTNAME}"
@@ -86,9 +86,9 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 !ifdef ARG_WEBVIEW2_FIXED_RUNTIME
-    OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-fixed-webview2-installer.exe"
+    OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-fixed-webview2-installer.exe"
 !else
-    OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe"
+    OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe"
 !endif
 InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.

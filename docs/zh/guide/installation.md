@@ -23,6 +23,8 @@ Windows 7 只能使用旧版归档中的 `2.3.0`。
 
 ## macOS
 
+Intel Mac 选择 `_mac_amd64.dmg`，Apple Silicon（M 系列）选择 `_mac_arm64.dmg`，`_mac_universal.dmg` 同时支持两种架构。
+
 下载 `.dmg` 文件，将 `res-downloader.app` 拖入“应用程序”。
 
 首次启动如果被系统阻止，请在“系统设置 → 隐私与安全性”中允许打开。
@@ -51,19 +53,14 @@ sudo apt install './res-downloader_<version>_linux_amd64.deb'
 yay -Syu res-downloader
 ```
 
-Arch Linux 自 2024 年起仅提供 `webkit2gtk-4.1`，不再提供 `webkit2gtk-4.0`。
-
 ::: details 自行构建或维护 AUR 包
-自行构建或维护 PKGBUILD 时，需要使用 WebKit2GTK 4.1：
-
-1. 将 `depends` / `makedepends` 中的 `webkit2gtk-4.0` 依赖改为 `webkit2gtk-4.1`。
-2. 在 `build()` 中为 `wails build` 添加 `-tags webkit2_41` 构建标签。例如，构建 amd64 版本：
+当前版本基于 Wails v3，使用 GTK4 和 WebKitGTK 6.0。自行构建或维护 PKGBUILD 时，配置 `gtk4` 和 `webkitgtk-6.0` 依赖，并使用以下构建命令：
 
 ```bash
-wails build -platform "linux/amd64" -tags webkit2_41 -upx
+wails3 task linux:build PRODUCTION=true
 ```
 
-`-upx` 用于压缩可执行文件，需要安装 UPX；不需要压缩时可省略。通过 `yay` 安装且 PKGBUILD 已包含上述配置时，无需手动调整。
+通过 `yay` 安装且 PKGBUILD 已适配当前版本时，无需手动调整。
 :::
 
 ### 独立程序

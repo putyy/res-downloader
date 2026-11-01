@@ -8,7 +8,7 @@ description: 参与 res-downloader：了解 Pull Request 的范围、标题、�
 
 ## 参与开发
 
-本项目采用 [Go](https://go.dev/doc/)、[Wails](https://wails.io/docs/introduction/) 和 [Vue](https://cn.vuejs.org/guide/introduction) 开发，相关技术请参阅对应官方文档。
+本项目采用 [Go](https://go.dev/doc/)、[Wails v3](https://wails.io/) 和 [Vue](https://cn.vuejs.org/guide/introduction) 开发，相关技术请参阅对应官方文档。
 
 参与代码开发需要具备相关编程语言、开发工具和 Git 的基础，能够阅读现有代码，并独立完成基本的构建、调试和验证。维护者主要处理项目相关问题和 PR 审核，时间与精力有限，无法提供从零开始的编程教学或全程指导。基础知识请通过相关文档和教程自行学习，感谢理解。
 
@@ -73,9 +73,7 @@ npm run build
 
 在 `frontend` 目录运行 `npm run format` 格式化代码，或运行 `npm run format:check` 检查格式。详见[前端开发说明](https://github.com/putyy/res-downloader/blob/master/frontend/README.md)。
 
-### 准备内嵌插件
-
-按 `wails.json` 的 `plugins` 配置将插件仓库克隆到 `plugins/`，然后运行 `wails dev` 或 `wails build`。修改插件后重启开发进程。配置和构建要求见[维护应用内嵌插件](plugins.md#维护应用内嵌插件)。
+本地开发所需的插件配置见[维护应用内嵌插件](plugins.md#维护应用内嵌插件)。
 
 ## 文档贡献
 

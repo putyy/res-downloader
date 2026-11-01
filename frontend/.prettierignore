@@ -2,7 +2,7 @@ node_modules/
 dist/
 coverage/
 index.html
-wailsjs/
+bindings/
 auto-imports.d.ts
 components.d.ts
 package-lock.json

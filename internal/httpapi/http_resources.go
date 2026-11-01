@@ -6,7 +6,7 @@ import (
 	shared "res-downloader/internal/model"
 	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func (h *Server) filterResources(w http.ResponseWriter, r *http.Request) {
@@ -144,10 +144,10 @@ func (h *Server) processFileResourceAction(w http.ResponseWriter, candidate shar
 	if pattern == "" {
 		pattern = "*"
 	}
-	filePath, err := runtime.OpenFileDialog(h.host.context(), runtime.OpenDialogOptions{
-		Filters: []runtime.FileFilter{{DisplayName: h.pluginActionDisplayName(definition), Pattern: pattern}},
+	filePath, err := h.host.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Filters: []application.FileFilter{{DisplayName: h.pluginActionDisplayName(definition), Pattern: pattern}},
 		Title:   h.pluginActionDisplayName(definition),
-	})
+	}).PromptForSingleSelection()
 	if err != nil {
 		h.error(w, err.Error())
 		return

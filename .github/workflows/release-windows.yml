@@ -47,8 +47,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
-          go install "github.com/wailsapp/wails/v2/cmd/wails@$wails_version"
+          wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$wails_version"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install NSIS
@@ -88,15 +88,15 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          wails build -f -nsis -platform "windows/amd64" -webview2 Embed -ldflags "-X res-downloader/internal/app.ReleaseVersion=$env:RELEASE_VERSION"
+          wails3 task windows:create:nsis:installer ARCH=amd64 "RELEASE_VERSION=$env:RELEASE_VERSION" BUNDLE_PLUGINS_SKIP=true
           Move-Item -Force `
-            "build/bin/res-downloader-amd64-installer.exe" `
-            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe"
+            "bin/res-downloader-amd64-installer.exe" `
+            "bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe"
 
-          wails build -f -nsis -platform "windows/arm64" -webview2 Embed -ldflags "-X res-downloader/internal/app.ReleaseVersion=$env:RELEASE_VERSION"
+          wails3 task windows:create:nsis:installer ARCH=arm64 "RELEASE_VERSION=$env:RELEASE_VERSION" BUNDLE_PLUGINS_SKIP=true
           Move-Item -Force `
-            "build/bin/res-downloader-arm64-installer.exe" `
-            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe"
+            "bin/res-downloader-arm64-installer.exe" `
+            "bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe"
 
       - name: Build amd64 installer with Fixed Version WebView2
         shell: pwsh
@@ -133,17 +133,13 @@ jobs:
           }
           $runtimePath = $runtimeExecutable.Directory.FullName
 
-          wails build `
-            -f `
-            -platform "windows/amd64" `
-            -webview2 Error `
-            -ldflags "-X res-downloader/internal/app.ReleaseVersion=$env:RELEASE_VERSION" `
-            -o "res-downloader-fixed-webview2.exe"
+          wails3 task windows:build ARCH=amd64 "RELEASE_VERSION=$env:RELEASE_VERSION" PRODUCTION=true BUNDLE_PLUGINS_SKIP=true
+          Copy-Item -Force "bin/res-downloader.exe" "bin/res-downloader-fixed-webview2.exe"
 
           $appExecutable = (Resolve-Path `
-            "build/bin/res-downloader-fixed-webview2.exe").Path
+            "bin/res-downloader-fixed-webview2.exe").Path
           $makensisExitCode = 1
-          Push-Location "build/windows/installer"
+          Push-Location "build/windows/nsis"
           try {
             makensis `
               "-DARG_WAILS_AMD64_BINARY=$appExecutable" `
@@ -158,8 +154,8 @@ jobs:
           }
 
           Move-Item -Force `
-            "build/bin/res-downloader-amd64-fixed-webview2-installer.exe" `
-            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64_fixed_webview2.exe"
+            "bin/res-downloader-amd64-fixed-webview2-installer.exe" `
+            "bin/res-downloader_$env:RELEASE_VERSION`_win_amd64_fixed_webview2.exe"
 
       - name: Upload installers to release
         shell: pwsh
@@ -171,12 +167,12 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           gh release upload $env:RELEASE_TAG `
-            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe" `
-            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe" `
-            "build/bin/res-downloader_$env:RELEASE_VERSION`_win_amd64_fixed_webview2.exe" `
+            "bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe" `
+            "bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe" `
+            "bin/res-downloader_$env:RELEASE_VERSION`_win_amd64_fixed_webview2.exe" `
             --clobber
 
       - name: Remove local release files
         if: always()
         shell: pwsh
-        run: Remove-Item -Force -ErrorAction SilentlyContinue build/bin/*.exe
+        run: Remove-Item -Force -ErrorAction SilentlyContinue bin/*.exe

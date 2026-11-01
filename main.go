@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -20,14 +20,8 @@ import (
 	"res-downloader/internal/system"
 	"res-downloader/internal/updates"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/options/linux"
-	"github.com/wailsapp/wails/v2/pkg/options/mac"
-	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsapp "github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -36,8 +30,8 @@ var assets embed.FS
 //go:embed build/appicon.png
 var icon []byte
 
-//go:embed wails.json
-var wailsJson string
+//go:embed build/config.yml
+var buildConfig string
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--wait-for-parent" {
@@ -65,14 +59,15 @@ func main() {
 	}
 	if len(os.Args) > 1 && (os.Args[1] == "cli" || os.Args[1] == "mcp") {
 		system.PrepareCommandConsole()
-		var metadata struct {
-			Info struct {
-				Version string `json:"productVersion"`
-			} `json:"info"`
+		version, err := application.ConfigVersion(buildConfig)
+		if err != nil {
+			log.Fatal(err)
 		}
-		_ = json.Unmarshal([]byte(wailsJson), &metadata)
+		if application.ReleaseVersion != "" {
+			version = application.ReleaseVersion
+		}
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-		code := automation.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, metadata.Info.Version)
+		code := automation.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, version)
 		cancel()
 		os.Exit(code)
 	}
@@ -83,123 +78,89 @@ func main() {
 		}
 		return
 	}
-	// Create an instance of the app structure
-	appRuntime, runtimeErr := application.NewRuntime(assets, wailsJson)
+	// Wails acquires its single-instance lock in New. Construct business state afterwards.
+	desktopVersion, err := application.ConfigVersion(buildConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if application.ReleaseVersion != "" {
+		desktopVersion = application.ReleaseVersion
+	}
+	var appRuntime *application.Runtime
+	desktop := wailsapp.New(wailsapp.Options{
+		Name:        "res-downloader",
+		Description: fmt.Sprintf("res-downloader %s\nA resource downloader with network capture and fast downloads", desktopVersion),
+		Icon:        icon,
+		Assets: wailsapp.AssetOptions{
+			Handler: wailsapp.BundledAssetFileServer(assets),
+			Middleware: func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if appRuntime == nil {
+						http.Error(w, "Application is starting", http.StatusServiceUnavailable)
+						return
+					}
+					appRuntime.Middleware(next).ServeHTTP(w, r)
+				})
+			},
+		},
+		SingleInstance: &wailsapp.SingleInstanceOptions{
+			UniqueID: "res-downloader",
+			OnSecondInstanceLaunch: func(wailsapp.SecondInstanceData) {
+				if appRuntime != nil {
+					appRuntime.App.ActivateWindow()
+				}
+			},
+		},
+		OnShutdown: func() {
+			if appRuntime != nil {
+				appRuntime.App.SaveWindowSize()
+				appRuntime.App.OnExit()
+			}
+		},
+		Mac:     wailsapp.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		Windows: wailsapp.WindowsOptions{WebviewBrowserPath: bundledWebView2Path()},
+		Linux:   wailsapp.LinuxOptions{ProgramName: "res-downloader"},
+	})
+	var runtimeErr error
+	appRuntime, runtimeErr = application.NewRuntime(assets, buildConfig)
 	if runtimeErr != nil {
 		log.Fatal(runtimeErr)
 	}
 	app := appRuntime.App
 	bind := application.NewBind(appRuntime)
 	isMac := runtime.GOOS == "darwin"
-	// menu
-	appMenu := menu.NewMenu()
+	desktop.RegisterService(wailsapp.NewService(bind))
 	if isMac {
-		appMenu.Append(menu.AppMenu())
-		appMenu.Append(menu.EditMenu())
-		appMenu.Append(menu.WindowMenu())
+		appMenu := desktop.Menu.New()
+		appMenu.AddRole(wailsapp.AppMenu).AddRole(wailsapp.EditMenu).AddRole(wailsapp.WindowMenu)
+		desktop.Menu.SetApplicationMenu(appMenu)
 	}
-
-	// Create application with options
 	windowWidth, windowHeight := appRuntime.Config.WindowSize()
-	err := wails.Run(&options.App{
-		Title:                    app.AppName,
-		Width:                    windowWidth,
-		MinWidth:                 config.MinWindowWidth,
-		Height:                   windowHeight,
-		MinHeight:                config.MinWindowHeight,
-		Frameless:                !isMac,
-		StartHidden:              true,
-		Menu:                     appMenu,
-		EnableDefaultContextMenu: true,
-		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId:               "res-downloader",
-			OnSecondInstanceLaunch: func(options.SecondInstanceData) { app.ActivateWindow() },
-		},
-		AssetServer: &assetserver.Options{
-			Assets:     assets,
-			Middleware: appRuntime.Middleware,
-		},
-		BackgroundColour: &options.RGBA{R: 243, G: 245, B: 244, A: 255},
-		OnStartup: func(ctx context.Context) {
-			app.PrepareStartupWindow(ctx)
-			wailsruntime.EventsOn(ctx, "window:resized", func(...interface{}) {
-				app.SaveWindowSize(ctx)
-			})
-			logo := `
-	 _ __    ___   ___            __| |   ___   __      __  _ __   | |   ___     __ _     __| |   ___   _ __
-	| '__|  / _ \ / __|  _____   / _· |  / _ \  \ \ /\ / / | '_ \  | |  / _ \   / _· |   / _· |  / _ \ | ·__|
-	| |    |  __/ \__ \ |_____| | (_| | | (_) |  \ V  V /  | | | | | | | (_) | | (_| |  | (_| | |  __/ | |
-	|_|     \___| |___/          \__,_|  \___/    \_/\_/   |_| |_| |_|  \___/   \__ ,_|  \__,_|  \___| |_|`
-
-			log.Println(logo)
-			fmt.Println("version:", app.Version)
-		},
-		OnDomReady: func(ctx context.Context) {
-			// Wails checks the Linux instance lock after scheduling OnStartup.
-			// DOM readiness runs after frontend setup on all supported platforms.
-			app.PrepareStartupWindow(ctx)
-			go app.Startup(ctx)
-		},
-		OnBeforeClose: func(ctx context.Context) bool {
-			app.SaveWindowSize(ctx)
-			app.BeginShutdown()
-			return false
-		},
-		OnShutdown: func(ctx context.Context) {
-			app.OnExit()
-		},
-		Bind: []interface{}{
-			bind,
-		},
-		Mac: &mac.Options{
-			TitleBar: mac.TitleBarHiddenInset(),
-			About: &mac.AboutInfo{
-				Title:   fmt.Sprintf("%s %s", app.AppName, app.Version),
-				Message: app.Description + app.Copyright,
-				Icon:    icon,
-			},
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
-		},
-		Windows: &windows.Options{
-			WebviewIsTransparent:              false,
-			WindowIsTranslucent:               false,
-			DisableFramelessWindowDecorations: false,
-			WebviewBrowserPath:                bundledWebView2Path(),
-			Messages:                          windowsRuntimeMessages(),
-		},
-		Linux: &linux.Options{
-			ProgramName:         app.AppName,
-			Icon:                icon,
-			WebviewGpuPolicy:    linux.WebviewGpuPolicyOnDemand,
-			WindowIsTranslucent: true,
-		},
+	window := desktop.Window.NewWithOptions(wailsapp.WebviewWindowOptions{
+		Title: app.AppName, Width: windowWidth, Height: windowHeight,
+		MinWidth: config.MinWindowWidth, MinHeight: config.MinWindowHeight,
+		Frameless: !isMac, Hidden: true,
+		BackgroundColour: wailsapp.RGBA{Red: 243, Green: 245, Blue: 244, Alpha: 255},
+		Mac:              wailsapp.MacWindow{TitleBar: wailsapp.MacTitleBarHiddenInset},
 	})
+	app.AttachDesktop(desktop, window)
+	window.OnWindowEvent(events.Common.WindowDidResize, func(*wailsapp.WindowEvent) { app.ScheduleWindowSizeSave() })
+	window.OnWindowEvent(events.Common.WindowClosing, func(*wailsapp.WindowEvent) {
+		app.SaveWindowSize()
+		app.BeginShutdown()
+	})
+	desktop.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*wailsapp.ApplicationEvent) {
+		app.PrepareStartupWindow()
+		go app.Startup(desktop.Context())
+	})
+	log.Printf("version: %s", app.Version)
+	err = desktop.Run()
 
 	if err != nil {
 		appRuntime.Logger.Esg(err, "run application")
 	}
 	// Also covers failures before Wails reaches OnShutdown.
 	app.OnExit()
-}
-
-func windowsRuntimeMessages() *windows.Messages {
-	messages := windows.DefaultMessages()
-	recovery := "If installation fails, manually install the WebView2 Runtime matching the system architecture."
-	if runtime.GOARCH == "amd64" {
-		recovery = "If installation fails, use the fixed_webview2 installer."
-	}
-	messages.Error = "Error"
-	messages.MissingRequirements = "Missing Requirements"
-	messages.Webview2NotInstalled = "WebView2 Runtime was not found"
-	messages.PressOKToInstall = ""
-	messages.InstallationRequired = fmt.Sprintf("WebView2 Runtime is required. Press OK to install it. %s", recovery)
-	messages.UpdateRequired = "WebView2 Runtime must be updated before the application can start."
-	messages.FailedToInstall = fmt.Sprintf("WebView2 Runtime installation failed. Check your network connection. %s", recovery)
-	messages.ContactAdmin = fmt.Sprintf("WebView2 Runtime could not be installed. Contact your administrator. %s", recovery)
-	messages.InvalidFixedWebview2 = "The bundled WebView2 Runtime is incomplete, inaccessible, or quarantined by security software. Reinstall the application and check your security software."
-	messages.WebView2ProcessCrash = "The WebView2 process crashed. Restart the application. If the problem persists, open the log directory and include the application log in your report."
-	return messages
 }
 
 func bundledWebView2Path() string {

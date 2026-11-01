@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"res-downloader/internal/httpapi"
 	desktopsystem "res-downloader/internal/system"
 )
@@ -21,10 +20,8 @@ func NewHTTPServer(
 	logger *Logger,
 ) *HttpServer {
 	host := httpapi.Host{
-		Update: app.update,
-		Context: func() context.Context {
-			return app.ctx
-		},
+		Update:  app.update,
+		Dialog:  app.desktop.Dialog,
 		AppInfo: app,
 		PublicCertificate: func() []byte {
 			return app.PublicCrt

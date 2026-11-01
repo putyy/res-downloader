@@ -16,6 +16,8 @@ import (
 	internalserver "res-downloader/internal/server"
 	"sync"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type respData map[string]interface{}
@@ -42,7 +44,7 @@ type pendingPluginArchive struct {
 // Wails application composition root.
 type Host struct {
 	Update                     func(context.Context, string, bool) (interface{}, error)
-	Context                    func() context.Context
+	Dialog                     *application.DialogManager
 	AppInfo                    interface{}
 	PublicCertificate          func() []byte
 	InstallCertificateWithPass func(string) (string, error)
@@ -52,15 +54,6 @@ type Host struct {
 	OpenSystemProxy            func(string) error
 	UnsetSystemProxy           func(string) error
 	ProxyEnabled               func() bool
-}
-
-func (h Host) context() context.Context {
-	if h.Context != nil {
-		if ctx := h.Context(); ctx != nil {
-			return ctx
-		}
-	}
-	return context.Background()
 }
 
 func (h Host) proxyEnabled() bool {

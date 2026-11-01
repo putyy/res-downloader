@@ -2,9 +2,9 @@ import {defineStore} from "pinia"
 import {ref} from "vue"
 import type {appType} from "@/types/app"
 import appApi from "@/api/app"
-import {Environment} from "../../wailsjs/runtime"
-import * as bind from "../../wailsjs/go/app/Bind"
-import {httpapi} from "../../wailsjs/go/models"
+import {System} from "@wailsio/runtime"
+import * as bind from "../../bindings/res-downloader/internal/app/bind"
+import {ResponseData} from "../../bindings/res-downloader/internal/httpapi/models"
 import {frontendErrorDetails, reportFrontendError} from "@/services/diagnostics"
 import axios from "axios"
 import i18n from "@/i18n"
@@ -95,7 +95,7 @@ export const useIndexStore = defineStore("index-store", () => {
         new Promise<never>((_, reject) => {
           timeout = setTimeout(() => reject(new Error("Configuration initialization timed out")), 5000)
         }),
-      ])) as httpapi.ResponseData
+      ])) as ResponseData
       if (configuration.code !== 1) throw new Error(configuration.message || "Configuration initialization failed")
       globalConfig.value = Object.assign({}, globalConfig.value, configuration.data)
       savedConfig = cloneConfig(globalConfig.value)
@@ -114,16 +114,21 @@ export const useIndexStore = defineStore("index-store", () => {
     try {
       if (!configLoaded) await loadConfig()
       stage = "environment"
-      envInfo.value = await Environment()
+      const environment = await System.Environment()
+      envInfo.value = {
+        buildType: environment.Debug ? "development" : "production",
+        platform: environment.OS,
+        arch: environment.Arch,
+      }
 
       stage = "application-info"
-      const info = (await bind.AppInfo()) as httpapi.ResponseData
+      const info = (await bind.AppInfo()) as ResponseData
       if (info.code !== 1) throw new Error(info.message || "Application information initialization failed")
       appInfo.value = Object.assign({}, appInfo.value, info.data)
       isProxy.value = info.data.IsProxy
 
       stage = "backend-startup"
-      const session = (await bind.APISession()) as httpapi.ResponseData
+      const session = (await bind.APISession()) as ResponseData
       if (session.code !== 1) {
         startupPortUnavailable.value = session.data?.portUnavailable === true
         if (startupPortUnavailable.value) {
@@ -137,11 +142,11 @@ export const useIndexStore = defineStore("index-store", () => {
       window.$apiToken = String((session.data as {token?: string})?.token ?? "")
       if (!window.$apiToken) throw new Error("API session token is empty")
 
-      stage = "local-service-health"
+      stage = "desktop-api-health"
       baseUrl.value = "http://127.0.0.1:" + globalConfig.value.Port
-      window.$baseUrl = baseUrl.value
+      window.$previewBaseUrl = baseUrl.value
       const health = (await appApi.appInfo()) as appType.Res
-      if (health.code !== 1) throw new Error(health.message || "Local service health check failed")
+      if (health.code !== 1) throw new Error(health.message || "Desktop API health check failed")
       stage = "initial-page"
       await waitForInitialRoute()
       startupState.value = "ready"

@@ -4,7 +4,7 @@ description: Understand the Wails, Vue, and Go architecture of res-downloader, i
 
 # Architecture
 
-res-downloader is a cross-platform desktop app built with Wails. The Vue frontend handles interaction and state presentation. The Go backend handles the local proxy, certificates and system integration, resource detection, plugin execution, and download tasks. A versioned plugin protocol extends site support without putting frequently changing site logic into the host.
+res-downloader is a cross-platform desktop app built with Wails v3. The Vue frontend handles interaction and state presentation. The Go backend handles the local proxy, certificates and system integration, resource detection, plugin execution, and download tasks. A versioned plugin protocol extends site support without putting frequently changing site logic into the host.
 
 This page describes module boundaries, runtime dependencies, and main data flows. See [Plugin Development](plugins.md) for complete plugin fields, permissions, and runtime APIs.
 
@@ -73,7 +73,7 @@ CLI / MCP invoke existing HTTP business handlers through a separate local contro
 
 ### Startup
 
-The desktop entry point uses Wails `SingleInstanceLock`; another launch activates the existing window. `OnDomReady` calls `Runtime.Start` asynchronously after the instance check, initializing device certificates, capture storage, the resource database, plugins, the task database, proxy, and HTTP services. Frontend assets load immediately, while app information and API requests wait for backend readiness. Failed initialization releases business resources already created. Shutdown cancels subsequent startup stages; the current synchronous initialization operation finishes before cleanup proceeds safely.
+The desktop entry point uses Wails single-instance handling; another launch activates the existing window. The `ApplicationStarted` event calls `Runtime.Start` asynchronously after the instance check, initializing device certificates, capture storage, the resource database, plugins, the task database, proxy, and HTTP services. The window appears when the frontend is ready; a startup timeout reports an error and quits. Frontend assets load immediately, while app information and API requests wait for backend readiness. Failed initialization releases business resources already created. Shutdown cancels subsequent startup stages; the current synchronous initialization operation finishes before cleanup proceeds safely.
 
 When settings are applied, the runtime updates upstream proxy transport, download worker count, and HTTPS interception rules as needed without reconstructing the entire app.
 
@@ -124,7 +124,7 @@ The frontend does not reference internal Go modules directly. It primarily uses 
 
 A shared Pinia store loads download tasks and handles `downloadTaskUpdated` and `downloadTaskRemoved` events. The download center displays tasks by task ID, while the resource list selects an active task (including a paused task) by resource ID, falling back to the most recently created associated task when none is active, instead of maintaining a second writable download state on each resource row. Updates and removals received during loading are preserved, and older task snapshots cannot overwrite newer state.
 
-The Wails AssetServer uses the same HTTP API middleware so the embedded frontend can access `/api`. The gateway's separate listener allows proxy traffic, phone certificate downloads, and local previews to share the configured Host and Port.
+The Wails asset server reuses the HTTP API middleware, allowing the embedded frontend to access business endpoints through same-origin `/api` requests. Resource previews use a local HTTP address on the existing gateway, sharing the configured Host and Port with proxy traffic and phone certificate downloads.
 
 CLI and MCP use an additional local control listener for resource queries and download operations. It rejects browser Origins, non-local Hosts, and routes outside its allowlist. Its control token cannot be used directly with the desktop API. Clients ignore environment proxies, do not follow redirects, and do not automatically retry writes. MCP uses the official Go SDK for stdio; standard output contains protocol messages only. Tools query business progress. See [CLI and MCP](../guide/automation.md) for usage.
 
@@ -135,7 +135,7 @@ Plugins receive structured observations and return structured resource candidate
 Plugins have three sources:
 
 - **Built-in plugins**: implemented in Go, such as the generic resource detector.
-- **Bundled official plugins**: configured in `wails.json`, shipped with the app and installed into the user's plugin directory.
+- **Bundled official plugins**: configured in `build/bundled-plugins.json`, shipped with the app and installed into the user's plugin directory.
 - **User plugins**: installed under `plugins/` in the user data directory, from the extension store or a local ZIP.
 
 Site-specific API detection, correlation, signature calculation, URL refresh, and non-DRM byte transformations belong in plugins. Extend the host API only for reusable capabilities that multiple plugins may need and that the existing protocol cannot safely express. Such changes must synchronize Go models, runtime validation, Schema, TypeScript declarations, examples, and documentation.

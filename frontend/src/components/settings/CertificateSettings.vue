@@ -33,7 +33,7 @@
     <NCard v-if="status" size="small" :title="t('setting.certificate_phone_status')">
       <NAlert type="warning" :show-icon="false">{{ t("setting.certificate_phone_tip") }}</NAlert>
       <div class="mt-4">
-        <NButton type="primary" secondary @click="BrowserOpenURL(certificateUrl)">{{ t("setting.certificate_download") }} </NButton>
+        <NButton type="primary" secondary @click="void Browser.OpenURL(certificateUrl)">{{ t("setting.certificate_download") }} </NButton>
       </div>
     </NCard>
     <NCard v-if="status" size="small" :title="t('setting.certificate_legacy_status')">
@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from "vue"
 import {useI18n} from "vue-i18n"
-import {BrowserOpenURL} from "../../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 import appApi from "@/api/app"
 import type {appType} from "@/types/app"
 import {useIndexStore} from "@/stores"

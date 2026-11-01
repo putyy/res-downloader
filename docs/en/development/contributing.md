@@ -8,7 +8,7 @@ You can contribute by fixing issues, improving documentation, developing plugins
 
 ## Development prerequisites
 
-This project is built with [Go](https://go.dev/doc/), [Wails](https://wails.io/docs/introduction/), and [Vue](https://vuejs.org/guide/introduction.html). Refer to their official documentation for details on these technologies.
+This project is built with [Go](https://go.dev/doc/), [Wails v3](https://v3.wails.io/), and [Vue](https://vuejs.org/guide/introduction.html). Refer to their official documentation for details on these technologies.
 
 Code contributors need a working knowledge of the relevant programming languages, development tools, and Git, and should be able to read existing code and independently perform basic builds, debugging, and validation. Maintainers focus on project issues and PR reviews. Their time and capacity are limited, so they cannot provide programming lessons from scratch or guidance throughout the entire development process. Please use relevant documentation and tutorials to learn the fundamentals. Thank you for your understanding.
 
@@ -73,9 +73,7 @@ These commands check types and produce a static build. Manually verify client in
 
 In `frontend`, run `npm run format` to format code or `npm run format:check` to check formatting. See the [frontend development guide](https://github.com/putyy/res-downloader/blob/master/frontend/README.md) (Chinese).
 
-### Prepare bundled plugins
-
-Clone the repositories configured under `plugins` in `wails.json` into `plugins/`, then run `wails dev` or `wails build`. Restart the development process after editing a plugin. See [Maintaining bundled plugins](plugins.md#maintaining-bundled-plugins) for configuration and build requirements.
+For plugin setup required by local development, see [Maintaining bundled plugins](plugins.md#maintaining-bundled-plugins).
 
 ## Documentation contributions
 

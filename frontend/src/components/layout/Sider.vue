@@ -79,7 +79,7 @@ import {CloudOutline, DownloadOutline, ExtensionPuzzleOutline, HelpCircleOutline
 import {useIndexStore} from "@/stores"
 import Footer from "@/components/Footer.vue"
 import Screen from "@/components/Screen.vue"
-import {BrowserOpenURL} from "../../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 import {useI18n} from "vue-i18n"
 import UpdateDialog from "@/components/UpdateDialog.vue"
 import {useUpdateStore} from "@/stores/update"
@@ -172,7 +172,7 @@ const handleFooterUpdate = (key: string, item?: MenuOption) => {
   }
 
   if (key === "github") {
-    BrowserOpenURL("https://github.com/putyy/res-downloader")
+    void Browser.OpenURL("https://github.com/putyy/res-downloader")
     return
   }
 

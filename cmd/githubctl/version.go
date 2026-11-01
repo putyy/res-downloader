@@ -115,11 +115,13 @@ func classifyAsset(name, version string) (platform, arch, variant string) {
 		return
 	}
 	suffix := strings.TrimPrefix(name, prefix)
-	if suffix == "mac.dmg" {
+	if suffix == "mac_universal.dmg" {
 		return "darwin", "universal", "dmg"
 	}
 	for _, arch := range []string{"amd64", "arm64"} {
 		switch suffix {
+		case "mac_" + arch + ".dmg":
+			return "darwin", arch, "dmg"
 		case "win_" + arch + ".exe":
 			return "windows", arch, "installer"
 		case "win_" + arch + "_fixed_webview2.exe":

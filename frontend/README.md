@@ -7,7 +7,7 @@ Vue 3 + TypeScript + Vite，UI 使用 Naive UI，样式使用 Tailwind CSS。
 在 `frontend` 目录执行：
 
 ```bash
-npm install
+npm ci
 npm run dev
 npm run check
 npm run build
@@ -16,7 +16,7 @@ npm run format
 npm run format:check
 ```
 
-桌面联调从仓库根目录启动 Wails 开发模式。
+桌面联调从仓库根目录运行 `wails3 task dev`。Go 绑定可用 `wails3 generate bindings -ts ./...` 更新。
 
 ## 目录说明
 
@@ -32,4 +32,4 @@ src/
 └── views/        页面
 ```
 
-`wailsjs/` 由 Wails 生成，请勿手动修改。界面文案需同步维护中英文。
+`bindings/` 由 Wails v3 生成，请勿手动修改。界面文案需同步维护中英文。

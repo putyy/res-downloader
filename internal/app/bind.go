@@ -9,8 +9,6 @@ import (
 	"res-downloader/internal/httpapi"
 	shared "res-downloader/internal/model"
 	"res-downloader/internal/server"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const maxFrontendErrorRunes = 16 * 1024
@@ -65,7 +63,7 @@ func (b *Bind) RestartWithNewPort() error {
 	if err := b.runtime.App.preparePortRestart(); err != nil {
 		return err
 	}
-	runtime.Quit(b.runtime.App.ctx)
+	b.runtime.App.desktop.Quit()
 	return nil
 }
 
@@ -98,5 +96,5 @@ func (b *Bind) ResetApp() {
 	if !reset {
 		return
 	}
-	runtime.Quit(b.runtime.App.ctx)
+	b.runtime.App.desktop.Quit()
 }

@@ -34,7 +34,7 @@ func TestPrepareCopiesOnlyRuntimeFilesAndKeepsPreviousOutputOnValidationFailure(
 	for name, content := range files {
 		writeFile(t, filepath.Join(source, filepath.FromSlash(name)), content)
 	}
-	writeFile(t, filepath.Join(root, "wails.json"), `{"name":"Host","preBuildHooks":{},"plugins":[{"id":"official.example","repository":"https://github.com/example/resd-plugin-example.git"}]}`)
+	writeFile(t, filepath.Join(root, "build", "bundled-plugins.json"), `{"plugins":[{"id":"official.example","repository":"https://github.com/example/resd-plugin-example.git"}]}`)
 	generated := filepath.Join(root, "internal", "plugin", "bundled")
 	writeFile(t, filepath.Join(generated, "README.md"), "bootstrap")
 	writeFile(t, filepath.Join(generated, "obsolete", "main.js"), "old plugin")
@@ -72,7 +72,7 @@ func TestPrepareRejectsMissingSourceAndConflictingConfiguration(t *testing.T) {
 		`{"plugins":[{"id":"official.example","repository":"https://github.com/a/plugin.git"},{"id":"official.other","repository":"https://github.com/b/plugin.git"}]}`,
 	} {
 		root := t.TempDir()
-		writeFile(t, filepath.Join(root, "wails.json"), config)
+		writeFile(t, filepath.Join(root, "build", "bundled-plugins.json"), config)
 		writeFile(t, filepath.Join(root, "internal", "plugin", "bundled", "README.md"), "bootstrap")
 		if err := prepare(root, false); err == nil {
 			t.Fatalf("invalid preparation succeeded: %s", config)

@@ -42,14 +42,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          product_version="$(jq -r '.info.productVersion' wails.json)"
+          product_version="$(sed -n 's/^  version: *//p' build/config.yml | head -n 1)"
           if [[ -z "$product_version" || "$product_version" == "null" ]]; then
-            echo "wails.json 中缺少 info.productVersion" >&2
+            echo "build/config.yml 中缺少 info.version" >&2
             exit 1
           fi
 
           if [[ ! "$product_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "wails.json 产品版本必须是纯数字三段版本，当前为 $product_version" >&2
+            echo "build/config.yml 产品版本必须是纯数字三段版本，当前为 $product_version" >&2
             exit 1
           fi
 
@@ -62,7 +62,7 @@ jobs:
 
           release_base="${release_version%%-*}"
           if [[ "$release_base" != "$product_version" ]]; then
-            echo "标签主版本 $release_base 与 wails.json 产品版本 $product_version 不一致" >&2
+            echo "标签主版本 $release_base 与 build/config.yml 产品版本 $product_version 不一致" >&2
             exit 1
           fi
 
@@ -129,7 +129,6 @@ jobs:
     uses: ./.github/workflows/release-macos.yml
     with:
       tag: ${{ needs.prepare.outputs.tag }}
-      product_version: ${{ needs.prepare.outputs.product_version }}
       release_version: ${{ needs.prepare.outputs.release_version }}
 
   windows:

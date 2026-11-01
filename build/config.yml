@@ -1,0 +1,41 @@
+# Wails v3 build metadata. Packaging tasks refresh platform resources automatically.
+version: '3'
+
+info:
+  companyName: res-downloader
+  productName: res-downloader
+  productIdentifier: com.wails.res-downloader
+  description: A resource downloader with network capture and fast downloads
+  copyright: Copyright © 2023
+  comments: A resource downloader with network capture and fast downloads
+  version: 4.0.0
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+      - internal/plugin/bundled
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+  executes:
+    - cmd: wails3 task common:install:frontend:deps
+      type: once
+    - cmd: wails3 task common:dev:frontend
+      type: background
+    - cmd: wails3 build DEV=true
+      type: blocking
+    - cmd: wails3 task run
+      type: primary
+      exit_policy: shutdown

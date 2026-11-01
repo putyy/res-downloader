@@ -120,7 +120,7 @@ import {computed} from "vue"
 import {useRouter} from "vue-router"
 import {useI18n} from "vue-i18n"
 import type {appType} from "@/types/app"
-import {BrowserOpenURL} from "../../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 import PluginRuntimeHealth from "./PluginRuntimeHealth.vue"
 
 const genericDetectorID = "builtin.generic-detector"
@@ -157,7 +157,7 @@ const openHomepage = () => {
   if (!target) return
   try {
     const parsed = new URL(target)
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") BrowserOpenURL(target)
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") void Browser.OpenURL(target)
     else throw new Error("unsupported protocol")
   } catch (_) {
     window?.$message?.error(t("plugin.invalid_homepage"))

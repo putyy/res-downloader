@@ -20,5 +20,5 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["env.d.ts", "auto-imports.d.ts", "components.d.ts", "src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "include": ["env.d.ts", "auto-imports.d.ts", "components.d.ts", "src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "bindings/**/*.ts"]
 }

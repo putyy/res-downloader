@@ -23,6 +23,8 @@ Windows 7 only supports version `2.3.0` from the legacy archive.
 
 ## macOS
 
+Choose `_mac_amd64.dmg` for Intel Macs or `_mac_arm64.dmg` for Apple Silicon (M-series). The `_mac_universal.dmg` package supports both architectures.
+
 Download the `.dmg` file and drag `res-downloader.app` to **Applications**.
 
 If macOS blocks the first launch, allow the app under **System Settings → Privacy & Security**.
@@ -51,19 +53,14 @@ If `yay` is installed, update your system and install [res-downloader from the A
 yay -Syu res-downloader
 ```
 
-Since 2024, Arch Linux has provided only `webkit2gtk-4.1`, with `webkit2gtk-4.0` no longer available.
-
 ::: details Building from source or maintaining the AUR package
-When building from source or maintaining the PKGBUILD, use WebKit2GTK 4.1:
-
-1. Replace `webkit2gtk-4.0` with `webkit2gtk-4.1` in `depends` / `makedepends`.
-2. Add the `-tags webkit2_41` build tag to `wails build` in `build()`. For example, to build for amd64:
+The current version uses Wails v3 with GTK4 and WebKitGTK 6.0. When building from source or maintaining the PKGBUILD, configure the `gtk4` and `webkitgtk-6.0` dependencies and use this build command:
 
 ```bash
-wails build -platform "linux/amd64" -tags webkit2_41 -upx
+wails3 task linux:build PRODUCTION=true
 ```
 
-`-upx` compresses the executable and requires UPX to be installed; omit it if compression is unnecessary. When installing through `yay` with a PKGBUILD that already includes these settings, no manual changes are needed.
+When installing through `yay` with a PKGBUILD already adapted to the current version, no manual changes are needed.
 :::
 
 ### Standalone executable
