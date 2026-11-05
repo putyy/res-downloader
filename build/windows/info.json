@@ -1,9 +1,11 @@
 {
 	"fixed": {
-		"file_version": "4.0.0"
+		"file_version": "4.0.0",
+		"product_version": "4.0.0"
 	},
 	"info": {
 		"0409": {
+			"FileVersion": "4.0.0",
 			"ProductVersion": "4.0.0",
 			"CompanyName": "res-downloader",
 			"FileDescription": "A resource downloader with network capture and fast downloads",

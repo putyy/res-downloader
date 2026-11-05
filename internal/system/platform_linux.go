@@ -4,10 +4,6 @@ package system
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"crypto/x509"
-	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -16,6 +12,20 @@ import (
 )
 
 func (s *Setup) removeLegacyCertificate(fingerprint string) (string, string, error) {
+	linuxCertificateMu.Lock()
+	defer linuxCertificateMu.Unlock()
+	nssRemoved, nssErr := removeNSSCertificate(fingerprint, false)
+	status, message, systemErr := s.removeLegacySystemCertificate(fingerprint)
+	if err := errors.Join(nssErr, systemErr); err != nil {
+		return "needsManualCleanup", message, err
+	}
+	if status == "notFound" && nssRemoved {
+		return "removed", "legacy browser certificate removed; certificates installed on phones must be removed manually", nil
+	}
+	return status, message, nil
+}
+
+func (s *Setup) removeLegacySystemCertificate(fingerprint string) (string, string, error) {
 	paths := []string{
 		"/usr/local/share/ca-certificates/res-downloader.crt",
 		"/etc/ca-certificates/trust-source/anchors/res-downloader.crt",
@@ -24,20 +34,14 @@ func (s *Setup) removeLegacyCertificate(fingerprint string) (string, string, err
 	}
 	removed := false
 	for _, path := range paths {
-		raw, err := os.ReadFile(path)
+		matches, err := certificateFileMatchesSHA1(path, fingerprint)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
 		if err != nil {
-			continue
+			return "needsManualCleanup", "", err
 		}
-		block, _ := pem.Decode(raw)
-		if block == nil {
-			continue
-		}
-		certificate, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			continue
-		}
-		digest := sha1.Sum(certificate.Raw)
-		if !strings.EqualFold(hex.EncodeToString(digest[:]), fingerprint) {
+		if !matches {
 			continue
 		}
 		if s.Password == "" {
@@ -84,6 +88,17 @@ func (s *Setup) removeLegacyCertificate(fingerprint string) (string, string, err
 }
 
 func (s *Setup) isCertificateInstalled(fingerprint string) (bool, error) {
+	linuxCertificateMu.Lock()
+	defer linuxCertificateMu.Unlock()
+	installed, err := s.isSystemCertificateInstalled(fingerprint)
+	if err != nil || installed {
+		return installed, err
+	}
+	present, _, err := nssCertificateState(fingerprint, true)
+	return present, err
+}
+
+func (s *Setup) isSystemCertificateInstalled(fingerprint string) (bool, error) {
 	paths := []string{
 		"/usr/local/share/ca-certificates/res-downloader.crt",
 		"/etc/ca-certificates/trust-source/anchors/res-downloader.crt",
@@ -106,6 +121,14 @@ func (s *Setup) isCertificateInstalled(fingerprint string) (bool, error) {
 }
 
 func (s *Setup) uninstallCertificate(fingerprint string) (string, error) {
+	linuxCertificateMu.Lock()
+	defer linuxCertificateMu.Unlock()
+	_, nssErr := removeNSSCertificate(fingerprint, true)
+	output, systemErr := s.uninstallSystemCertificate(fingerprint)
+	return output, errors.Join(nssErr, systemErr)
+}
+
+func (s *Setup) uninstallSystemCertificate(fingerprint string) (string, error) {
 	paths := []string{
 		"/usr/local/share/ca-certificates/res-downloader.crt",
 		"/etc/ca-certificates/trust-source/anchors/res-downloader.crt",
@@ -203,6 +226,12 @@ func (s *Setup) unsetProxy() error {
 }
 
 func (s *Setup) installCert() (string, error) {
+	linuxCertificateMu.Lock()
+	defer linuxCertificateMu.Unlock()
+	// Check existing browser stores before changing system trust.
+	if _, _, err := nssCertificateState("", false); err != nil {
+		return "", fmt.Errorf("check browser certificate stores before installation: %w", err)
+	}
 	_, err := s.initCert()
 	if err != nil {
 		return "", err
@@ -231,8 +260,10 @@ func (s *Setup) installCert() (string, error) {
 		certPath = "/usr/local/share/ca-certificates/" + certName
 	}
 
-	if output, err := s.runCommand([]string{"cp", "-f", s.CertFile, certPath}, true); err != nil {
-		return string(output), fmt.Errorf("copy certificate: %w", err)
+	// The public CA must remain readable by ordinary users, including when
+	// replacing an existing certificate with restrictive permissions.
+	if output, err := s.runCommand([]string{"install", "-m", "0644", s.CertFile, certPath}, true); err != nil {
+		return string(output), fmt.Errorf("install certificate: %w", err)
 	}
 
 	if distro == "deepin" {
@@ -249,6 +280,9 @@ func (s *Setup) installCert() (string, error) {
 
 	if output, err := s.runCommand(updateCmd, true); err != nil {
 		return string(output), fmt.Errorf("update system certificate trust: %w", err)
+	}
+	if err := s.installNSSCertificate(); err != nil {
+		return "", fmt.Errorf("system certificate installed, but browser NSS installation failed: %w", err)
 	}
 	return "", nil
 }

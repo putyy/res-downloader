@@ -9,7 +9,7 @@ Prepare one exact, committed host-application revision and trigger the existing 
 
 ## Source of truth
 
-- Inspect `AGENTS.md`, `CONTRIBUTING.md`, `wails.json`, and `.github/workflows/release.yml` before acting.
+- Inspect `AGENTS.md`, `CONTRIBUTING.md`, `build/config.yml`, and `.github/workflows/release.yml` before acting.
 - Inspect called release workflows only when needed to verify current platform artifacts or metadata rules.
 - The workflow is authoritative. Do not reproduce the macOS, Windows, or Linux release build locally.
 
@@ -17,30 +17,29 @@ Prepare one exact, committed host-application revision and trigger the existing 
 
 1. Determine the expected release branch, remote, version, and tag.
 2. Validate the tag against the workflow's current accepted format. At present it accepts an optional `v` prefix and `X.Y.Z`, optionally followed by `-alpha.N`, `-beta.N`, or `-rc.N`.
-3. Read `wails.json` and require `info.productVersion` to be the numeric `X.Y.Z` base of the tag.
+3. Read `build/config.yml` and require `info.version` to be the numeric `X.Y.Z` base of the tag.
 4. Inspect release-related documentation and metadata for consistency. Perform only applicable static repository checks; do not start the application, run browser validation, or build platform installers locally.
 5. Check whether the proposed tag already exists locally or remotely. Never move, replace, or delete an existing release tag as part of the normal flow.
 6. Compare the intended release commit with the previous application release tag. Group the delta by user-visible behavior and release risk, then derive a focused manual-verification checklist from the actual changes. Do not reuse a generic checklist when the release changes installers, startup, persistence, downloads, media tools, certificates, plugins, or platform integration.
 7. Inspect the called platform workflows and record the exact artifact matrix for this release, including architecture-specific or dependency-bundled variants. Treat the workflows as the source of truth instead of hardcoding filenames that may drift.
-8. Check the `plugins` entries in `wails.json` and the bundled-plugin preparation in `cmd/bundleplugins/` and the release workflows. The release preparation downloads each repository's latest default branch with `go run ./cmd/bundleplugins -download`; platform jobs consume the same prepared artifact through the Wails build hook. Plugin sources are fetched at release time and are not fixed by the host commit. A local checkout or generated bundle does not prove which plugin revision a release will include; use the preparation log's commit IDs when reporting actual release inputs. Keep generated plugin directories under `internal/plugin/bundled/` out of commits. Before direct Go compilation or host checks, prepare local sources with `go run ./cmd/bundleplugins`; do not download remote sources merely for static preflight.
+8. Check the `plugins` entries in `build/bundled-plugins.json` and the preparation in `cmd/bundleplugins/`, `build/Taskfile.yml`, and the release workflows. Release preparation downloads each repository's latest default branch with `go run ./cmd/bundleplugins -download`; platform jobs consume the shared artifact through the platform Taskfiles and `common:bundle:plugins`. Plugin sources are fetched at release time and are not fixed by the host commit. A local checkout or generated bundle does not prove which plugin revision a release will include; use the preparation log's commit IDs when reporting actual release inputs. Keep generated plugin directories under `internal/plugin/bundled/` out of commits. Before direct Go compilation or host checks, prepare local sources with `go run ./cmd/bundleplugins`; do not download remote sources merely for static preflight.
 
 ## Commit-completeness gate
 
 - Inspect staged, unstaged, and untracked files with Git status and diff summaries.
-- If any file is uncommitted, list it and stop before tagging. Ask the user whether it belongs in this release, is unrelated, or means the release should be cancelled. Never silently ignore untracked files and never auto-commit unrelated work.
+- If any file is uncommitted, list it and resolve its release scope before tagging. Complete already authorized release commits; ask only about unrelated or ambiguous changes. Never silently ignore untracked files or auto-commit unrelated work.
 - Require a clean worktree before creating the tag.
-- Show the current branch, HEAD hash and message, changes since the previous release tag, and the proposed version and tag. A clean worktree establishes mechanical completeness; ask the user to confirm semantic completeness—that the intended latest changes are actually included.
-- Check the configured upstream after refreshing remote state. The release commit should be reachable from the expected remote release branch. If the branch is ahead, request confirmation before pushing it; if it is behind or diverged, stop and resolve that state first.
+- Show the current branch, HEAD hash and message, changes since the previous release tag, and the proposed version and tag. A clean worktree establishes mechanical completeness; obtain confirmation that the intended changes are included unless the user already confirmed that exact release scope.
+- Check the configured upstream after refreshing remote state. The release commit should be reachable from the expected remote release branch. If the branch is ahead, push only within explicit authorization; if it is behind or diverged, stop and resolve that state first.
 - If no expected upstream or remote exists, stop and ask the user which repository and branch are authoritative.
 
 ## Authorization and trigger
 
 - Read-only inspection and static validation do not authorize mutation.
-- Require explicit confirmation immediately before staging or committing release changes, showing the exact files and proposed message.
-- Require explicit confirmation before pushing a release branch, showing the branch, commit, and remote.
-- Immediately before creating and pushing the release tag, present the exact tag, target commit, remote, and commands, and ask for explicit confirmation. One confirmation may cover creating and pushing that exact tag when both actions are clearly listed.
+- Preserve explicit authorization already given for the same release scope and actions. Preparing a release alone does not authorize committing, pushing, or publishing. Follow the project's commit rules without asking again for an already requested commit.
+- Before requesting missing approval, finish applicable preparation and present the concrete files, commit, branch, tag, remote, and commands relevant to that approval. One confirmation can cover the listed commit, branch push, and tag creation/push; do not request separate confirmations for actions already approved. Seek new approval when the release target or scope changes.
 - Pushing the tag triggers `.github/workflows/release.yml`, which creates and publishes the GitHub Release. Do not also create a Release manually unless the user separately requests recovery from a documented workflow failure.
-- If tag creation succeeds but push fails, report the remaining local tag. Do not retry, delete, recreate, force-push, or dispatch the workflow without new confirmation.
+- If tag creation succeeds but push fails, report the remaining local tag and inspect local and remote state. Retry within existing authorization only when it cannot duplicate or overwrite release artifacts. Deleting or replacing tags, force-pushing, or manually dispatching a workflow requires separate authorization.
 
 ## Handoff
 

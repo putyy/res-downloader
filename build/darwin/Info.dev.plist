@@ -9,7 +9,7 @@
 		<key>CFBundleIconFile</key>
 		<string>icons</string>
 		<key>CFBundleIdentifier</key>
-		<string>com.wails.res-downloader</string>
+		<string>com.putyy.res-downloader</string>
 		<key>CFBundleName</key>
 		<string>res-downloader</string>
 		<key>CFBundlePackageType</key>

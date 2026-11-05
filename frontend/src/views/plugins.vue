@@ -1,7 +1,15 @@
 <template>
   <div class="h-full overflow-hidden p-5">
     <div class="mx-auto h-full min-h-0 w-full">
-      <NTabs :value="activeTab" type="line" animated class="h-full" pane-wrapper-class="min-h-0 flex-1" pane-class="h-full overflow-hidden" @update:value="onTabChanged">
+      <NTabs
+        :value="activeTab"
+        type="line"
+        animated
+        class="app-drag-tabs h-full"
+        pane-wrapper-class="min-h-0 flex-1"
+        pane-class="h-full overflow-hidden"
+        @update:value="onTabChanged"
+      >
         <template #suffix>
           <NSpace :wrap="false">
             <NButton secondary :loading="localInspecting || localInstalling" @click="inspectLocalPlugin">

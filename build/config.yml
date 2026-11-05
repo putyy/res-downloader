@@ -4,7 +4,7 @@ version: '3'
 info:
   companyName: res-downloader
   productName: res-downloader
-  productIdentifier: com.wails.res-downloader
+  productIdentifier: com.putyy.res-downloader
   description: A resource downloader with network capture and fast downloads
   copyright: Copyright © 2023
   comments: A resource downloader with network capture and fast downloads

@@ -1,6 +1,13 @@
 <template>
   <div class="h-full overflow-hidden p-5" :key="renderKey">
-    <NTabs v-model:value="activeTab" type="line" animated class="h-full" pane-wrapper-class="min-h-0 flex-1" pane-class="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden">
+    <NTabs
+      v-model:value="activeTab"
+      type="line"
+      animated
+      class="app-drag-tabs h-full"
+      pane-wrapper-class="min-h-0 flex-1"
+      pane-class="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
+    >
       <NTabPane name="basic" :tab="t('setting.basic_setting')">
         <NForm :model="formValue" size="medium" label-placement="left" label-width="auto" require-mark-placement="right-hanging" class="w-[700px] [--wails-draggable:no-drag]">
           <NFormItem

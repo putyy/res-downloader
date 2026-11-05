@@ -4,8 +4,8 @@
       >{{ t("operations.linked_filter") }} · {{ route.query.taskId }} <NButton text @click="router.replace('/tasks')">{{ t("operations.clear_filter") }}</NButton></NAlert
     >
     <div class="mx-auto flex min-h-0 w-full flex-1 flex-col">
-      <section class="bg-app-background z-20 flex shrink-0 flex-col gap-4 pb-3 [&_.n-tabs-nav--top]:static">
-        <NTabs v-model:value="activeTab" type="line" class="[--wails-draggable:no-drag]">
+      <section class="bg-app-background z-20 flex shrink-0 flex-col gap-4 pb-3 [--wails-draggable:drag] [&_.n-tabs-nav--top]:static">
+        <NTabs v-model:value="activeTab" type="line" class="app-drag-tabs [--wails-draggable:no-drag]">
           <NTab name="all">{{ t("tasks.all") }} ({{ tasks.length }})</NTab>
           <NTab name="active">{{ t("tasks.active") }} ({{ activeCount }})</NTab>
           <NTab name="completed">{{ t("tasks.completed") }} ({{ completedCount }})</NTab>

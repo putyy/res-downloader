@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=res-downloader
+Comment=Capture resources and manage downloads
+Exec=res-downloader
+Icon=res-downloader
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=res-downloader

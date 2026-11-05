@@ -134,12 +134,12 @@ func (a *App) installCertWith(setup *SystemSetup) (string, error) {
 		a.runtime.Logger.Esg(err, "%s", out)
 		return out, err
 	}
-	installed, err := setup.IsCertificateInstalled(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
+	installed, err := setup.CertificateInstallationComplete(desktopsystem.CurrentCertificateSHA1(a.PublicCrt))
 	if err != nil {
 		return out, fmt.Errorf("verify installed certificate: %w", err)
 	}
 	if !installed {
-		return out, fmt.Errorf("the current device certificate was not found in the system trust store after installation")
+		return out, fmt.Errorf("the current device certificate is not fully installed in the desktop trust stores")
 	}
 	return out, nil
 }

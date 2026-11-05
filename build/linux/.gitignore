@@ -1,5 +1,7 @@
-!.gitkeep
-Debian/usr/local/bin/*
-Debian/DEBIAN/control
-AppImage/usr/bin/*
-AppImage/usr/lib/*
+# AppImage output (also ignore the historical directory casing).
+/appimage/
+/AppImage/
+
+# Generated desktop entries.
+/res-downloader.desktop
+/desktop

@@ -3,10 +3,6 @@
 build/bin
 bin/
 .task/
-build/linux/appimage/
-build/linux/nfpm/nfpm.yaml
-build/linux/res-downloader.desktop
-build/linux/desktop
 build/darwin/icons.icns
 build/windows/nsis/wails_tools.nsh
 build/ios/

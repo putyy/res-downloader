@@ -1,10 +1,19 @@
-FROM golang:1.26-trixie
+FROM golang:1.26-bookworm AS go-toolchain
+
+# Compile against the oldest supported Ubuntu baseline, including its C libraries.
+FROM ubuntu:24.04
+COPY --from=go-toolchain /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 
 WORKDIR /
 
 RUN apt-get update && \
     apt-get install -y --fix-missing \
     build-essential \
+    ca-certificates \
+    pkg-config \
+    dpkg-dev \
+    desktop-file-utils \
     git \
     jq \
     kmod \

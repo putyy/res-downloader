@@ -183,7 +183,9 @@ HTTPS capture requires the current certificate. Install, uninstall, or refresh i
 
 - Approve the UAC prompt on Windows; enter your system password when prompted on macOS or Linux.
 - Phones need the certificate downloaded and installed separately.
-- The app performs a one-time migration check for the shared certificate used by legacy versions. Follow any authorization prompt to remove it. Existing migration results are retained; routine upgrades preserve the current certificate and settings.
+- The app performs a one-time migration check for the shared certificate used by legacy versions. Follow any authorization prompt to remove it. Routine upgrades preserve the current certificate and settings.
+
+On Linux, installing or uninstalling certificates also updates the current user’s existing shared browser certificate stores. Applications with separate certificate stores still require manual import.
 
 ## Advanced settings
 

@@ -1,7 +1,7 @@
 <template>
   <div class="h-full overflow-auto p-5 text-app-text [--wails-draggable:no-drag]">
     <div class="max-w-7xl mx-auto space-y-4">
-      <header class="flex items-start justify-between gap-4">
+      <header class="flex items-start justify-between gap-4 [--wails-draggable:drag]">
         <div class="flex min-w-0 flex-col gap-2">
           <div class="min-w-0 flex ml-[-8px]">
             <NButton quaternary circle size="small" class="shrink-0" :aria-label="t('operations.back')" @click="goBack">
@@ -18,7 +18,7 @@
       <NAlert v-if="error" type="error" :title="t('operations.request_failed')">{{ error }}</NAlert>
       <NAlert v-if="status && !status.available" type="error">{{ t("operations.errors.storage_unavailable") }}</NAlert>
       <NAlert v-if="syncUnavailable" type="warning">{{ t("operations.sync_unavailable") }}</NAlert>
-      <NTabs v-model:value="tab" type="line" animated>
+      <NTabs v-model:value="tab" type="line" animated class="app-drag-tabs">
         <NTabPane name="run" :tab="t('operations.run')">
           <div class="grid grid-cols-1 xl:grid-cols-[minmax(240px,0.8fr)_minmax(360px,1.5fr)] gap-4">
             <NCard class="app-card" :bordered="false" size="small" :title="t('operations.catalog')">

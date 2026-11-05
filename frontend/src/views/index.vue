@@ -3,7 +3,7 @@
     <NAlert v-if="route.query.resourceId" type="info" class="mb-3 [--wails-draggable:no-drag]"
       >{{ t("operations.linked_filter") }} · {{ route.query.resourceId }} <NButton text @click="router.replace('/index')">{{ t("operations.clear_filter") }}</NButton></NAlert
     >
-    <div class="pb-2 z-40" id="header">
+    <div class="pb-2 z-40 [--wails-draggable:drag]" id="header">
       <NSpace>
         <NButton v-if="isProxy" secondary type="primary" @click.stop="close" class="[--wails-draggable:no-drag]">
           <span class="inline-block w-1.5 h-1.5 bg-red-600 rounded-full mr-1 animate-pulse"></span>

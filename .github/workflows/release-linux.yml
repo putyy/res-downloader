@@ -78,33 +78,21 @@ jobs:
 
               restore_workspace_ownership() {
                 chown -R "$HOST_UID:$HOST_GID" \
-                  bin \
-                  build/linux/Debian
+                  bin
                 if [[ -d build/linux/appimage ]]; then
                   chown -R "$HOST_UID:$HOST_GID" build/linux/appimage
                 fi
               }
               trap restore_workspace_ownership EXIT
 
-              wails3 task linux:build "ARCH=$ARCH" "RELEASE_VERSION=$RELEASE_VERSION" PRODUCTION=true BUNDLE_PLUGINS_SKIP=true
-
-              install -Dm755 \
-                bin/res-downloader \
-                build/linux/Debian/usr/local/bin/res-downloader
-              sed \
-                -e "s/{{Version}}/$PACKAGE_VERSION/g" \
-                -e "s/{{Architecture}}/$ARCH/g" \
-                build/linux/Debian/DEBIAN/.control \
-                > build/linux/Debian/DEBIAN/control
-              dpkg-deb --build \
-                build/linux/Debian \
-                "bin/res-downloader_${RELEASE_VERSION}_linux_${ARCH}.deb"
+              wails3 task linux:create:deb "ARCH=$ARCH" "RELEASE_VERSION=$RELEASE_VERSION" "PACKAGE_VERSION=$PACKAGE_VERSION" BUNDLE_PLUGINS_SKIP=true
+              mv bin/res-downloader.deb "bin/res-downloader_${RELEASE_VERSION}_linux_${ARCH}.deb"
 
               if [[ "$ARCH" == "amd64" ]]; then
                 wails3 task linux:generate:dotdesktop
                 wails3 generate appimage \
                   -binary bin/res-downloader \
-                  -icon build/appicon.png \
+                  -icon build/linux/Debian/usr/share/icons/hicolor/256x256/apps/res-downloader.png \
                   -desktopfile build/linux/res-downloader.desktop \
                   -outputdir bin \
                   -builddir build/linux/appimage/build

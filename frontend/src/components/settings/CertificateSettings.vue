@@ -22,7 +22,7 @@
         <NButton secondary @click="load">{{ t("setting.certificate_refresh_status") }}</NButton>
         <NPopconfirm @positive-click="beginUninstall">
           <template #trigger>
-            <NButton type="error" secondary :disabled="!status.desktop.installed" :loading="uninstalling">
+            <NButton type="error" secondary :disabled="!status.desktop.installed && !status.desktop.present && !status.desktop.error" :loading="uninstalling">
               {{ t("setting.certificate_uninstall") }}
             </NButton>
           </template>
@@ -147,6 +147,7 @@ const uninstall = async () => {
     })) as appType.Res<appType.CertificateStatus>
     if (response.code === 0) {
       window.$message?.error(response.message, {duration: 8000})
+      await load()
       return
     }
     certificate.status = response.data

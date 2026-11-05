@@ -10,6 +10,7 @@ Keep public documentation aligned with the current implementation without copyin
 ## Establish the documentation impact
 
 - Inspect the actual code or configuration change before editing documentation. Do not describe planned or assumed behavior as shipped behavior.
+- Update public documentation only when users need different instructions or existing statements become inaccurate. An internal fix that restores documented behavior does not by itself require a new paragraph.
 - Read the affected documentation completely and follow the existing terminology, audience, and language.
 - Check `README.md` and its linked English counterpart `README-EN.md` when either is affected. If a linked counterpart is missing, report or restore the broken contract rather than silently ignoring it.
 - Check `docs/.vitepress/config.mts` and the navigation in `docs/.vitepress/locales/` whenever pages are added, removed, renamed, or moved.
@@ -25,7 +26,7 @@ Use the implementation change to route documentation review. This is an impact m
 | Installation, first-run behavior, supported platforms, or headline capability | `README.md`, `README-EN.md`, and the relevant user guide |
 | Plugin protocol, permissions, SDK, CLI, packaging, or publication | the plugin and SDK documentation listed below |
 
-When one change affects both normal usage and failure recovery, update the task-oriented guide and troubleshooting guide together, using one canonical explanation and cross-links where appropriate.
+When one change affects both normal usage and failure recovery, review both guides and edit only the affected instructions. Keep one canonical explanation and cross-link only when it helps the reader.
 
 ## Plugin and SDK consistency
 
@@ -45,7 +46,8 @@ Do not update the SDK files speculatively. If code and SDK disagree, identify wh
 ## Editing rules
 
 - Preserve meaning across Chinese and English README variants; use natural language rather than sentence-by-sentence literal translation.
-- Keep user guides task-oriented and move developer-only detail to developer documentation.
+- Keep settings pages focused on the operation, its effect, and essential limits. Include implementation details such as fingerprints, permissions, and database paths only when needed for a user action; do not automatically relocate removed details into developer documentation.
+- Keep troubleshooting entries focused on an applicable symptom and the shortest supported recovery steps. Remove obsolete workarounds after a fix; do not turn debugging history or automatically handled steps into permanent user instructions.
 - Reuse one canonical explanation and link to it when duplication would drift.
 - Update commands, paths, option names, UI labels, defaults, limitations, and screenshots only when supported by current repository state.
 - Remove or repair stale links and navigation entries. Check relative paths and filename case because the documentation site and GitHub may resolve them differently.

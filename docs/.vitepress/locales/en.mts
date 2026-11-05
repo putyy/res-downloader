@@ -14,6 +14,7 @@ export const en = {
         items: [
           { text: 'Contributing', link: '/en/development/contributing' },
           { text: 'Architecture', link: '/en/development/architecture' },
+          { text: 'Local Packaging', link: '/en/development/packaging' },
           { text: 'Release Notes', link: 'https://github.com/putyy/res-downloader/releases' },
           { text: 'Report an Issue', link: 'https://github.com/putyy/res-downloader/issues' },
         ],
@@ -52,6 +53,7 @@ export const en = {
         items: [
           { text: 'Contribution Guide', link: '/en/development/contributing' },
           { text: 'Architecture', link: '/en/development/architecture' },
+          { text: 'Local Packaging', link: '/en/development/packaging' },
         ],
       },
     ],

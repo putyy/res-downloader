@@ -2,6 +2,10 @@
 description: 排查 res-downloader 的安装、证书、资源抓取、手机接入和下载问题，了解日志位置、CLI / MCP 连接与直播录制设置。
 ---
 
+<script setup>
+import { withBase } from 'vitepress'
+</script>
+
 # 常见问题
 
 首次使用请先阅读[快速开始](getting-started.md)，需要反馈时请附上[日志和复现信息](#如何查看软件日志)。
@@ -11,6 +15,24 @@ description: 排查 res-downloader 的安装、证书、资源抓取、手机接
 ### 应用无法启动
 
 先按[安装指南](installation.md)确认安装包与操作系统、CPU 架构匹配，并记录启动时的错误提示。如果无法进入主界面，可直接按[日志位置](#如何查看软件日志)查找 `app.log`，提供脱敏日志和系统、应用版本等信息以便排查。日志文件不存在时，也请提供错误截图和安装包文件名。
+
+### Ubuntu 上 AppImage 无法启动 {#appimage-apparmor}
+
+推荐使用 [DEB 安装包](installation.md#debian-ubuntu)，安装时会自动配置所需权限。
+
+Ubuntu 24.04 上若出现 `bwrap` 权限错误，下载 <a :href="withBase('/examples/appimage-apparmor.sh')" download>配置脚本</a>，在脚本所在目录打开终端，将下面的 AppImage 路径替换为实际路径后执行：
+
+```bash
+chmod +x "$HOME/Applications/res-downloader.AppImage"
+sudo bash ./appimage-apparmor.sh install "$HOME/Applications/res-downloader.AppImage"
+"$HOME/Applications/res-downloader.AppImage"
+```
+
+移动或重命名 AppImage 后，需重新执行安装命令。不再使用时移除配置：
+
+```bash
+sudo bash ./appimage-apparmor.sh remove
+```
 
 ### Debian / Ubuntu 安装时的权限提示 {#debian-ubuntu-apt-permission}
 
@@ -87,6 +109,8 @@ sudo xattr -d com.apple.quarantine /Applications/res-downloader.app
 ### 安装证书后仍提示未安装
 
 进入“系统设置 → 证书”，重新安装证书并刷新状态。Windows 请允许 UAC 授权；手机上的旧证书需要手动删除后重新安装。
+
+Linux 若提示缺少 `certutil`，先按[浏览器证书工具](installation.md#browser-certificate-tools)补齐依赖后重试。清理失败会列出未完成项；修复对应证书库问题后再次卸载或重试旧证书清理。
 
 ### 手机如何接入
 

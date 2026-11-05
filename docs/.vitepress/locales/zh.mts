@@ -14,6 +14,7 @@ export const zh = {
         items: [
           { text: '参与贡献', link: '/development/contributing' },
           { text: '架构说明', link: '/development/architecture' },
+          { text: '本地打包', link: '/development/packaging' },
           { text: '更新日志', link: 'https://github.com/putyy/res-downloader/releases' },
           { text: '问题反馈', link: 'https://github.com/putyy/res-downloader/issues' },
         ],
@@ -52,6 +53,7 @@ export const zh = {
         items: [
           { text: '参与贡献', link: '/development/contributing' },
           { text: '架构说明', link: '/development/architecture' },
+          { text: '本地打包', link: '/development/packaging' },
         ],
       },
     ],

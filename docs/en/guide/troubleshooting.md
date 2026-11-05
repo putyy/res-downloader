@@ -2,6 +2,10 @@
 description: Troubleshoot res-downloader installation, certificates, resource capture, phone connections, and downloads. Find logs and resolve CLI / MCP and live recording issues.
 ---
 
+<script setup>
+import { withBase } from 'vitepress'
+</script>
+
 # Troubleshooting
 
 ## Too many WeChat Channels resources
@@ -37,6 +41,8 @@ Reopen Reddit after changing the settings so that new connections use the policy
 
 Open **Setting → Certificate**, reinstall the certificate, and refresh its status. On Windows, approve the UAC prompt. On phones, manually remove the old certificate before installing the new one.
 
+On Linux, if `certutil` is missing, install the [browser certificate tools](installation.md#browser-certificate-tools) and retry. Failed cleanup reports unfinished operations; resolve the affected store errors, then retry uninstalling or cleaning up the legacy certificate.
+
 ## Connect a phone
 
 1. Connect the phone and computer to the same network.
@@ -55,6 +61,24 @@ On macOS, an existing authenticated proxy is left intact and the app asks you to
 ## App fails to start
 
 Check the [Installation guide](installation.md) to confirm that the package matches your operating system and CPU architecture, and note any startup error. If you cannot open the main interface, use the [log locations](#find-application-logs) to find `app.log` directly. Provide sanitized logs along with your system and app versions. If no log file exists, include an error screenshot and the installer filename.
+
+## AppImage fails to start on Ubuntu {#appimage-apparmor}
+
+We recommend the [DEB package](installation.md#debian-ubuntu), which configures the required permissions during installation.
+
+For a `bwrap` permission error on Ubuntu 24.04, download the <a :href="withBase('/examples/appimage-apparmor.sh')" download>configuration script</a>, open a terminal in its directory, and run these commands with your actual AppImage path:
+
+```bash
+chmod +x "$HOME/Applications/res-downloader.AppImage"
+sudo bash ./appimage-apparmor.sh install "$HOME/Applications/res-downloader.AppImage"
+"$HOME/Applications/res-downloader.AppImage"
+```
+
+After moving or renaming the AppImage, rerun the install command. Remove the configuration when no longer needed:
+
+```bash
+sudo bash ./appimage-apparmor.sh remove
+```
 
 ## Settings behave incorrectly but the interface opens
 

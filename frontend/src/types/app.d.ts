@@ -54,7 +54,7 @@ export namespace appType {
 
   interface CertificateStatus {
     fingerprintSha256?: string
-    desktop: {installed: boolean; fingerprintSha1?: string; checkedAt: number; error?: string}
+    desktop: {installed: boolean; present?: boolean; fingerprintSha1?: string; checkedAt: number; error?: string}
     migration: {version: number; status: string; message?: string; checkedAt: number}
     needsPhoneCleanup: boolean
     error?: string

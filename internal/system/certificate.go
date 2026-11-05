@@ -21,8 +21,7 @@ import (
 )
 
 const (
-	legacyCertificateSHA1       = "F0A43AE8E1884CE134A995271F5CD7B0BAF87080"
-	certificateMigrationVersion = 1
+	legacyCertificateSHA1 = "F0A43AE8E1884CE134A995271F5CD7B0BAF87080"
 )
 
 type CertificateMigrationRecord struct {
@@ -34,6 +33,7 @@ type CertificateMigrationRecord struct {
 
 type DesktopCertificateStatus struct {
 	Installed       bool   `json:"installed"`
+	Present         bool   `json:"present"`
 	FingerprintSHA1 string `json:"fingerprintSha1,omitempty"`
 	CheckedAt       int64  `json:"checkedAt"`
 	Error           string `json:"error,omitempty"`
@@ -54,8 +54,13 @@ func CurrentCertificateStatus(certificate []byte, certificateError string, setup
 	if setup != nil {
 		status.Migration = setup.LegacyCertificateMigration
 		if status.Desktop.FingerprintSHA1 != "" {
-			installed, err := setup.isCertificateInstalled(status.Desktop.FingerprintSHA1)
+			present, presenceErr := setup.isCertificateInstalled(status.Desktop.FingerprintSHA1)
+			status.Desktop.Present = present
+			installed, err := setup.certificateInstallationComplete(status.Desktop.FingerprintSHA1)
 			status.Desktop.Installed = installed
+			if err == nil {
+				err = presenceErr
+			}
 			if err != nil {
 				status.Desktop.Error = err.Error()
 			}

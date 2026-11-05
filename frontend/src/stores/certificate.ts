@@ -30,6 +30,7 @@ export const useCertificateStore = defineStore("certificate-store", () => {
         password,
       })) as appType.Res<appType.CertificateStatus>
       if (response.code === 1) status.value = response.data
+      else await refresh()
       return response
     } finally {
       installing.value = false

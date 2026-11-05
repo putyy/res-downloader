@@ -78,6 +78,10 @@ func (s *Setup) IsCertificateInstalled(fingerprint string) (bool, error) {
 	return s.isCertificateInstalled(fingerprint)
 }
 
+func (s *Setup) CertificateInstallationComplete(fingerprint string) (bool, error) {
+	return s.certificateInstallationComplete(fingerprint)
+}
+
 func (s *Setup) UninstallCertificate(fingerprint string) (string, error) {
 	return s.uninstallCertificate(fingerprint)
 }

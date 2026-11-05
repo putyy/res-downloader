@@ -27,6 +27,11 @@
   --app-card-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
 }
 
+/* Only the top-level tab navigation is draggable; panes keep workspace no-drag. */
+.app-drag-tabs > .n-tabs-nav {
+  --wails-draggable: drag;
+}
+
 /* Wails checks the event target's inherited value, including icon/text children.
    Keep controls interactive while the surrounding page remains draggable. */
 button,

@@ -54,14 +54,33 @@ yay -Syu res-downloader
 ```
 
 ::: details Building from source or maintaining the AUR package
-The current version uses Wails v3 with GTK4 and WebKitGTK 6.0. When building from source or maintaining the PKGBUILD, configure the `gtk4` and `webkitgtk-6.0` dependencies and use this build command:
+The current version uses Wails v3 with GTK4 and WebKitGTK 6.0. When building from source or maintaining the PKGBUILD, configure the `gtk4`, `webkitgtk-6.0`, and `nss` (providing the browser certificate tool `certutil`) dependencies and use this build command:
 
 ```bash
 wails3 task linux:build PRODUCTION=true
 ```
 
+In the PKGBUILD `package()` function, enter the project source directory and install the executable, shared desktop entry, and icon (`$pkgdir` is supplied by makepkg):
+
+```bash
+install -Dm755 bin/res-downloader "$pkgdir/usr/bin/res-downloader"
+install -Dm644 build/linux/application.desktop "$pkgdir/usr/share/applications/res-downloader.desktop"
+install -Dm644 build/linux/Debian/usr/share/icons/hicolor/256x256/apps/res-downloader.png \
+  "$pkgdir/usr/share/icons/hicolor/256x256/apps/res-downloader.png"
+```
+
 When installing through `yay` with a PKGBUILD already adapted to the current version, no manual changes are needed.
 :::
+
+### AppImage
+
+Keep the AppImage in a stable directory, make it executable, and launch it as your normal user. For `bwrap` permission errors on Ubuntu, see the [AppArmor configuration example](troubleshooting.md#appimage-apparmor).
+
+### Browser certificate tools {#browser-certificate-tools}
+
+AppImage and standalone executables do not install the host's `certutil` tool automatically. Synchronizing existing shared browser certificate stores requires `libnss3-tools` on Debian / Ubuntu, `nss` on Arch Linux, or `nss-tools` on Fedora. Installing the DEB through `apt` handles this dependency automatically.
+
+If the tool is missing, install it with your system package manager and retry the certificate operation. Do not launch the application with `sudo`.
 
 ### Standalone executable
 

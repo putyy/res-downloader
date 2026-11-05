@@ -6,7 +6,7 @@
         <NLayoutContent class="app-workspace relative bg-app-background h-full min-w-0 flex-1 [--wails-draggable:no-drag]">
           <!-- Pages reserve 20px of top padding. Keep dragging inside that blank
                space, away from the native resize edge and page controls. -->
-          <div aria-hidden="true" class="absolute top-1.5 inset-x-5 z-50 h-3.5 [--wails-draggable:drag]"></div>
+          <div aria-hidden="true" class="absolute top-1.5 left-0 right-1.5 z-50 h-3.5 [--wails-draggable:drag]"></div>
           <RouterView v-slot="{Component, route}">
             <KeepAlive>
               <component v-if="route.meta.keepAlive" :is="Component" :key="route.name"></component>

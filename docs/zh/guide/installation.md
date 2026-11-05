@@ -54,14 +54,33 @@ yay -Syu res-downloader
 ```
 
 ::: details 自行构建或维护 AUR 包
-当前版本基于 Wails v3，使用 GTK4 和 WebKitGTK 6.0。自行构建或维护 PKGBUILD 时，配置 `gtk4` 和 `webkitgtk-6.0` 依赖，并使用以下构建命令：
+当前版本基于 Wails v3，使用 GTK4 和 WebKitGTK 6.0。自行构建或维护 PKGBUILD 时，配置 `gtk4`、`webkitgtk-6.0` 和 `nss`（提供浏览器证书工具 `certutil`）依赖，并使用以下构建命令：
 
 ```bash
 wails3 task linux:build PRODUCTION=true
 ```
 
+在 PKGBUILD 的 `package()` 中，进入项目源码目录后安装程序、共用桌面入口和图标（`$pkgdir` 由 makepkg 提供）：
+
+```bash
+install -Dm755 bin/res-downloader "$pkgdir/usr/bin/res-downloader"
+install -Dm644 build/linux/application.desktop "$pkgdir/usr/share/applications/res-downloader.desktop"
+install -Dm644 build/linux/Debian/usr/share/icons/hicolor/256x256/apps/res-downloader.png \
+  "$pkgdir/usr/share/icons/hicolor/256x256/apps/res-downloader.png"
+```
+
 通过 `yay` 安装且 PKGBUILD 已适配当前版本时，无需手动调整。
 :::
+
+### AppImage
+
+将 AppImage 保存在固定目录，以普通用户身份添加执行权限并启动。Ubuntu 上若出现 `bwrap` 权限错误，参见 [AppArmor 配置示例](troubleshooting.md#appimage-apparmor)。
+
+### 浏览器证书工具 {#browser-certificate-tools}
+
+AppImage 和独立程序不会自动安装宿主的 `certutil`。同步已有浏览器共享证书库需要该工具：Debian / Ubuntu 安装 `libnss3-tools`，Arch Linux 安装 `nss`，Fedora 安装 `nss-tools`。DEB 通过 `apt` 安装时会自动处理此依赖。
+
+缺少工具时，先用系统包管理器安装，再重新执行证书操作；不要用 `sudo` 启动应用。
 
 ### 独立程序
 
