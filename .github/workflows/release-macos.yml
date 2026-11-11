@@ -29,7 +29,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: bundled-plugins
-          path: plugins
+          path: internal/plugin/bundled
 
       - uses: actions/setup-go@v7
         with:

@@ -37,7 +37,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: bundled-plugins
-          path: plugins
+          path: internal/plugin/bundled
 
       - name: Build Linux environment
         shell: bash
