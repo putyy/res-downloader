@@ -89,11 +89,17 @@ jobs:
           $ErrorActionPreference = "Stop"
 
           wails3 task windows:create:nsis:installer ARCH=amd64 "RELEASE_VERSION=$env:RELEASE_VERSION" BUNDLE_PLUGINS_SKIP=true
+          if ($LASTEXITCODE -ne 0) {
+            throw "Building the Windows amd64 installer failed with exit code $LASTEXITCODE"
+          }
           Move-Item -Force `
             "bin/res-downloader-amd64-installer.exe" `
             "bin/res-downloader_$env:RELEASE_VERSION`_win_amd64.exe"
 
           wails3 task windows:create:nsis:installer ARCH=arm64 "RELEASE_VERSION=$env:RELEASE_VERSION" BUNDLE_PLUGINS_SKIP=true
+          if ($LASTEXITCODE -ne 0) {
+            throw "Building the Windows arm64 installer failed with exit code $LASTEXITCODE"
+          }
           Move-Item -Force `
             "bin/res-downloader-arm64-installer.exe" `
             "bin/res-downloader_$env:RELEASE_VERSION`_win_arm64.exe"
@@ -134,6 +140,9 @@ jobs:
           $runtimePath = $runtimeExecutable.Directory.FullName
 
           wails3 task windows:build ARCH=amd64 "RELEASE_VERSION=$env:RELEASE_VERSION" PRODUCTION=true BUNDLE_PLUGINS_SKIP=true
+          if ($LASTEXITCODE -ne 0) {
+            throw "Building the Windows amd64 executable for Fixed WebView2 failed with exit code $LASTEXITCODE"
+          }
           Copy-Item -Force "bin/res-downloader.exe" "bin/res-downloader-fixed-webview2.exe"
 
           $appExecutable = (Resolve-Path `
