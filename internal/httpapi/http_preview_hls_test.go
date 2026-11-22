@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -80,7 +79,7 @@ func TestHLSPreviewRewritesNestedPlaylistsSegmentsAndKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := New(Host{Context: func() context.Context { return context.Background() }}, "test-session", &config.Config{}, nil, resources, manager, nil, nil, logger)
+	server := New(Host{}, "test-session", &config.Config{}, nil, resources, manager, nil, nil, logger)
 	master := performPreviewRequest(t, server, "/api/preview?id="+candidate.ID)
 	childURL := manifestMediaURL(t, master.Body.String())
 	if strings.Contains(master.Body.String(), "media/index.m3u8") || !strings.HasPrefix(childURL, "/api/preview/hls?token=") {

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/base64"
 	"net/http/httptest"
 	"os"
@@ -42,7 +41,7 @@ func TestCapturePreviewHTTPContract(t *testing.T) {
 	if status, ok := manager.Status("example.preview"); !ok || !status.Loaded {
 		t.Fatalf("fixture plugin failed to load: %#v", status)
 	}
-	server := New(Host{Context: context.Background}, "fixture-session", &config.Config{}, nil, resources, manager, nil, nil, logger)
+	server := New(Host{}, "fixture-session", &config.Config{}, nil, resources, manager, nil, nil, logger)
 	content := "中文\n0123456789"
 	key := "example.preview\x00asset"
 	if err := store.StartStream(key); err != nil {
