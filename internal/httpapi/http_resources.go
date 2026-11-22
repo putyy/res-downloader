@@ -22,7 +22,10 @@ func (h *Server) filterResources(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Server) clearResources(w http.ResponseWriter, _ *http.Request) {
-	h.resources.Clear()
+	if err := h.resources.Clear(); err != nil {
+		h.error(w, err.Error())
+		return
+	}
 	h.success(w, respData{"recordCount": h.resources.RecordCount()})
 }
 
@@ -34,7 +37,10 @@ func (h *Server) deleteResources(w http.ResponseWriter, r *http.Request) {
 		h.error(w, err.Error())
 		return
 	}
-	h.resources.DeleteMany(data.IDs)
+	if err := h.resources.DeleteMany(data.IDs); err != nil {
+		h.error(w, err.Error())
+		return
+	}
 	h.success(w, respData{"recordCount": h.resources.RecordCount()})
 }
 

@@ -9,20 +9,21 @@ import (
 	"time"
 )
 
-func (r *Resource) clear() {
+func (r *Resource) clear() error {
 	r.catalogMux.Lock()
 	defer r.catalogMux.Unlock()
+	if r.store != nil {
+		if err := r.store.Clear(); err != nil {
+			return fmt.Errorf("clear resource database: %w", err)
+		}
+	}
 	clear(r.catalog)
 	clear(r.dedupeIndex)
 	clear(r.groupIndex)
-	if r.store != nil {
-		if err := r.store.Clear(); err != nil {
-			r.logger.Esg(err, "clear resource database")
-		}
-	}
+	return nil
 }
 
-func (r *Resource) deleteMany(ids []string) {
+func (r *Resource) deleteMany(ids []string) error {
 	r.catalogMux.Lock()
 	defer r.catalogMux.Unlock()
 	selectedIDs := make(map[string]struct{}, len(ids))
@@ -45,18 +46,21 @@ func (r *Resource) deleteMany(ids []string) {
 		}
 	}
 	deletedIDs := make([]string, 0, len(selectedIDs))
-	for id, candidate := range r.catalog {
-		if _, exists := selectedIDs[id]; exists {
-			r.removeCandidateIndexesLocked(candidate)
-			delete(r.catalog, id)
+	for id := range selectedIDs {
+		if _, exists := r.catalog[id]; exists {
 			deletedIDs = append(deletedIDs, id)
 		}
 	}
 	if r.store != nil {
 		if err := r.store.Delete(deletedIDs); err != nil {
-			r.logger.Esg(err, "delete resources from database")
+			return fmt.Errorf("delete resources from database: %w", err)
 		}
 	}
+	for _, id := range deletedIDs {
+		r.removeCandidateIndexesLocked(r.catalog[id])
+		delete(r.catalog, id)
+	}
+	return nil
 }
 
 func (r *Resource) candidateHasSelectedParent(candidate shared.ResourceCandidate, all []shared.ResourceCandidate, selected map[string]struct{}) bool {

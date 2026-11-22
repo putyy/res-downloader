@@ -126,3 +126,44 @@ func TestUpdateResourceRejectsUnknownID(t *testing.T) {
 		t.Fatalf("response = %#v", response)
 	}
 }
+
+func TestResourceRemovalReportsPersistenceFailure(t *testing.T) {
+	for _, tc := range []struct{ action, body string }{
+		{"delete", `{"ids":["collection"]}`},
+		{"clear", `{}`},
+	} {
+		t.Run(tc.action, func(t *testing.T) {
+			resources := resource.New(t.TempDir(), &config.Config{}, nil, logging.New(false, ""), nil)
+			defer resources.Close()
+			for _, candidate := range []shared.ResourceCandidate{
+				{ID: "collection", Kind: shared.ResourceKindCollection, DedupeKey: "parent", GroupKey: "album"},
+				{ID: "child", DedupeKey: "child", ParentGroupKey: "album"},
+			} {
+				if err := resources.SaveCandidate(candidate); err != nil {
+					t.Fatal(err)
+				}
+			}
+			resources.Close() // Force the removal transaction to fail.
+			server := &Server{sessionToken: "test-session", resources: resources}
+			request := httptest.NewRequest(http.MethodPost, "/api/resources/"+tc.action, bytes.NewBufferString(tc.body))
+			request.Header.Set("Authorization", "Bearer test-session")
+			recorder := httptest.NewRecorder()
+			if !server.HandleAPI(recorder, request) {
+				t.Fatal("resource removal API was not handled")
+			}
+			var response ResponseData
+			if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+				t.Fatal(err)
+			}
+			if response.Code != 0 || response.Message == "" || response.Data != nil {
+				t.Fatalf("expected a removal error, got %#v", response)
+			}
+			if parent, ok := resources.CandidateByGroup("", "album"); !ok || parent.ID != "collection" {
+				t.Fatal("failed removal changed the collection or its group index")
+			}
+			if _, ok := resources.Candidate("child"); !ok || resources.RecordCount() != 2 {
+				t.Fatal("failed removal changed the child or record count")
+			}
+		})
+	}
+}

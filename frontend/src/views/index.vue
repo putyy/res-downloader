@@ -1087,11 +1087,7 @@ const close = () => {
 }
 
 const clear = async () => {
-  const deletedIds: string[] = []
-  if (checkedRowKeysValue.value.length > 0) {
-    deletedIds.push(...selectedResources(canDeleteResource).map((item) => item.id))
-    checkedRowKeysValue.value = []
-  } else {
+  if (checkedRowKeysValue.value.length === 0) {
     const response = await appApi.clearResources()
     if (response.code !== 1) {
       window?.$message?.error(response.message)
@@ -1104,6 +1100,7 @@ const clear = async () => {
     nextResourceOffset.value = 0
     return
   }
+  const deletedIds = selectedResources(canDeleteResource).map((item) => item.id)
   if (deletedIds.length === 0) return
   const response = await appApi.deleteResources({ids: deletedIds})
   if (response.code !== 1) {

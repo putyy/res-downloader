@@ -109,8 +109,8 @@ func (r *Resource) UpdateTitle(id, title string) (shared.ResourceCandidate, erro
 	return candidate, nil
 }
 
-func (r *Resource) Clear()                  { r.clear() }
-func (r *Resource) DeleteMany(ids []string) { r.deleteMany(ids) }
+func (r *Resource) Clear() error                  { return r.clear() }
+func (r *Resource) DeleteMany(ids []string) error { return r.deleteMany(ids) }
 func (r *Resource) List() []shared.ResourceView {
 	return r.list()
 }
