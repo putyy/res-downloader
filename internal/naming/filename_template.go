@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	shared "res-downloader/internal/model"
 	"strconv"
 	"strings"
@@ -92,22 +93,23 @@ func ValidateFilenameTemplate(template string) error {
 	metadata := map[string]interface{}{
 		"createdAt": now.UnixMilli(), "publishedAt": now.UnixMilli(),
 	}
-	var fallbackPath strings.Builder
+	var samplePath, fallbackPath strings.Builder
 	for remaining := template; ; {
 		start := strings.Index(remaining, "{{")
 		if start < 0 {
+			samplePath.WriteString(remaining)
 			fallbackPath.WriteString(remaining)
 			break
 		}
+		samplePath.WriteString(remaining[:start])
 		fallbackPath.WriteString(remaining[:start])
 		remaining = remaining[start+2:]
-		end := strings.Index(remaining, "}}")
-		if end < 0 {
-			return errors.New("filename template contains an unclosed variable")
+		expression, consumed, err := parseFilenameExpression(remaining)
+		if err != nil {
+			return err
 		}
-		expression := strings.TrimSpace(remaining[:end])
-		remaining = remaining[end+2:]
-		variable, _, _ := strings.Cut(strings.TrimSpace(strings.Split(expression, "|")[0]), ":")
+		remaining = remaining[consumed:]
+		variable := expression[0].name
 		if strings.HasPrefix(variable, "meta.") {
 			key := strings.TrimPrefix(variable, "meta.")
 			if key != "createdAt" && key != "publishedAt" {
@@ -116,29 +118,35 @@ func ValidateFilenameTemplate(template string) error {
 		} else if variable != "ext" && variable != "date" && variable != "time" {
 			variables[variable] = "resource"
 		}
-		optionalValue, err := evaluateFilenameExpression(expression, nil, nil, now)
+		// A pattern applied to a placeholder says nothing about its result on
+		// a real resource. Keep a path segment for that unknown result, while
+		// validating the filters and any surrounding literal path components.
+		sample, err := applyFilenameFilters(filenameVariableValue(expression[0], variables, metadata, now), expression[1:], true)
 		if err != nil {
 			return err
 		}
-		// Keep the surrounding path when checking defaults. An expression may
-		// start with a separator even though the complete path is relative.
-		if optionalValue == "" {
-			optionalValue, err = evaluateFilenameExpression(expression, variables, metadata, now)
+		samplePath.WriteString(sample)
+		fallback := sample
+		// Check explicit defaults on missing input. A regex without a default
+		// depends entirely on the resource, even if it can match an empty value.
+		hasRegex, hasDefault := false, false
+		for _, filter := range expression[1:] {
+			hasRegex = hasRegex || filter.name == "regex_replace"
+			hasDefault = hasDefault || filter.name == "default"
+		}
+		if variable != "date" && variable != "time" && (!hasRegex || hasDefault) {
+			optional, err := evaluateFilenameExpression(expression, nil, nil, now)
 			if err != nil {
 				return err
 			}
+			if optional != "" {
+				fallback = optional
+			}
 		}
-		fallbackPath.WriteString(optionalValue)
+		fallbackPath.WriteString(fallback)
 	}
 
-	rendered, err := ExpandFilenameTemplate(template, variables, metadata, now)
-	if err != nil {
-		return err
-	}
-	for _, value := range []string{rendered, fallbackPath.String()} {
-		if isDriveQualifiedFilenamePath(value) {
-			return errors.New("filename template must produce a relative path")
-		}
+	for _, value := range []string{samplePath.String(), fallbackPath.String()} {
 		if _, err := safeRelativeResourcePath(value); err != nil {
 			return err
 		}
@@ -153,7 +161,7 @@ func isDriveQualifiedFilenamePath(value string) bool {
 
 func rejectUnsafeFilenamePath(value string) error {
 	value = strings.ReplaceAll(value, "\\", "/")
-	if strings.HasPrefix(value, "/") {
+	if strings.HasPrefix(value, "/") || isDriveQualifiedFilenamePath(value) {
 		return errors.New("filename template must produce a relative path")
 	}
 	for _, part := range strings.Split(value, "/") {
@@ -174,12 +182,11 @@ func ExpandFilenameTemplate(template string, variables map[string]string, metada
 		}
 		output.WriteString(template[:start])
 		template = template[start+2:]
-		end := strings.Index(template, "}}")
-		if end < 0 {
-			return "", errors.New("filename template contains an unclosed variable")
+		expression, consumed, err := parseFilenameExpression(template)
+		if err != nil {
+			return "", err
 		}
-		expression := strings.TrimSpace(template[:end])
-		template = template[end+2:]
+		template = template[consumed:]
 		value, err := evaluateFilenameExpression(expression, variables, metadata, now)
 		if err != nil {
 			return "", err
@@ -189,12 +196,103 @@ func ExpandFilenameTemplate(template string, variables map[string]string, metada
 	return output.String(), nil
 }
 
-func evaluateFilenameExpression(expression string, variables map[string]string, metadata map[string]interface{}, now time.Time) (string, error) {
-	parts := strings.Split(expression, "|")
-	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
-		return "", errors.New("filename template contains an empty variable")
+type filenameExpressionPart struct {
+	name        string
+	argument    string
+	replacement string
+}
+
+// Parse only regex_replace arguments as quoted strings so existing filters keep
+// treating quotes and backslashes literally. Quoted regex arguments can contain
+// colons, pipes, and closing braces without terminating the expression.
+func parseFilenameExpression(input string) ([]filenameExpressionPart, int, error) {
+	var parts []filenameExpressionPart
+	for offset := 0; ; {
+		remaining := input[offset:]
+		trimmed := strings.TrimLeftFunc(remaining, unicode.IsSpace)
+		var part filenameExpressionPart
+		if len(parts) > 0 && strings.HasPrefix(trimmed, "regex_replace:") {
+			part.name = "regex_replace"
+			offset += len(remaining) - len(trimmed) + len("regex_replace:")
+			var consumed int
+			var err error
+			part.argument, consumed, err = readFilenameRegexArgument(input[offset:], true)
+			if err != nil {
+				return nil, 0, err
+			}
+			offset += consumed
+			part.replacement, consumed, err = readFilenameRegexArgument(input[offset:], false)
+			if err != nil {
+				return nil, 0, err
+			}
+			offset += consumed
+			for offset < len(input) && (input[offset] == ' ' || input[offset] == '\t' || input[offset] == '\n' || input[offset] == '\r') {
+				offset++
+			}
+		} else {
+			end := 0
+			for end < len(remaining) && remaining[end] != '|' && !strings.HasPrefix(remaining[end:], "}}") {
+				end++
+			}
+			part.name, part.argument, _ = strings.Cut(strings.TrimSpace(remaining[:end]), ":")
+			offset += end
+		}
+		if len(parts) == 0 && part.name == "" {
+			return nil, 0, errors.New("filename template contains an empty variable")
+		}
+		parts = append(parts, part)
+		if strings.HasPrefix(input[offset:], "}}") {
+			return parts, offset + 2, nil
+		}
+		if offset >= len(input) {
+			return nil, 0, errors.New("filename template contains an unclosed variable")
+		}
+		if input[offset] != '|' {
+			return nil, 0, errors.New("filename regex_replace filter has invalid arguments")
+		}
+		offset++
 	}
-	variable, variableArgument, _ := strings.Cut(strings.TrimSpace(parts[0]), ":")
+}
+
+func readFilenameRegexArgument(input string, pattern bool) (string, int, error) {
+	invalid := errors.New("filename regex_replace filter has invalid arguments")
+	if len(input) > 0 && (input[0] == '`' || input[0] == '"') {
+		quoted, err := strconv.QuotedPrefix(input)
+		if err != nil {
+			return "", 0, invalid
+		}
+		value, err := strconv.Unquote(quoted)
+		if err != nil {
+			return "", 0, invalid
+		}
+		if pattern {
+			if !strings.HasPrefix(input[len(quoted):], ":") {
+				return "", 0, invalid
+			}
+			return value, len(quoted) + 1, nil
+		}
+		return value, len(quoted), nil
+	}
+	for index := 0; index < len(input); index++ {
+		if pattern && input[index] == ':' {
+			return input[:index], index + 1, nil
+		}
+		if input[index] == '|' || strings.HasPrefix(input[index:], "}}") {
+			if pattern {
+				return "", 0, invalid
+			}
+			return strings.TrimRightFunc(input[:index], unicode.IsSpace), index, nil
+		}
+	}
+	return "", 0, invalid
+}
+
+func evaluateFilenameExpression(parts []filenameExpressionPart, variables map[string]string, metadata map[string]interface{}, now time.Time) (string, error) {
+	return applyFilenameFilters(filenameVariableValue(parts[0], variables, metadata, now), parts[1:], false)
+}
+
+func filenameVariableValue(part filenameExpressionPart, variables map[string]string, metadata map[string]interface{}, now time.Time) string {
+	variable, variableArgument := part.name, part.argument
 	var value string
 	if variable == "date" && variableArgument != "" {
 		value = now.Format(variableArgument)
@@ -211,9 +309,29 @@ func evaluateFilenameExpression(expression string, variables map[string]string, 
 	} else {
 		value = variables[variable]
 	}
-	for _, rawFilter := range parts[1:] {
-		filter, argument, _ := strings.Cut(strings.TrimSpace(rawFilter), ":")
+	return value
+}
+
+func applyFilenameFilters(value string, filters []filenameExpressionPart, sample bool) (string, error) {
+	for _, part := range filters {
+		filter, argument := part.name, part.argument
 		switch filter {
+		case "regex_replace":
+			if argument == "" {
+				return "", errors.New("filename regex_replace filter has an empty pattern")
+			}
+			pattern, err := regexp.Compile(argument)
+			if err != nil {
+				return "", fmt.Errorf("filename regex_replace filter has invalid pattern: %w", err)
+			}
+			if sample {
+				value = "resource"
+			} else {
+				value, err = replaceFilenameRegex(pattern, value, part.replacement)
+				if err != nil {
+					return "", err
+				}
+			}
 		case "sanitize":
 			value = SanitizeFilenameSegment(value)
 		case "truncate":

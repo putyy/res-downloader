@@ -478,6 +478,10 @@ const formatDownloadSettingError = (message: string): string => {
     "filename template must produce a relative path": "filename_template_relative_error",
     "filename template must not contain parent path segments": "filename_template_parent_error",
     "filename template produced an empty path": "filename_template_empty_path_error",
+    "filename regex_replace input or result exceeds 64 KiB": "filename_template_regex_size_error",
+    "filename regex_replace has too many capture matches": "filename_template_regex_matches_error",
+    "filename regex_replace filter has invalid arguments": "filename_template_regex_arguments_error",
+    "filename regex_replace filter has an empty pattern": "filename_template_regex_empty_error",
     "invalid listen host": "host_format_error",
     "listen port must be between 1025 and 65534": "port_format_error",
     "upstream proxy is required when proxy is enabled": "upstream_proxy_required_error",
@@ -488,6 +492,7 @@ const formatDownloadSettingError = (message: string): string => {
   if (knownErrors[message]) return t(`setting.${knownErrors[message]}`)
   if (message.startsWith("filename template exceeds ")) return t("setting.filename_template_length_error")
   if (message.startsWith("filename truncate filter has invalid limit ")) return t("setting.filename_template_truncate_error")
+  if (message.startsWith("filename regex_replace filter has invalid pattern: ")) return t("setting.filename_template_regex_pattern_error")
   if (message.startsWith("unsupported filename filter ")) {
     return t("setting.filename_template_filter_error", {
       filter: message.slice("unsupported filename filter ".length),

@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	shared "res-downloader/internal/model"
 	"strings"
 	"testing"
@@ -66,6 +67,156 @@ func TestFilenameTemplateConditionalAffixes(t *testing.T) {
 		if err != nil || got != tc.want {
 			t.Fatalf("%s with %q = %q, %v; want %q", tc.template, tc.value, got, err, tc.want)
 		}
+	}
+}
+
+func TestFilenameTemplateRegexReplacement(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		template string
+		value    string
+		want     string
+	}{
+		{"letters and numbers", `{{title|regex_replace:[^\p{L}\p{N}]:|default:resource|sanitize|truncate:80}}.{{ext}}`, "春天🌸#记录❤️2026", "春天记录2026.mp4"},
+		{"remove hashes only", `{{title|regex_replace:#:}}`, "#春天🌸#记录", "春天🌸记录"},
+		{"selected symbols", `{{title|regex_replace:[#❤♥🌸🌹\x{FE0F}]:}}`, "春天🌸#记录❤️", "春天记录"},
+		{"keep separators", `{{title|regex_replace:[^\p{L}\p{N} _-]:}}`, "春天 🌸记录-2026_1", "春天 记录-2026_1"},
+		{"collapse separators", `{{title|regex_replace:[^\p{L}\p{N}]+:_}}`, "春天 #🌸 记录", "春天_记录"},
+		{"empty result fallback", `{{title|regex_replace:[^\p{L}\p{N}]:|default:resource}}`, "#❤️🌸", "resource"},
+		{"missing value fallback", `{{author|regex_replace:#:|default:unknown}}`, "", "unknown"},
+		{"chain replacements", `{{title|regex_replace:#:|regex_replace:🌸:flower|upper}}`, "#spring🌸", "SPRINGFLOWER"},
+		{"quoted alternation", "{{title|regex_replace:`cat|dog`:pet}}", "cat and dog", "pet and pet"},
+		{"quoted colons", "{{title|regex_replace:`a:b`:`x:y`}}", "a:b", "x:y"},
+		{"quoted delimiters", "{{title|regex_replace:`[|}]`:`|}}`}}", "a|b}", "a|}}b|}}"},
+		{"quoted quantifier", "{{title|regex_replace:`a{2}`:b}}", "aaaa", "bb"},
+		{"capture replacement", `{{title|regex_replace:(\p{L}+)-(\d+):"${2}_${1}"}}`, "video-12", "12_video"},
+		{"literal dollar", `{{title|regex_replace:#:$$}}`, "#title", "$title"},
+		{"double quoted escapes", `{{title|regex_replace:"\\s+":"_"}}`, "a\t b", "a_b"},
+		{"quoted replacement spacing", `{{title|regex_replace:#:" " |upper}}`, "a#b", "A B"},
+		{"quoted backtick", "{{title|regex_replace:\"`\":}}", "a`b", "ab"},
+		{"legacy literal quotes", "{{title|prefix:`|suffix:\"}}", "title", "`title\""},
+		{"legacy literal backslashes", `{{title|prefix:\p{L}_}}`, "title", `\p{L}_title`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ExpandFilenameTemplate(tc.template, map[string]string{"title": tc.value, "ext": "mp4"}, nil, time.Now())
+			if err != nil || got != tc.want {
+				t.Fatalf("%s with %q = %q, %v; want %q", tc.template, tc.value, got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestFilenameTemplateRegexValidation(t *testing.T) {
+	for _, template := range []string{
+		`{{title|regex_replace:[^\p{L}\p{N}]:|default:resource|sanitize}}.{{ext}}`,
+		`{{title|regex_replace:^$:/}}.{{ext}}`,
+		"{{title|regex_replace:`cat|dog`:`pet:friend`|sanitize}}.{{ext}}",
+		"{{title|regex_replace:`a{2}`:b}}.{{ext}}",
+		`{{title|regex_replace:"\\s+":"_"}}.{{ext}}`,
+	} {
+		if err := ValidateFilenameTemplate(template); err != nil {
+			t.Fatalf("valid regex template %q: %v", template, err)
+		}
+	}
+	for _, template := range []string{
+		`{{title|regex_replace}}.{{ext}}`,
+		`{{title|regex_replace:#}}.{{ext}}`,
+		`{{title|regex_replace::}}.{{ext}}`,
+		`{{title|regex_replace:[:}}.{{ext}}`,
+		`{{title|regex_replace:(?=a):}}.{{ext}}`,
+		"{{title|regex_replace:`a:b`:x}}.{{ext}}/../file",
+		"{{title|regex_replace:`unterminated:}}.{{ext}}",
+		`{{title|regex_replace:"\p{L}":}}.{{ext}}`,
+		`{{title|regex_replace:"a"x:b}}.{{ext}}`,
+		`{{title|regex_replace:a:"b"x}}.{{ext}}`,
+		`{{title|regex_replace:a:}}/../{{ext}}`,
+		`{{title|default:x|regex_replace:x:../secret}}.{{ext}}`,
+		`{{title|default:x|regex_replace:x:/secret}}.{{ext}}`,
+	} {
+		if err := ValidateFilenameTemplate(template); err == nil {
+			t.Fatalf("invalid regex template %q was accepted", template)
+		}
+		if _, err := RenderResourcePath(t.TempDir(), template, shared.ResourceCandidate{Title: "x"},
+			shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}, time.Now()); err == nil {
+			t.Fatalf("invalid regex template %q was rendered", template)
+		}
+	}
+}
+
+func TestFilenameRegexLimits(t *testing.T) {
+	full := strings.Repeat("a", maxFilenameRegexBytes)
+	for _, tc := range []struct {
+		value, pattern, replacement, want string
+		wantErr                           error
+	}{
+		{full, "^(.+)$", "$1", full, nil},
+		{full, "^(.+)$", "$1$1", "", errFilenameRegexSize},
+		{full, "a$", "aa", "", errFilenameRegexSize},
+		{full, "^", "x", "", errFilenameRegexSize},
+		{full + "a", "a", "", "", errFilenameRegexSize},
+		{full, strings.Repeat("()", 20) + "a", "$0", "", errFilenameRegexMatches},
+	} {
+		got, err := replaceFilenameRegex(regexp.MustCompile(tc.pattern), tc.value, tc.replacement)
+		if got != tc.want || err != tc.wantErr {
+			t.Errorf("pattern %q: got %d bytes, %v; want %d bytes, %v", tc.pattern, len(got), err, len(tc.want), tc.wantErr)
+		}
+	}
+	pattern := regexp.MustCompile(`(?P<word>\w+)|$`)
+	for _, replacement := range []string{"", "$", "$$$1", "${word}_$0", "$unknown$${1}", "x${bad$1}", "$$x$$$"} {
+		const input = "a b!"
+		got, err := replaceFilenameRegex(pattern, input, replacement)
+		if err != nil || got != pattern.ReplaceAllString(input, replacement) {
+			t.Errorf("replacement %q: got %q, %v", replacement, got, err)
+		}
+	}
+	chain := strings.Repeat("|regex_replace:a:aa", 17)
+	if err := ValidateFilenameTemplate("{{title|default:a" + chain + "|truncate:80}}"); err != errFilenameRegexSize {
+		t.Fatalf("oversized default chain: %v", err)
+	}
+	if _, err := ExpandFilenameTemplate("{{title"+chain+"|truncate:80}}", map[string]string{"title": "a"}, nil, time.Now()); err != errFilenameRegexSize {
+		t.Fatalf("oversized title chain: %v", err)
+	}
+}
+
+func TestFilenameRegexResourceDependentDirectory(t *testing.T) {
+	directory := t.TempDir()
+	template := `{{height|regex_replace:\D:}}/{{title|sanitize}}.{{ext}}`
+	resource := shared.ResourceCandidate{Title: "标题", Tracks: []shared.ResourceTrack{{ID: "video", Role: "video", Height: 1080}}}
+	plan := shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}
+	if err := ValidateFilenameTemplate(template); err != nil {
+		t.Fatal(err)
+	}
+	path, err := RenderResourcePath(directory, template, resource, plan, time.Now())
+	if err != nil || path != filepath.Join(directory, "1080", "标题.mp4") {
+		t.Fatalf("height directory: %q, %v", path, err)
+	}
+	resource.Tracks = nil
+	if _, err := RenderResourcePath(directory, template, resource, plan, time.Now()); err == nil {
+		t.Fatal("missing height produced an absolute path")
+	}
+	for _, replacement := range []string{"../bad", "/bad", "C:/bad"} {
+		template := "{{title|regex_replace:标题:" + replacement + "}}.{{ext}}"
+		if err := ValidateFilenameTemplate(template); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := RenderResourcePath(directory, template, resource, plan, time.Now()); err == nil {
+			t.Fatalf("unsafe runtime path from %q", replacement)
+		}
+	}
+}
+
+func TestRenderResourcePathWithRegexReplacement(t *testing.T) {
+	directory := t.TempDir()
+	template := `{{author|regex_replace:[^\p{L}\p{N}]:|default:unknown|sanitize}}/{{title|regex_replace:[^\p{L}\p{N}]:|default:resource|sanitize|truncate:80}}.{{ext}}`
+	path, err := RenderResourcePath(directory, template,
+		shared.ResourceCandidate{Title: "春天🌸#记录❤️2026", Metadata: map[string]interface{}{"author": "作者🌹"}},
+		shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}, time.Now())
+	if want := filepath.Join(directory, "作者", "春天记录2026.mp4"); err != nil || path != want {
+		t.Fatalf("cleaned path = %q, %v; want %q", path, err, want)
+	}
+	if _, err := RenderResourcePath(directory, `{{title|regex_replace:x:../secret}}.{{ext}}`,
+		shared.ResourceCandidate{Title: "x"}, shared.DownloadPlan{Output: shared.DownloadOutput{Extension: ".mp4"}}, time.Now()); err == nil {
+		t.Fatal("expected a traversal introduced by regex replacement to be rejected")
 	}
 }
 

@@ -68,6 +68,7 @@ Append filters to a variable with `|`. Multiple filters run from left to right.
 | --- | --- |
 | `default:Unknown author` | Replaces an empty or whitespace-only value with `Unknown author` |
 | `sanitize` | Replaces incompatible characters with `_` and handles surrounding whitespace, trailing dots, and system-reserved names |
+| `regex_replace:pattern:replacement` | Replaces every regex match; leave the replacement empty to delete matches. See the examples below |
 | `truncate:80` | Keeps at most 80 Unicode characters; the argument must be an integer from 1 to 1000 |
 | `lower` | Converts to lowercase |
 | `upper` | Converts to uppercase |
@@ -85,6 +86,43 @@ Add a colon after `date`, `time`, `created_at`, or `published_at` to specify a f
 | <code v-pre>{{time:15-04-05}}</code> | `14-05-09` |
 
 Use `-` to separate time components in filenames; `:` is replaced with `_` during filename sanitization.
+
+### Custom character cleanup
+
+`sanitize` handles characters incompatible with the file system and keeps symbols such as `#`, hearts, and flowers. Use `regex_replace:pattern:replacement` to remove or replace them. The default template stays the same; custom rules apply only to variables containing this filter.
+
+**Keep only letters and numbers**: the title `Spring🌸#memories❤️2026` produces `Springmemories2026.mp4`. The character classes include Unicode letters and numbers from all languages, including Chinese.
+
+```text
+{{title|regex_replace:[^\p{L}\p{N}]:|default:resource|sanitize|truncate:80}}.{{ext}}
+```
+
+Replace the `regex_replace` filter above to customize the result:
+
+| Goal | Filter |
+| --- | --- |
+| Delete only `#` | `regex_replace:#:` |
+| Delete selected symbols and a common emoji variation selector | `regex_replace:[#❤♥🌸🌹\x{FE0F}]:` |
+| Also keep spaces, hyphens, and underscores | `regex_replace:[^\p{L}\p{N} _-]:` |
+| Replace consecutive nonletter, nonnumber characters with one `_` | `regex_replace:[^\p{L}\p{N}]+:_` |
+
+Rules affect the current variable, so you can configure `title`, `author`, or other text variables separately and chain multiple `regex_replace` filters. Replace characters before applying `default`, `sanitize`, and `truncate` so that a title made entirely of symbols can fall back to `resource`. Rules do not change the original resource title or rename previously downloaded files.
+
+Wrap an entire argument in backticks when it contains `:`, `|`, or `}}`, or when a final `}` would touch the variable's closing braces. Backslashes stay literal inside backticks. For example, replace either `cat` or `dog` with `pet`:
+
+```text
+{{title|regex_replace:`cat|dog`:pet|default:resource|sanitize}}.{{ext}}
+```
+
+Double-quoted arguments are also supported; escape backslashes and double quotes inside them. This example replaces consecutive whitespace with `_`. Use quotes to preserve leading or trailing whitespace in an argument as well.
+
+```text
+{{title|regex_replace:"\\s+":"_"|default:resource|sanitize}}.{{ext}}
+```
+
+Patterns use Go's standard regular expression syntax, without lookaround or pattern backreferences. Replacements support capture references such as `$1` and `${1}`; `$$` inserts a literal `$`. Quote a reference at the end of an argument, for example `regex_replace:(\p{L}+)-(\d+):"${2}_${1}"`. Patterns must not be empty. Invalid arguments or patterns prevent saving and display an explanation below the input.
+
+Each replacement accepts up to 64 KiB of input and produces up to 64 KiB of output. For long titles, apply `truncate` before the replacement. If many matches contain many capturing groups, shorten the input or use fewer groups. Paths that depend on resource values are checked against the actual values at download time.
 
 ### Common templates
 
@@ -131,7 +169,7 @@ Put optional separators inside `prefix` or `suffix`; a literal `_` outside a var
 - **Length and characters**: templates are limited to 4096 bytes. Each generated directory name and filename is sanitized and limited to 240 UTF-8 bytes, preserving the extension where possible. Long titles containing many Chinese characters or emoji may therefore be shortened further even with `truncate:80`.
 - **Name conflicts**: controlled by **Name Conflicts** in Basic Setting. **Add a number** produces names such as `Beautiful Chongqing(1).mp4` and `Beautiful Chongqing(2).mp4`, also avoiding paths reserved by active downloads. **Overwrite existing file** allows replacing a file with the same name. **Skip download** stops that download when its target already exists or is reserved by another task.
 
-Unclosed braces, empty variable expressions, unknown filters, and invalid truncation limits produce errors. If the operating system still rejects the generated filename, the app may use a fallback name. See [Downloaded filenames start with resource-](troubleshooting.md#downloaded-filenames-start-with-resource).
+Unclosed braces, empty variable expressions, unknown filters, invalid truncation limits, and invalid regex replacement rules produce errors. If the operating system still rejects the generated filename, the app may use a fallback name. See [Downloaded filenames start with resource-](troubleshooting.md#downloaded-filenames-start-with-resource).
 
 ## Appearance
 
