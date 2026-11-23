@@ -7,6 +7,7 @@ import {NaiveUiResolver} from "unplugin-vue-components/resolvers"
 
 export default defineConfig({
   server: {
+    host: "127.0.0.1",
     port: Number(process.env.WAILS_VITE_PORT) || 9245,
     strictPort: true,
   },
