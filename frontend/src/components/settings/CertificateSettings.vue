@@ -1,18 +1,18 @@
 <template>
   <div class="w-[760px] space-y-4">
-    <NAlert type="info" :show-icon="false">{{ t("setting.certificate_device_tip") }}</NAlert>
-    <NAlert v-if="store.envInfo.platform === 'windows' && status && !status.desktop.installed" type="warning" :show-icon="false">
+    <NAlert :bordered="false" type="info" :show-icon="false">{{ t("setting.certificate_device_tip") }}</NAlert>
+    <NAlert :bordered="false" v-if="store.envInfo.platform === 'windows' && status && !status.desktop.installed" type="warning" :show-icon="false">
       {{ t("certificateGuide.system_authorization_tip") }}
     </NAlert>
-    <NCard v-if="status" size="small" :title="t('setting.certificate_desktop_status')">
+    <NCard :bordered="false" v-if="status" size="small" :title="t('setting.certificate_desktop_status')">
       <div class="flex items-center gap-2">
-        <NTag :type="status.desktop.installed ? 'success' : 'error'">
+        <NTag :bordered="false" :type="status.desktop.installed ? 'success' : 'error'">
           {{ status.desktop.installed ? t("setting.certificate_desktop_installed") : t("setting.certificate_desktop_missing") }}
         </NTag>
-        <span v-if="status.desktop.error" class="text-xs text-red-500">{{ status.desktop.error }}</span>
+        <span v-if="status.desktop.error" class="text-xs text-app-danger">{{ status.desktop.error }}</span>
       </div>
       <div class="text-sm">{{ t("setting.certificate_fingerprint") }}</div>
-      <div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-app-muted">
+      <div class="mt-1 break-all font-mono text-xs" :class="!status.fingerprintSha256 && status.error ? 'text-app-danger' : 'text-app-muted'">
         {{ status.fingerprintSha256 || status.error || "-" }}
       </div>
       <div class="mt-4 flex gap-2">
@@ -20,7 +20,7 @@
           {{ status.desktop.installed ? t("setting.certificate_reinstall") : t("setting.certificate_install") }}
         </NButton>
         <NButton secondary @click="load">{{ t("setting.certificate_refresh_status") }}</NButton>
-        <NPopconfirm @positive-click="beginUninstall">
+        <NPopconfirm :negative-button-props="{secondary: true}" :positive-button-props="{type: 'error', secondary: true}" @positive-click="beginUninstall">
           <template #trigger>
             <NButton type="error" secondary :disabled="!status.desktop.installed && !status.desktop.present && !status.desktop.error" :loading="uninstalling">
               {{ t("setting.certificate_uninstall") }}
@@ -30,18 +30,18 @@
         </NPopconfirm>
       </div>
     </NCard>
-    <NCard v-if="status" size="small" :title="t('setting.certificate_phone_status')">
-      <NAlert type="warning" :show-icon="false">{{ t("setting.certificate_phone_tip") }}</NAlert>
+    <NCard :bordered="false" v-if="status" size="small" :title="t('setting.certificate_phone_status')">
+      <NAlert :bordered="false" type="warning" :show-icon="false">{{ t("setting.certificate_phone_tip") }}</NAlert>
       <div class="mt-4">
         <NButton type="primary" secondary @click="void Browser.OpenURL(certificateUrl)">{{ t("setting.certificate_download") }} </NButton>
       </div>
     </NCard>
-    <NCard v-if="status" size="small" :title="t('setting.certificate_legacy_status')">
+    <NCard :bordered="false" v-if="status" size="small" :title="t('setting.certificate_legacy_status')">
       <div class="mt-3 flex items-center gap-2">
-        <NTag :type="migrationTagType">
+        <NTag :bordered="false" :type="migrationTagType">
           {{ migrationStatusLabel }}
         </NTag>
-        <span class="text-xs text-gray-500 dark:text-app-muted">{{ status.migration.message }}</span>
+        <span class="text-xs text-app-text">{{ status.migration.message }}</span>
       </div>
       <div class="mt-4 flex gap-2">
         <NButton secondary :loading="cleaning" @click="beginCleanup">{{ t("setting.certificate_cleanup_retry") }} </NButton>
@@ -49,12 +49,12 @@
     </NCard>
     <NModal v-model:show="showAuthorization" preset="dialog" :title="authorizationTitle">
       <div class="space-y-3">
-        <div class="text-sm text-gray-500 dark:text-app-muted">{{ authorizationTip }}</div>
+        <div class="text-sm text-app-text">{{ authorizationTip }}</div>
         <NInput v-model:value="password" type="password" show-password-on="click" :placeholder="t('components.password_placeholder')" @keyup.enter="submitAuthorization" />
       </div>
       <template #action>
-        <NButton @click="showAuthorization = false">{{ t("common.cancel") }}</NButton>
-        <NButton type="primary" :loading="cleaning || installing || uninstalling" @click="submitAuthorization">
+        <NButton secondary @click="showAuthorization = false">{{ t("common.cancel") }}</NButton>
+        <NButton type="primary" :bordered="false" :loading="cleaning || installing || uninstalling" @click="submitAuthorization">
           {{ t("common.submit") }}
         </NButton>
       </template>

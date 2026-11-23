@@ -12,7 +12,7 @@ func TestSavePortForRestartPreservesOtherSettings(t *testing.T) {
 	directory := t.TempDir()
 	c := &Config{
 		state: &configState{}, storage: NewStorage(directory, "config.json", nil),
-		Host: "127.0.0.1", Port: "8899", Locale: "zh", Theme: "darkTheme",
+		Host: "127.0.0.1", Port: "8899", Locale: "zh", Theme: "dark",
 		SaveDirectory: "legacy directory", FilenameTemplate: "legacy invalid template {{",
 		WindowWidth: 1280, WindowHeight: 800, AutoProxy: true,
 	}

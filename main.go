@@ -140,7 +140,7 @@ func main() {
 		Title: app.AppName, Width: windowWidth, Height: windowHeight,
 		MinWidth: config.MinWindowWidth, MinHeight: config.MinWindowHeight,
 		Frameless: !isMac, Hidden: true,
-		BackgroundColour: wailsapp.RGBA{Red: 243, Green: 245, Blue: 244, Alpha: 255},
+		BackgroundColour: wailsapp.RGBA{Red: 250, Green: 250, Blue: 250, Alpha: 255},
 		Mac:              wailsapp.MacWindow{TitleBar: wailsapp.MacTitleBarHiddenInset},
 	})
 	app.AttachDesktop(desktop, window)

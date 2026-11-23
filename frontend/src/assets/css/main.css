@@ -6,8 +6,8 @@
 
 :root {
   color-scheme: light;
-  --app-background: #f3f5f4;
-  --app-text: #252b27;
+  --app-background: #fafafa;
+  --app-text: #50545a;
   --app-danger: #bd4055;
   --app-danger-soft: #f9e5e9;
   --app-card-shadow: 0 2px 8px rgba(28, 36, 32, 0.035);
@@ -20,8 +20,10 @@
   transition: none !important;
 }
 
-:root[data-app-theme="darkTheme"] {
+:root[data-app-theme="dark"] {
   color-scheme: dark;
+  --app-background: #101010;
+  --app-text: #b5b8bc;
   --app-danger: #f08a98;
   --app-danger-soft: #482a31;
   --app-card-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
@@ -30,6 +32,13 @@
 /* Only the top-level tab navigation is draggable; panes keep workspace no-drag. */
 .app-drag-tabs > .n-tabs-nav {
   --wails-draggable: drag;
+}
+
+/* Naive UI provides a hover fill for inputs but only a hover border for selects. */
+@media (hover: hover) {
+  .n-select:hover {
+    --app-select-hover-fill: var(--app-surface-hover);
+  }
 }
 
 /* Wails checks the event target's inherited value, including icon/text children.
@@ -81,16 +90,6 @@ summary,
   background-color: transparent !important;
 }
 
-.app-sidebar .n-menu-item-content--selected::before {
-  box-shadow: var(--app-menu-selection-shadow);
-}
-
-:root[data-menu-inset="false"] .app-sidebar .n-menu-item-content--selected::before {
-  left: 0;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
 .app-sidebar .n-menu-item-content--selected .n-menu-item-content-header {
   font-weight: 500;
 }
@@ -104,8 +103,8 @@ summary,
   outline-offset: -2px;
 }
 
-:root[data-app-theme="sakuraTheme"] .app-sidebar::before,
-:root[data-app-theme="sakuraTheme"] .app-workspace::before {
+:root[data-app-theme="sakura"] .app-sidebar::before,
+:root[data-app-theme="sakura"] .app-workspace::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -113,7 +112,7 @@ summary,
   background: url("../image/sakura-branch.svg") no-repeat right top / contain;
 }
 
-:root[data-app-theme="sakuraTheme"] .app-sidebar::before {
+:root[data-app-theme="sakura"] .app-sidebar::before {
   left: 0;
   bottom: 164px;
   width: 100%;
@@ -122,11 +121,11 @@ summary,
   opacity: 0.72;
 }
 
-:root[data-app-theme="sakuraTheme"] .app-workspace {
+:root[data-app-theme="sakura"] .app-workspace {
   isolation: isolate;
 }
 
-:root[data-app-theme="sakuraTheme"] .app-workspace::before {
+:root[data-app-theme="sakura"] .app-workspace::before {
   top: 0;
   right: 0;
   width: min(360px, 46%);
@@ -135,7 +134,7 @@ summary,
 }
 
 @media (max-height: 640px) {
-  :root[data-app-theme="sakuraTheme"] .app-sidebar::before {
+  :root[data-app-theme="sakura"] .app-sidebar::before {
     display: none;
   }
 }

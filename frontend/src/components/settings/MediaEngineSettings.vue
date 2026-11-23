@@ -1,6 +1,6 @@
 <template>
   <div class="w-[760px] space-y-4">
-    <NAlert type="info" :show-icon="false">{{ t("setting.media_engine_tip") }}</NAlert>
+    <NAlert :bordered="false" type="info" :show-icon="false">{{ t("setting.media_engine_tip") }}</NAlert>
     <NForm label-placement="left" label-width="60">
       <NFormItem label="FFmpeg" :validation-status="ffmpegFeedback ? 'error' : undefined" :feedback="ffmpegFeedback">
         <div class="flex w-full items-center gap-2">
@@ -35,25 +35,25 @@
       </NFormItem>
     </NForm>
     <div v-if="status" class="grid grid-cols-2 gap-3">
-      <NCard size="small" title="FFmpeg">
-        <NTag :type="status.ffmpeg.available ? 'success' : 'error'">
+      <NCard :bordered="false" size="small" title="FFmpeg">
+        <NTag :bordered="false" :type="status.ffmpeg.available ? 'success' : 'error'">
           {{ status.ffmpeg.available ? t("setting.media_available") : t("setting.media_unavailable") }}
         </NTag>
-        <div class="mt-2 whitespace-pre-wrap break-all text-xs text-gray-500 dark:text-app-muted">
+        <div class="mt-2 whitespace-pre-wrap break-all text-xs" :class="status.ffmpeg.available ? 'text-app-muted' : 'text-app-danger'">
           {{ status.ffmpeg.version || status.ffmpeg.error }}
         </div>
-        <div v-if="status.ffmpeg.path" class="mt-1 break-all text-xs text-gray-400 dark:text-app-muted">
+        <div v-if="status.ffmpeg.path" class="mt-1 break-all text-xs text-app-muted">
           {{ status.ffmpeg.path }}
         </div>
       </NCard>
-      <NCard size="small" title="FFprobe">
-        <NTag :type="status.ffprobe.available ? 'success' : 'error'">
+      <NCard :bordered="false" size="small" title="FFprobe">
+        <NTag :bordered="false" :type="status.ffprobe.available ? 'success' : 'error'">
           {{ status.ffprobe.available ? t("setting.media_available") : t("setting.media_unavailable") }}
         </NTag>
-        <div class="mt-2 whitespace-pre-wrap break-all text-xs text-gray-500 dark:text-app-muted">
+        <div class="mt-2 whitespace-pre-wrap break-all text-xs" :class="status.ffprobe.available ? 'text-app-muted' : 'text-app-danger'">
           {{ status.ffprobe.version || status.ffprobe.error }}
         </div>
-        <div v-if="status.ffprobe.path" class="mt-1 break-all text-xs text-gray-400 dark:text-app-muted">
+        <div v-if="status.ffprobe.path" class="mt-1 break-all text-xs text-app-muted">
           {{ status.ffprobe.path }}
         </div>
       </NCard>
@@ -70,7 +70,7 @@ import type {appType} from "@/types/app"
 import {Browser} from "@wailsio/runtime"
 
 const props = defineProps<{
-  config: appType.Config
+  config: Pick<appType.Config, "FFmpegPath" | "FFprobePath">
   ffmpegFeedback: string
   ffprobeFeedback: string
 }>()

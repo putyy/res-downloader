@@ -1,19 +1,14 @@
 <template>
-  <NCard
-    size="small"
-    :bordered="false"
-    class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto h-full [--wails-draggable:no-drag]"
-  >
+  <NCard size="small" :bordered="false" class="!flex h-full flex-col [--wails-draggable:no-drag] [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto">
     <template #header>
       <div class="min-w-0">
-        <div class="truncate font-medium" :title="name">{{ name }}</div>
+        <div class="truncate font-semibold text-app-heading" :title="name">{{ name }}</div>
         <div class="mt-1 flex flex-wrap gap-1">
-          <NTag size="small">{{ plugin.manifest.runtime || "invalid" }}</NTag>
-          <NTag v-if="plugin.source === 'builtin'" size="small" type="info">{{ t("plugin.builtin") }}</NTag>
-          <NTag v-else-if="plugin.source === 'official'" size="small" type="info">{{ t("plugin.official") }}</NTag>
-          <NTag v-else size="small">{{ t("plugin.store_community") }}</NTag>
-          <NTag v-if="plugin.loaded" size="small" type="success">{{ t("plugin.loaded") }}</NTag>
-          <NTag v-else size="small">{{ t("plugin.disabled") }}</NTag>
+          <NTag size="small" :bordered="false">{{ plugin.manifest.runtime || "invalid" }}</NTag>
+          <NTag v-if="plugin.source === 'builtin'" size="small" :bordered="false">{{ t("plugin.builtin") }}</NTag>
+          <NTag v-else-if="plugin.source === 'official'" size="small" :bordered="false">{{ t("plugin.official") }}</NTag>
+          <NTag v-else size="small" :bordered="false">{{ t("plugin.store_community") }}</NTag>
+          <NTag size="small" :bordered="false" :type="plugin.loaded ? 'success' : 'default'">{{ t(plugin.loaded ? "plugin.loaded" : "plugin.disabled") }}</NTag>
         </div>
       </div>
     </template>
@@ -32,7 +27,7 @@
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>
-        <div class="text-app-muted ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">
+        <div class="text-app-text ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">
           {{ description }}
         </div>
       </template>
@@ -54,13 +49,13 @@
       <div class="ellipsis-3" :title="plugin.error">{{ plugin.error }}</div>
     </NAlert>
     <PluginRuntimeHealth :health="plugin.health" />
-    <div v-if="Object.keys(plugin.manifest.operations || {}).length" class="mt-3 border-t border-current/10 pt-3">
+    <div v-if="Object.keys(plugin.manifest.operations || {}).length" class="mt-3 rounded-md bg-app-surface-muted p-3">
       <NCollapse>
         <NCollapseItem name="operations">
-          <template #header
-            ><span class="text-xs text-app-muted">{{ t("plugin.advanced_operations") }}</span></template
-          >
-          <p class="text-xs text-app-muted mb-3">{{ t("plugin.advanced_operations_hint") }}</p>
+          <template #header>
+            <span class="text-xs font-medium text-app-heading">{{ t("plugin.advanced_operations") }}</span>
+          </template>
+          <p class="mb-3 text-xs text-app-text">{{ t("plugin.advanced_operations_hint") }}</p>
           <div class="flex flex-wrap gap-2">
             <NButton
               v-for="(operation, id) in plugin.manifest.operations"

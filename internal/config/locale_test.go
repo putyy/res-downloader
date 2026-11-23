@@ -43,11 +43,11 @@ func TestInitialLocaleIsPersisted(t *testing.T) {
 func TestExistingLocaleIsPreserved(t *testing.T) {
 	directory := t.TempDir()
 	// A language stored by an older version or selected manually remains authoritative.
-	if err := os.WriteFile(filepath.Join(directory, "config.json"), []byte(`{"Locale":"en","Theme":"darkTheme"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, "config.json"), []byte(`{"Locale":"en","Theme":"dark"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	got := New(directory, logging.New(false, ""), "zh")
-	if got.Locale != "en" || got.Theme != "darkTheme" {
+	if got.Locale != "en" || got.Theme != "dark" {
 		t.Fatalf("existing preferences changed: locale=%q, theme=%q", got.Locale, got.Theme)
 	}
 }

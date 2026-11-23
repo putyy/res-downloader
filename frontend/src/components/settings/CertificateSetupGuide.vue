@@ -6,8 +6,8 @@
           <NIcon size="27"><ShieldCheckmarkOutline /></NIcon>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-xl font-semibold">{{ guideTitle }}</div>
-          <p class="text-app-muted mt-2 text-sm leading-6">{{ guideDescription }}</p>
+          <div class="text-xl font-semibold text-app-heading">{{ guideTitle }}</div>
+          <p class="text-app-text mt-2 text-sm leading-6">{{ guideDescription }}</p>
         </div>
       </div>
 
@@ -15,13 +15,13 @@
         <div class="flex gap-3">
           <NIcon class="mt-0.5 shrink-0 text-amber-600" size="19"><LockClosedOutline /></NIcon>
           <div class="text-sm leading-6">
-            <div class="font-medium">{{ authorizationTitle }}</div>
-            <div class="text-app-muted mt-1">{{ authorizationDescription }}</div>
+            <div class="font-medium text-app-heading">{{ authorizationTitle }}</div>
+            <div class="text-app-text mt-1">{{ authorizationDescription }}</div>
           </div>
         </div>
       </div>
 
-      <NAlert v-if="certificate.status?.error" type="error" :show-icon="false" class="mt-4">
+      <NAlert :bordered="false" v-if="certificate.status?.error" type="error" :show-icon="false" class="mt-4">
         {{ certificate.status.error }}
       </NAlert>
 
@@ -34,14 +34,14 @@
           :placeholder="t('components.password_placeholder')"
           @keyup.enter="submit"
         />
-        <div class="text-app-muted mt-2 text-xs">{{ t("certificateGuide.password_tip") }}</div>
+        <div class="text-app-text mt-2 text-xs">{{ t("certificateGuide.password_tip") }}</div>
       </div>
 
       <div class="mt-6 flex items-center justify-between gap-3">
         <NButton quaternary :disabled="certificate.installing" @click="dismiss">
           {{ t("certificateGuide.later") }}
         </NButton>
-        <NButton type="primary" :loading="certificate.installing" @click="submit">
+        <NButton type="primary" :bordered="false" :loading="certificate.installing" @click="submit">
           {{ primaryLabel }}
         </NButton>
       </div>

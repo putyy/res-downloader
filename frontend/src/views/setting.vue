@@ -1,8 +1,8 @@
 <template>
-  <div class="h-full overflow-hidden p-5" :key="renderKey">
+  <NConfigProvider class="settings-page h-full overflow-hidden p-5" :key="store.globalConfig.Locale" :theme-overrides="settingsOverrides">
     <NTabs
       v-model:value="activeTab"
-      type="line"
+      type="bar"
       animated
       class="app-drag-tabs h-full"
       pane-wrapper-class="min-h-0 flex-1"
@@ -46,7 +46,7 @@
             </NTooltip>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -65,7 +65,7 @@
             <NSwitch v-model:value="formValue.AutoProxy" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -77,7 +77,7 @@
             <NSwitch v-model:value="formValue.InsertTail" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -87,7 +87,7 @@
 
           <NFormItem>
             <NSpace>
-              <n-popconfirm @positive-click="resetHandle">
+              <n-popconfirm :negative-button-props="{secondary: true}" :positive-button-props="{type: 'error', secondary: true}" @positive-click="resetHandle">
                 <template #trigger>
                   <NButton tertiary type="error" :loading="resetting" class="[--wails-draggable:no-drag]">
                     {{ t("index.start_err_positiveText") }}
@@ -120,7 +120,7 @@
 
       <NTabPane name="resource-rules" :tab="t('setting.capture_rules')" class="[--wails-draggable:no-drag]">
         <div class="w-[900px] space-y-3">
-          <NAlert type="info" :show-icon="false">
+          <NAlert :bordered="false" type="info" :show-icon="false">
             {{ t("setting.capture_rules_tip") }}
           </NAlert>
           <NSpace>
@@ -129,7 +129,7 @@
           </NSpace>
           <NDynamicInput v-model:value="captureRules" :on-create="createCaptureRule">
             <template #default="{value, index}">
-              <NCard size="small" class="mb-3 w-full">
+              <NCard :bordered="false" size="small" class="mb-3 w-full">
                 <template #header>
                   <div class="grid grid-cols-[1fr_1fr_120px_auto] gap-2 items-center">
                     <NInput v-model:value="value.id" :placeholder="t('setting.capture_rule_id')" />
@@ -140,24 +140,24 @@
                 </template>
                 <NCollapse>
                   <NCollapseItem :title="t('setting.capture_rule_details')" :name="value.id">
-                    <div class="text-xs font-medium text-gray-500 dark:text-app-muted mb-1">
+                    <div class="text-xs font-medium text-app-heading mb-1">
                       {{ t("setting.capture_match") }}
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">MIME</div>
+                        <div class="text-xs text-app-muted mb-1">MIME</div>
                         <NDynamicTags v-model:value="value.match.mime" />
                       </div>
                       <div>
-                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">URL</div>
+                        <div class="text-xs text-app-muted mb-1">URL</div>
                         <NDynamicTags v-model:value="value.match.url" />
                       </div>
                       <div>
-                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">Content-Disposition</div>
+                        <div class="text-xs text-app-muted mb-1">Content-Disposition</div>
                         <NDynamicTags v-model:value="value.match.contentDisposition" />
                       </div>
                       <div>
-                        <div class="text-xs text-gray-500 dark:text-app-muted mb-1">HTTP Status</div>
+                        <div class="text-xs text-app-muted mb-1">HTTP Status</div>
                         <NSelect v-model:value="value.match.status" multiple tag :options="httpStatusOptions" />
                       </div>
                       <div class="grid grid-cols-2 gap-2">
@@ -166,8 +166,7 @@
                       </div>
                     </div>
 
-                    <NDivider class="!my-3" />
-                    <div class="text-xs font-medium text-gray-500 dark:text-app-muted mb-1">
+                    <div class="mt-4 mb-1 text-xs font-medium text-app-heading">
                       {{ t("setting.capture_output") }}
                     </div>
                     <div class="grid grid-cols-3 gap-2">
@@ -178,7 +177,7 @@
                       <NSelect v-model:value="value.resource.previewRenderer" clearable :options="previewRendererOptions" :placeholder="t('setting.capture_preview')" />
                       <NSelect v-model:value="value.resource.capabilities" multiple :options="resourceCapabilityOptions" :placeholder="t('setting.capture_capabilities')" />
                     </div>
-                    <div class="mt-2 text-xs text-gray-400 dark:text-app-muted">#{{ index + 1 }} · {{ t("setting.capture_rule_order_tip") }}</div>
+                    <div class="mt-2 text-xs text-app-muted">#{{ index + 1 }} · {{ t("setting.capture_rule_order_tip") }}</div>
                   </NCollapseItem>
                 </NCollapse>
               </NCard>
@@ -207,7 +206,7 @@
             <NInput v-model:value="formValue.Host" placeholder="127.0.0.1" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -219,7 +218,7 @@
             <NInput v-model:value="formValue.Port" placeholder="8899" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -237,7 +236,7 @@
             <NSwitch v-model:value="formValue.OpenProxy" class="ml-1" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -249,7 +248,7 @@
             <NSwitch v-model:value="formValue.DownloadProxy" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -261,7 +260,7 @@
             <NInputNumber v-model:value="formValue.TaskNumber" :min="2" :max="64" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -273,7 +272,7 @@
             <NInputNumber v-model:value="formValue.DownNumber" :min="1" :max="10" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -285,7 +284,7 @@
             <NInput v-model:value="formValue.UserAgent" placeholder="UserAgent" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -297,7 +296,7 @@
             <NInput v-model:value="formValue.UseHeaders" placeholder="User-Agent,Referer,Authorization,Cookie" />
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -308,17 +307,17 @@
           <NFormItem :label="t('setting.interception_policies')" path="InterceptionPolicies">
             <NDynamicInput v-model:value="formValue.InterceptionPolicies" :on-create="createInterceptionPolicy">
               <template #default="{value}">
-                <NCard size="small" class="mb-2 w-full">
+                <NCard :bordered="false" size="small" class="mb-2 w-full">
                   <div class="grid grid-cols-[1fr_130px_auto] gap-2 items-center">
                     <NInput v-model:value="value.name" :placeholder="t('setting.policy_name')" />
                     <NSelect v-model:value="value.action" :options="interceptionActionOptions" />
                     <NSwitch v-model:value="value.enabled" />
                   </div>
-                  <div class="mt-2 text-xs text-gray-500 dark:text-app-muted">
+                  <div class="mt-2 text-xs text-app-text">
                     {{ t("setting.policy_domains") }}
                   </div>
                   <NDynamicTags v-model:value="value.domains" />
-                  <div class="mt-2 text-xs text-gray-500 dark:text-app-muted">
+                  <div class="mt-2 text-xs text-app-text">
                     {{ t("setting.policy_exclude") }}
                   </div>
                   <NDynamicTags v-model:value="value.exclude" />
@@ -327,7 +326,7 @@
             </NDynamicInput>
             <NTooltip trigger="hover">
               <template #trigger>
-                <NIcon size="18" class="ml-1 text-gray-500 dark:text-app-muted">
+                <NIcon size="18" class="ml-1 text-app-muted">
                   <HelpCircleOutline />
                 </NIcon>
               </template>
@@ -340,17 +339,17 @@
 
     <NModal v-model:show="showResetAuthorization" preset="dialog" :title="t('index.reset_app_authorize')">
       <div class="space-y-3">
-        <div class="text-sm text-gray-500 dark:text-app-muted">
+        <div class="text-sm text-app-text">
           {{ t("index.reset_app_authorize_tip") }}
         </div>
         <NInput v-model:value="resetPassword" type="password" show-password-on="click" :placeholder="t('components.password_placeholder')" @keyup.enter="prepareReset" />
       </div>
       <template #action>
-        <NButton :disabled="resetting" @click="showResetAuthorization = false">{{ t("common.cancel") }}</NButton>
-        <NButton type="error" :loading="resetting" @click="prepareReset">{{ t("common.submit") }}</NButton>
+        <NButton secondary :disabled="resetting" @click="showResetAuthorization = false">{{ t("common.cancel") }}</NButton>
+        <NButton type="error" :bordered="false" :loading="resetting" @click="prepareReset">{{ t("common.submit") }}</NButton>
       </template>
     </NModal>
-  </div>
+  </NConfigProvider>
 </template>
 
 <script lang="ts" setup>
@@ -363,18 +362,41 @@ import appApi from "@/api/app"
 import {useI18n} from "vue-i18n"
 import {useRoute} from "vue-router"
 import {isValidHost, isValidPort, isValidUpstreamProxy} from "@/func"
-import {NButton, NIcon} from "naive-ui"
+import {NButton, NIcon, type GlobalThemeOverrides} from "naive-ui"
 import * as bind from "../../bindings/res-downloader/internal/app/bind"
 import {openDocumentation} from "@/services/documentation"
 import MediaEngineSettings from "@/components/settings/MediaEngineSettings.vue"
 import CertificateSettings from "@/components/settings/CertificateSettings.vue"
 import AppearanceSettings from "@/components/settings/AppearanceSettings.vue"
 
+// Dynamic editors render their own tag and action buttons, including dashed add buttons.
+const editorButton = {
+  border: "0 solid transparent",
+  borderHover: "0 solid transparent",
+  borderPressed: "0 solid transparent",
+  borderDisabled: "0 solid transparent",
+  color: "var(--app-surface-muted)",
+  colorHover: "var(--app-surface-hover)",
+  colorPressed: "var(--app-surface-hover)",
+  colorFocus: "var(--app-surface-hover)",
+}
+const settingsOverrides: GlobalThemeOverrides = {
+  DynamicInput: {peers: {Button: editorButton}},
+  DynamicTags: {peers: {Button: editorButton}},
+  Tag: {border: "none", colorBordered: "var(--app-surface-hover)"},
+}
+
 const {t} = useI18n()
 const route = useRoute()
 const store = useIndexStore()
 const updateUI = useUpdateStore()
-const activeTab = ref(route.query.tab === "resource-rules" ? "resource-rules" : "basic")
+const tabStorageKey = "settings-active-tab"
+const tabNames = ["basic", "appearance", "resource-rules", "media", "certificate", "advanced"]
+const requestedTab = tabNames.find((name) => name === route.query.tab)
+const savedTab = localStorage.getItem(tabStorageKey)
+const activeTab = ref(requestedTab ?? tabNames.find((name) => name === savedTab) ?? "basic")
+
+watch(activeTab, (name) => localStorage.setItem(tabStorageKey, name), {immediate: true, flush: "sync"})
 
 const filenameTemplateExample = "{{author}}/{{title|default:resource|sanitize|truncate:80}}_{{date:20060102}}.{{ext}}"
 const filenameConflictOptions = computed(() => [
@@ -396,9 +418,9 @@ const createInterceptionPolicy = (): appType.InterceptionPolicy => ({
   action: "mitm",
 })
 
-const formValue = ref<appType.Config>(Object.assign({}, store.globalConfig))
-
-const renderKey = ref(999)
+// Appearance and language have their own controls and are saved independently.
+const {Theme: _theme, ThemeColors: _colors, Locale: _locale, ...formFields} = store.globalConfig
+const formValue = ref(formFields)
 const genericDetectorID = "builtin.generic-detector"
 const captureRules = ref<appType.CaptureRule[]>([])
 const defaultCaptureRules = ref<appType.CaptureRule[]>([])
@@ -546,23 +568,6 @@ watch(
   {deep: true},
 )
 
-watch(
-  () => {
-    return store.globalConfig.Theme
-  },
-  () => {
-    formValue.value.Theme = store.globalConfig.Theme
-  },
-)
-
-watch(
-  () => store.globalConfig.Locale,
-  () => {
-    formValue.value.Locale = store.globalConfig.Locale
-    renderKey.value++
-  },
-)
-
 const selectDir = () => {
   appApi
     .openDirectoryDialog()
@@ -649,3 +654,19 @@ const resetCaptureRules = () => {
 
 onMounted(loadCaptureRules)
 </script>
+
+<style scoped>
+.settings-page :deep(.n-button--dashed) {
+  background-color: var(--app-surface-muted);
+}
+
+.settings-page :deep(.n-button--dashed:not(:disabled):hover),
+.settings-page :deep(.n-button--dashed:focus-visible) {
+  background-color: var(--app-surface-hover);
+}
+
+.settings-page :deep(.n-button:focus-visible) {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+</style>

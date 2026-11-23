@@ -13,6 +13,7 @@ export default {
           "surface-hover": "var(--app-surface-hover)",
           border: "var(--app-border)",
           text: "var(--app-text)",
+          heading: "var(--app-text-heading)",
           muted: "var(--app-text-muted)",
           accent: "var(--app-accent)",
           "accent-soft": "var(--app-accent-soft)",

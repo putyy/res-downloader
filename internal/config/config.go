@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -17,12 +18,15 @@ import (
 	"sync"
 )
 
+type ThemeColors map[string]map[string]string
+
 // Config struct
 type Config struct {
 	storage              *Storage
 	onApply              func(previous, current Config) error
 	state                *configState
 	Theme                string         `json:"Theme"`
+	ThemeColors          ThemeColors    `json:"ThemeColors"`
 	Locale               string         `json:"Locale"`
 	WindowWidth          int            `json:"WindowWidth"`
 	WindowHeight         int            `json:"WindowHeight"`
@@ -64,7 +68,8 @@ func New(userDir string, logger *logging.Logger, defaultLocale string) *Config {
 	}
 	defaultConfig := &Config{
 		state:            &configState{},
-		Theme:            "lightTheme",
+		Theme:            "light",
+		ThemeColors:      ThemeColors{},
 		Locale:           defaultLocale,
 		WindowWidth:      DefaultWindowWidth,
 		WindowHeight:     DefaultWindowHeight,
@@ -127,8 +132,29 @@ func New(userDir string, logger *logging.Logger, defaultLocale string) *Config {
 	if err := json.Unmarshal(finalBytes, defaultConfig); err != nil {
 		logger.Esg(err, "unmarshal merged config to struct failed")
 	}
+	defaultConfig.Theme = normalizeTheme(defaultConfig.Theme)
+	if defaultConfig.ThemeColors == nil {
+		defaultConfig.ThemeColors = ThemeColors{}
+	}
 
 	return defaultConfig
+}
+
+func normalizeTheme(theme string) string {
+	switch theme {
+	case "dark", "sakura", "forest", "autumn", "seaSalt":
+		return theme
+	default:
+		return "light"
+	}
+}
+
+func (colors ThemeColors) clone() ThemeColors {
+	cloned := maps.Clone(colors)
+	for theme, overrides := range colors {
+		cloned[theme] = maps.Clone(overrides)
+	}
+	return cloned
 }
 
 func getDefaultDownloadDir() string {
@@ -165,6 +191,12 @@ func (c *Config) Apply(config Config) error {
 	defer c.state.applyMu.Unlock()
 	previous := c.Snapshot()
 	config = config.Snapshot()
+	config.Theme = normalizeTheme(config.Theme)
+	// A supplied map replaces the entire palette, including deleted overrides.
+	// Older settings clients may omit this field when submitting their snapshot.
+	if config.ThemeColors == nil {
+		config.ThemeColors = previous.ThemeColors
+	}
 	config.FFmpegPath = strings.TrimSpace(config.FFmpegPath)
 	config.FFprobePath = strings.TrimSpace(config.FFprobePath)
 	config.Host = strings.TrimSpace(config.Host)
@@ -342,6 +374,7 @@ func (c *Config) Snapshot() Config {
 	}
 	return Config{
 		Theme: c.Theme, Locale: c.Locale, Host: c.Host, Port: c.Port, SaveDirectory: c.SaveDirectory,
+		ThemeColors: c.ThemeColors.clone(),
 		WindowWidth: c.WindowWidth, WindowHeight: c.WindowHeight,
 		FilenameTemplate: c.FilenameTemplate, FilenameConflict: c.FilenameConflict,
 		UpstreamProxy: c.UpstreamProxy, OpenProxy: c.OpenProxy, DownloadProxy: c.DownloadProxy,
@@ -358,6 +391,7 @@ func (c *Config) replace(value Config) {
 		defer c.state.mu.Unlock()
 	}
 	c.Theme, c.Locale, c.Host, c.Port = value.Theme, value.Locale, value.Host, value.Port
+	c.ThemeColors = value.ThemeColors.clone()
 	c.WindowWidth, c.WindowHeight = value.WindowWidth, value.WindowHeight
 	c.SaveDirectory, c.FilenameTemplate, c.FilenameConflict = value.SaveDirectory, value.FilenameTemplate, value.FilenameConflict
 	c.UpstreamProxy, c.OpenProxy, c.DownloadProxy = value.UpstreamProxy, value.OpenProxy, value.DownloadProxy
@@ -382,6 +416,8 @@ func (c *Config) Get(key string) interface{} {
 		return snapshot.Port
 	case "Theme":
 		return snapshot.Theme
+	case "ThemeColors":
+		return snapshot.ThemeColors
 	case "Locale":
 		return snapshot.Locale
 	case "SaveDirectory":

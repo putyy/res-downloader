@@ -155,22 +155,22 @@ const paths: Record<string, string> = {
 </template>
 
 <style scoped>
-/* Match lightTheme/darkTheme in frontend/src/themes/index.ts. */
+/* Match the light and dark presets in frontend/src/themes/index.ts. */
 .resd-desktop-preview {
-  --desktop-background: #f3f5f4;
-  --desktop-surface: #ffffff;
-  --desktop-surface-muted: #edf1ef;
-  --desktop-border: #dfe5e1;
-  --desktop-text: #27332e;
-  --desktop-muted: #616e67;
-  --desktop-accent: #357458;
-  --desktop-accent-soft: #e5efe9;
-  --desktop-sidebar: #252d2a;
-  --desktop-sidebar-text: #b9c5be;
-  --desktop-sidebar-accent: #c2e6d1;
-  --desktop-sidebar-active: #354b40;
-  --desktop-danger: #d03050;
-  --desktop-danger-soft: #fbeef1;
+  --desktop-background: #fafafa;
+  --desktop-surface: #f6f6f6;
+  --desktop-surface-muted: #efefef;
+  --desktop-border: #d9d9d9;
+  --desktop-text: #50545a;
+  --desktop-muted: #656b72;
+  --desktop-accent: #246b61;
+  --desktop-accent-soft: #dde5e4;
+  --desktop-sidebar: #edeeef;
+  --desktop-sidebar-text: #171717;
+  --desktop-sidebar-accent: #000000;
+  --desktop-sidebar-active: #d9dcde;
+  --desktop-danger: #bd4055;
+  --desktop-danger-soft: #f9e5e9;
   --desktop-info: #2080f0;
   display: block;
   width: 100%;
@@ -183,20 +183,20 @@ const paths: Record<string, string> = {
 }
 
 .dark .resd-desktop-preview {
-  --desktop-background: #1b1c19;
-  --desktop-surface: #242521;
-  --desktop-surface-muted: #2d2e29;
-  --desktop-border: #3d3f37;
-  --desktop-text: #eee9df;
-  --desktop-muted: #b9b2a5;
-  --desktop-accent: #8fc6a4;
-  --desktop-accent-soft: #2a3b31;
-  --desktop-sidebar: #11120f;
-  --desktop-sidebar-text: #beb8ac;
-  --desktop-sidebar-accent: #eee9df;
-  --desktop-sidebar-active: rgba(255, 255, 255, 0.12);
-  --desktop-danger: #e88080;
-  --desktop-danger-soft: #3d2928;
+  --desktop-background: #101010;
+  --desktop-surface: #1a1a1a;
+  --desktop-surface-muted: #242424;
+  --desktop-border: #424242;
+  --desktop-text: #b5b8bc;
+  --desktop-muted: #92969c;
+  --desktop-accent: #84c8b8;
+  --desktop-accent-soft: #2f3d3a;
+  --desktop-sidebar: #1f1f1f;
+  --desktop-sidebar-text: #b3b3b3;
+  --desktop-sidebar-accent: #dadada;
+  --desktop-sidebar-active: #3a3a3a;
+  --desktop-danger: #f08a98;
+  --desktop-danger-soft: #482a31;
   --desktop-info: #70c0e8;
 }
 

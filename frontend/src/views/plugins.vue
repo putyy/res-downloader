@@ -12,7 +12,7 @@
       >
         <template #suffix>
           <NSpace :wrap="false">
-            <NButton secondary :loading="localInspecting || localInstalling" @click="inspectLocalPlugin">
+            <NButton secondary type="primary" :loading="localInspecting || localInstalling" @click="inspectLocalPlugin">
               {{ t("plugin.install_file") }}
             </NButton>
             <NButton v-if="activeTab === 'installed'" secondary :loading="reloading" @click="reloadPlugins">
@@ -55,10 +55,10 @@
           </template>
           <div ref="storeScroll" class="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden">
             <div class="mb-3 space-y-3">
-              <NAlert type="warning" :show-icon="false">
+              <NAlert :bordered="false" :show-icon="false">
                 {{ t("plugin.store_warning") }}
               </NAlert>
-              <NAlert v-if="storeStale" type="warning" :show-icon="false">
+              <NAlert v-if="storeStale" type="warning" :bordered="false" :show-icon="false">
                 {{ t("plugin.store_stale") }}<span v-if="storeWarning">：{{ storeWarning }}</span>
               </NAlert>
               <div class="flex flex-wrap gap-3">
@@ -97,10 +97,10 @@
         >
           <div class="space-y-3">
             <div>
-              <div class="text-base font-medium">
+              <div class="text-base font-medium text-app-heading">
                 {{ localizedPluginName(localInspection.manifest) }}
               </div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-app-muted">
+              <div class="mt-1 text-xs text-app-muted">
                 {{ localInspection.manifest.id }} · v{{ localInspection.manifest.version }} · API
                 {{ localInspection.manifest.apiVersion }}
               </div>
@@ -112,27 +112,27 @@
               {{ t("plugin.local_installed_version", {version: localInspection.installed.version}) }}
             </NAlert>
             <div>
-              <div class="mb-1 text-sm font-medium">{{ t("plugin.local_domains") }}</div>
+              <div class="mb-1 text-sm font-medium text-app-heading">{{ t("plugin.local_domains") }}</div>
               <div class="flex flex-wrap gap-1">
-                <NTag v-for="domain in localInspection.manifest.permissions?.domains ?? []" :key="domain" size="small">
+                <NTag v-for="domain in localInspection.manifest.permissions?.domains ?? []" :key="domain" size="small" :bordered="false">
                   {{ domain }}
                 </NTag>
-                <span v-if="!localInspection.manifest.permissions?.domains?.length" class="text-xs text-gray-500 dark:text-app-muted">-</span>
+                <span v-if="!localInspection.manifest.permissions?.domains?.length" class="text-xs text-app-muted">-</span>
               </div>
             </div>
             <div>
-              <div class="mb-1 text-sm font-medium">{{ t("plugin.local_capabilities") }}</div>
+              <div class="mb-1 text-sm font-medium text-app-heading">{{ t("plugin.local_capabilities") }}</div>
               <div class="flex flex-wrap gap-1">
-                <NTag v-for="capability in localInspection.manifest.permissions?.capabilities ?? []" :key="capability" size="small" type="warning">
+                <NTag v-for="capability in localInspection.manifest.permissions?.capabilities ?? []" :key="capability" size="small" :bordered="false">
                   {{ capability }}
                 </NTag>
-                <span v-if="!localInspection.manifest.permissions?.capabilities?.length" class="text-xs text-gray-500 dark:text-app-muted">-</span>
+                <span v-if="!localInspection.manifest.permissions?.capabilities?.length" class="text-xs text-app-muted">-</span>
               </div>
             </div>
             <NAlert v-if="hasPageInjectionPermission(localInspection.manifest)" type="error" :show-icon="false">
               {{ t("plugin.page_injection_warning") }}
             </NAlert>
-            <div class="break-all text-xs text-gray-500 dark:text-app-muted">{{ t("plugin.local_content_sha256") }}：{{ localInspection.contentSha256 }}</div>
+            <div class="break-all text-xs text-app-muted">{{ t("plugin.local_content_sha256") }}：{{ localInspection.contentSha256 }}</div>
           </div>
           <template #footer>
             <div class="flex justify-end gap-2">
@@ -166,7 +166,7 @@
                 <NAlert v-else type="warning" :show-icon="false">
                   {{ t("plugin.unsupported_setting", {name: field.key}) }}
                 </NAlert>
-                <div v-if="settingFieldDescription(field.schema)" class="mt-1 text-xs text-gray-500 dark:text-app-muted">
+                <div v-if="settingFieldDescription(field.schema)" class="mt-1 text-xs text-app-text">
                   {{ settingFieldDescription(field.schema) }}
                 </div>
               </div>

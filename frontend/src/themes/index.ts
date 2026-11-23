@@ -1,56 +1,80 @@
 import {darkTheme, lightTheme} from "naive-ui"
 import type {GlobalTheme, GlobalThemeOverrides} from "naive-ui"
 
-export const appThemeIds = ["lightTheme", "darkTheme", "sakuraTheme", "forestTheme", "autumnTheme", "seaSaltTheme"] as const
+export const appThemeIds = ["light", "dark", "sakura", "forest", "autumn", "seaSalt"] as const
 
 export type AppThemeName = (typeof appThemeIds)[number]
 
-interface ThemePalette {
-  background: string
-  surface: string
+export const themeColorKeys = ["sidebar", "sidebarText", "sidebarActive", "sidebarAccent", "background", "surface", "heading", "text", "textMuted", "accent"] as const
+export type ThemeColorKey = (typeof themeColorKeys)[number]
+type BasePalette = Record<ThemeColorKey, string>
+export type AppThemeColors = Partial<BasePalette>
+
+interface ThemePalette extends BasePalette {
   surfaceMuted: string
   surfaceHover: string
   border: string
-  text: string
-  textMuted: string
-  accent: string
   accentHover: string
   accentPressed: string
   accentSoft: string
-  sidebar: string
-  sidebarText: string
-  sidebarAccent: string
-  sidebarActive: string
 }
 
 export interface AppThemeDefinition {
   id: AppThemeName
   nameKey: string
   dark: boolean
-  menuInset: boolean
-  menuSelection: {background: string; text: string; shadow: string}
+  menuSelection: {background: string; text: string}
   naiveTheme: GlobalTheme
   overrides: GlobalThemeOverrides
   cssVars: Record<string, string>
   preview: ThemePalette
 }
 
-// Navigation has its own inverted colors, independent of the workspace theme.
-// Keep existing theme IDs so saved preferences continue to resolve.
-const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThemeDefinition => {
-  const isDark = id === "darkTheme"
-  const subtleSelection = id === "darkTheme" || id === "sakuraTheme"
-  const menuHoverText = isDark ? p.text : "#ffffff"
-  const menuSelection = {
-    background: subtleSelection ? "rgba(255, 255, 255, 0.12)" : p.sidebarActive,
-    text: subtleSelection ? menuHoverText : p.sidebarAccent,
-    shadow: subtleSelection ? "none" : `inset 2px 0 0 ${p.sidebarAccent}`,
+function channels(color: string): number[] {
+  return [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16))
+}
+
+function mix(from: string, to: string, amount: number): string {
+  const target = channels(to)
+  const hex = channels(from).map((value, index) =>
+    Math.round(value + (target[index] - value) * amount)
+      .toString(16)
+      .padStart(2, "0"),
+  )
+  return "#" + hex.join("")
+}
+
+function luminance(color: string): number {
+  const [red, green, blue] = channels(color).map((value) => {
+    const channel = value / 255
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  })
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722
+}
+
+function foreground(background: string): string {
+  const light = luminance(background)
+  return (light + 0.05) / 0.05 > 1.05 / (light + 0.05) ? "#000000" : "#ffffff"
+}
+
+const createTheme = (id: AppThemeName, nameKey: string, base: BasePalette): AppThemeDefinition => {
+  const isDark = id === "dark"
+  const onAccent = foreground(base.accent)
+  const p: ThemePalette = {
+    ...base,
+    surfaceMuted: mix(base.surface, base.heading, isDark ? 0.05 : 0.035),
+    surfaceHover: mix(base.surface, base.heading, isDark ? 0.1 : 0.07),
+    border: mix(base.surface, base.heading, isDark ? 0.2 : 0.14),
+    accentHover: mix(base.accent, onAccent, 0.09),
+    accentPressed: mix(base.accent, onAccent, 0.17),
+    accentSoft: mix(base.surface, base.accent, isDark ? 0.2 : 0.12),
   }
+  const successColor = isDark ? "#81d2a2" : "#247246"
+  const menuSelection = {background: p.sidebarActive, text: p.sidebarAccent}
   return {
     id,
     nameKey,
     dark: isDark,
-    menuInset: subtleSelection || id === "lightTheme" || id === "seaSaltTheme",
     menuSelection,
     naiveTheme: isDark ? darkTheme : lightTheme,
     preview: p,
@@ -60,6 +84,7 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
       "--app-surface-muted": p.surfaceMuted,
       "--app-surface-hover": p.surfaceHover,
       "--app-border": p.border,
+      "--app-text-heading": p.heading,
       "--app-text": p.text,
       "--app-text-muted": p.textMuted,
       "--app-accent": p.accent,
@@ -68,7 +93,6 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
       "--app-sidebar-text": p.sidebarText,
       "--app-sidebar-accent": p.sidebarAccent,
       "--app-sidebar-active": p.sidebarActive,
-      "--app-menu-selection-shadow": menuSelection.shadow,
     },
     overrides: {
       common: {
@@ -76,6 +100,10 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
         primaryColorHover: p.accentHover,
         primaryColorPressed: p.accentPressed,
         primaryColorSuppl: p.accentHover,
+        successColor,
+        successColorHover: isDark ? "#a0e1bc" : "#2e7d4f",
+        successColorPressed: isDark ? "#68ba8b" : "#195c38",
+        successColorSuppl: successColor,
         bodyColor: p.background,
         cardColor: p.surface,
         modalColor: p.surface,
@@ -85,31 +113,63 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
         borderColor: p.border,
         dividerColor: p.border,
         textColorBase: p.text,
-        textColor1: p.text,
-        textColor2: p.textMuted,
+        textColor1: p.heading,
+        textColor2: p.text,
         textColor3: p.textMuted,
         borderRadius: "6px",
       },
-      ...(isDark
-        ? {
-            Switch: {
-              railColor: "#44453e",
-              railColorActive: "#477354",
-              buttonColor: "#f5f0e6",
+      Button: {
+        textColorPrimary: onAccent,
+        textColorDisabledPrimary: onAccent,
+        textColorHoverPrimary: foreground(p.accentHover),
+        textColorFocusPrimary: foreground(p.accentHover),
+        textColorPressedPrimary: foreground(p.accentPressed),
+      },
+      Checkbox: {
+        checkMarkColor: onAccent,
+      },
+      Tag: {
+        color: p.surfaceMuted,
+        textColor: p.textMuted,
+      },
+      Input: {
+        color: p.surfaceMuted,
+        colorHover: p.surfaceHover,
+        colorFocus: p.surfaceMuted,
+        border: "none",
+        borderHover: "none",
+        borderDisabled: "none",
+      },
+      Select: {
+        peers: {
+          InternalSelection: {
+            color: `var(--app-select-hover-fill, ${p.surfaceMuted})`,
+            colorActive: p.surfaceMuted,
+            border: "none",
+            borderHover: "none",
+          },
+        },
+      },
+      Switch: {
+        railColorActive: isDark ? "#36875a" : successColor,
+        boxShadowFocus: `0 0 0 2px ${successColor}`,
+        ...(isDark
+          ? {
+              railColor: "#414141",
+              buttonColor: "#fafafa",
               buttonBoxShadow: "0 1px 3px rgba(0, 0, 0, 0.24)",
-              textColor: "#f5f0e6",
-              iconColor: "#477354",
-              loadingColor: "#477354",
-              boxShadowFocus: "0 0 0 2px rgba(143, 198, 164, 0.3)",
+              textColor: "#ffffff",
+              iconColor: "#141414",
+              loadingColor: "#141414",
               railBorderRadiusSmall: "999px",
               railBorderRadiusMedium: "999px",
               railBorderRadiusLarge: "999px",
               buttonBorderRadiusSmall: "999px",
               buttonBorderRadiusMedium: "999px",
               buttonBorderRadiusLarge: "999px",
-            },
-          }
-        : {}),
+            }
+          : {}),
+      },
       Layout: {
         color: p.background,
         textColor: p.text,
@@ -117,7 +177,7 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
         footerColorInverted: p.sidebar,
         textColorInverted: p.sidebarText,
         siderToggleButtonColor: p.sidebarActive,
-        siderToggleButtonBorder: "1px solid rgba(255, 255, 255, 0.14)",
+        siderToggleButtonBorder: "none",
         siderToggleButtonIconColor: p.sidebarText,
         siderToggleButtonIconColorInverted: p.sidebarText,
       },
@@ -125,16 +185,16 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
         borderRadius: "8px",
         itemHeight: "44px",
         colorInverted: p.sidebar,
-        itemColorHoverInverted: "rgba(255, 255, 255, 0.06)",
+        itemColorHoverInverted: mix(p.sidebar, p.sidebarActive, 0.55),
         itemColorActiveInverted: menuSelection.background,
         itemColorActiveHoverInverted: menuSelection.background,
         itemColorActiveCollapsedInverted: menuSelection.background,
         itemTextColorInverted: p.sidebarText,
-        itemTextColorHoverInverted: menuHoverText,
+        itemTextColorHoverInverted: p.sidebarAccent,
         itemTextColorActiveInverted: menuSelection.text,
         itemTextColorActiveHoverInverted: menuSelection.text,
         itemIconColorInverted: p.sidebarText,
-        itemIconColorHoverInverted: menuHoverText,
+        itemIconColorHoverInverted: p.sidebarAccent,
         itemIconColorCollapsedInverted: p.sidebarText,
         itemIconColorActiveInverted: menuSelection.text,
         itemIconColorActiveHoverInverted: menuSelection.text,
@@ -158,113 +218,94 @@ const createTheme = (id: AppThemeName, nameKey: string, p: ThemePalette): AppThe
   }
 }
 
-export const appThemes: readonly AppThemeDefinition[] = [
-  createTheme("lightTheme", "setting.theme_light_name", {
-    background: "#f3f5f4",
-    surface: "#ffffff",
-    surfaceMuted: "#edf1ef",
-    surfaceHover: "#f5f8f6",
-    border: "#dfe5e1",
-    text: "#27332e",
-    textMuted: "#616e67",
-    accent: "#357458",
-    accentHover: "#408164",
-    accentPressed: "#285c44",
-    accentSoft: "#e5efe9",
-    sidebar: "#252d2a",
-    sidebarText: "#b9c5be",
-    sidebarAccent: "#c2e6d1",
-    sidebarActive: "#354b40",
-  }),
-  createTheme("darkTheme", "setting.theme_dark_name", {
-    background: "#1b1c19",
-    surface: "#242521",
-    surfaceMuted: "#2d2e29",
-    surfaceHover: "#32342e",
-    border: "#3d3f37",
-    text: "#eee9df",
-    textMuted: "#b9b2a5",
-    accent: "#8fc6a4",
-    accentHover: "#a4d6b6",
-    accentPressed: "#79b48e",
-    accentSoft: "#2a3b31",
-    sidebar: "#11120f",
-    sidebarText: "#beb8ac",
-    sidebarAccent: "#eee9df",
-    sidebarActive: "#2d3028",
-  }),
-  createTheme("sakuraTheme", "setting.theme_sakura_name", {
-    background: "#fcf4f7",
-    surface: "#fffdfd",
-    surfaceMuted: "#f5e9ef",
-    surfaceHover: "#fcf0f5",
-    border: "#e9dde2",
-    text: "#46353d",
-    textMuted: "#78626d",
-    accent: "#9e4869",
-    accentHover: "#aa5475",
-    accentPressed: "#873d5a",
-    accentSoft: "#f3e3eb",
-    sidebar: "#382830",
-    sidebarText: "#cfbbc5",
-    sidebarAccent: "#f2c4d6",
-    sidebarActive: "#583b49",
-  }),
-  createTheme("forestTheme", "setting.theme_forest_name", {
-    background: "#f3f5f0",
-    surface: "#fdfefa",
-    surfaceMuted: "#eaf0e6",
-    surfaceHover: "#f3f7ef",
-    border: "#dde4d6",
-    text: "#303c2e",
-    textMuted: "#616e5c",
-    accent: "#526d3e",
-    accentHover: "#5f7a4b",
-    accentPressed: "#415b31",
-    accentSoft: "#e5eddc",
-    sidebar: "#243128",
-    sidebarText: "#bdcbb8",
-    sidebarAccent: "#cde2b5",
-    sidebarActive: "#3b4e37",
-  }),
-  createTheme("autumnTheme", "setting.theme_autumn_name", {
-    background: "#f8f5ef",
-    surface: "#fffefa",
-    surfaceMuted: "#f1eadf",
-    surfaceHover: "#faf5ec",
-    border: "#e7dfd2",
-    text: "#44382d",
-    textMuted: "#766655",
-    accent: "#905725",
-    accentHover: "#9d6431",
-    accentPressed: "#7d4b20",
-    accentSoft: "#f1e5d5",
-    sidebar: "#352b24",
-    sidebarText: "#cec1b2",
-    sidebarAccent: "#efc99b",
-    sidebarActive: "#544232",
-  }),
-  createTheme("seaSaltTheme", "setting.theme_sea_salt_name", {
-    background: "#f1f6f5",
-    surface: "#fcfefd",
-    surfaceMuted: "#e7efed",
-    surfaceHover: "#f0f7f5",
-    border: "#d9e4e1",
-    text: "#2c3e3b",
-    textMuted: "#5b6f6a",
-    accent: "#2e7269",
-    accentHover: "#397d74",
-    accentPressed: "#275f58",
-    accentSoft: "#dfefea",
-    sidebar: "#233536",
-    sidebarText: "#b5ccca",
-    sidebarAccent: "#b9e4d9",
-    sidebarActive: "#354f4e",
-  }),
-]
+const presets: Record<AppThemeName, BasePalette> = {
+  light: {
+    sidebar: "#edeeef",
+    sidebarText: "#171717",
+    sidebarActive: "#d9dcde",
+    sidebarAccent: "#000000",
+    background: "#fafafa",
+    surface: "#f6f6f6",
+    heading: "#242424",
+    text: "#50545a",
+    textMuted: "#656b72",
+    accent: "#246b61",
+  },
+  dark: {
+    sidebar: "#1f1f1f",
+    sidebarText: "#b3b3b3",
+    sidebarActive: "#3a3a3a",
+    sidebarAccent: "#dadada",
+    background: "#101010",
+    surface: "#1a1a1a",
+    heading: "#e2e2e2",
+    text: "#b5b8bc",
+    textMuted: "#92969c",
+    accent: "#84c8b8",
+  },
+  sakura: {
+    sidebar: "#f1e4e9",
+    sidebarText: "#624453",
+    sidebarActive: "#e4ccd7",
+    sidebarAccent: "#57283d",
+    background: "#fffafb",
+    surface: "#f6edf1",
+    heading: "#402634",
+    text: "#63505a",
+    textMuted: "#73616b",
+    accent: "#93425f",
+  },
+  forest: {
+    sidebar: "#e2eae1",
+    sidebarText: "#405446",
+    sidebarActive: "#ceddcc",
+    sidebarAccent: "#243e2b",
+    background: "#f9fbf7",
+    surface: "#edf2e9",
+    heading: "#273d2d",
+    text: "#4d5c4e",
+    textMuted: "#616e60",
+    accent: "#426449",
+  },
+  autumn: {
+    sidebar: "#f1e4d7",
+    sidebarText: "#664e3a",
+    sidebarActive: "#e4cfba",
+    sidebarAccent: "#50351f",
+    background: "#fffbf6",
+    surface: "#f6eee4",
+    heading: "#493423",
+    text: "#645448",
+    textMuted: "#736557",
+    accent: "#88522d",
+  },
+  seaSalt: {
+    sidebar: "#dfeaed",
+    sidebarText: "#3c5660",
+    sidebarActive: "#c9dbdf",
+    sidebarAccent: "#244551",
+    background: "#f8fbfc",
+    surface: "#eaf1f3",
+    heading: "#293e47",
+    text: "#4a5c64",
+    textMuted: "#5e6e75",
+    accent: "#396879",
+  },
+}
 
-const themeMap = new Map<string, AppThemeDefinition>(appThemes.map((theme) => [theme.id, theme]))
+const nameKey = (id: AppThemeName) => `setting.theme_${id === "seaSalt" ? "sea_salt" : id}_name`
 
-export const resolveAppTheme = (themeName?: string): AppThemeDefinition => {
-  return themeMap.get(themeName ?? "") ?? appThemes[0]
+export const appThemes: readonly AppThemeDefinition[] = appThemeIds.map((id) => createTheme(id, nameKey(id), presets[id]))
+
+export function resolveAppTheme(id?: string, colors?: AppThemeColors): AppThemeDefinition {
+  const preset = appThemes.find((theme) => theme.id === id)
+  if (!preset) return appThemes[0]
+  if (!colors) return preset
+
+  const base = {...presets[preset.id]}
+  for (const key of themeColorKeys) {
+    const value = colors[key]
+    if (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)) base[key] = value.toLowerCase()
+  }
+  return createTheme(preset.id, preset.nameKey, base)
 }

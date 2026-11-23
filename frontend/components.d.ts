@@ -30,6 +30,7 @@ declare module 'vue' {
     NCheckbox: typeof import('naive-ui')['NCheckbox']
     NCollapse: typeof import('naive-ui')['NCollapse']
     NCollapseItem: typeof import('naive-ui')['NCollapseItem']
+    NColorPicker: typeof import('naive-ui')['NColorPicker']
     NConfigProvider: typeof import('naive-ui')['NConfigProvider']
     NDataTable: typeof import('naive-ui')['NDataTable']
     NDescriptions: typeof import('naive-ui')['NDescriptions']
@@ -89,6 +90,7 @@ declare module 'vue' {
     StartupScreen: typeof import('./src/components/StartupScreen.vue')['default']
     StoreExtensionCard: typeof import('./src/components/plugin/StoreExtensionCard.vue')['default']
     TaskListItem: typeof import('./src/components/task/TaskListItem.vue')['default']
+    ThemeColorEditor: typeof import('./src/components/settings/ThemeColorEditor.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   }
 }

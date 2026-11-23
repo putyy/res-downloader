@@ -30,14 +30,16 @@ const store = useIndexStore()
 const eventStore = useEventStore()
 const {locale} = useI18n()
 
-const activeTheme = computed(() => resolveAppTheme(store.globalConfig.Theme))
+const activeTheme = computed(() => {
+  const {Theme, ThemeColors} = store.globalConfig
+  return resolveAppTheme(Theme, ThemeColors[Theme])
+})
 
 watch(
   activeTheme,
   (theme) => {
     document.documentElement.classList.toggle("dark", theme.dark)
     document.documentElement.dataset.appTheme = theme.id
-    document.documentElement.dataset.menuInset = String(theme.menuInset)
     Object.entries(theme.cssVars).forEach(([name, value]) => {
       document.documentElement.style.setProperty(name, value)
     })

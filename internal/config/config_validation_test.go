@@ -2,10 +2,58 @@ package config
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
+	"res-downloader/internal/logging"
 	"testing"
 )
+
+func TestUnknownThemeFallsBackToLight(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "config.json"), []byte(`{"Theme":"unknown","Locale":"zh"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	current := New(directory, logging.New(false, ""), "en")
+	if current.Theme != "light" || current.Locale != "zh" {
+		t.Fatalf("loaded theme = %q, locale = %q", current.Theme, current.Locale)
+	}
+	next := current.Snapshot()
+	next.Theme = "unknown"
+	if err := current.Apply(next); err != nil {
+		t.Fatal(err)
+	}
+	if current.Snapshot().Theme != "light" {
+		t.Fatal("applying an unknown theme should select light")
+	}
+}
+
+func TestThemeOverridesCanBeResetIndependently(t *testing.T) {
+	directory := t.TempDir()
+	logger := logging.New(false, "")
+	current := New(directory, logger, "en")
+	next := current.Snapshot()
+	next.Theme = "dark"
+	next.ThemeColors = ThemeColors{"dark": {"text": "#dddddd"}, "light": {"text": "#222222"}}
+	if err := current.Apply(next); err != nil {
+		t.Fatal(err)
+	}
+
+	pending := current.Snapshot()
+	delete(pending.ThemeColors["dark"], "text")
+	if current.Snapshot().ThemeColors["dark"]["text"] != "#dddddd" {
+		t.Fatal("editing the snapshot changed the saved palette")
+	}
+	delete(pending.ThemeColors, "dark")
+	if err := current.Apply(pending); err != nil {
+		t.Fatal(err)
+	}
+	reopened := New(directory, logger, "en")
+	want := ThemeColors{"light": {"text": "#222222"}}
+	if reopened.Theme != "dark" || !reflect.DeepEqual(reopened.ThemeColors, want) {
+		t.Fatalf("reopened theme = %q, overrides = %v, want dark with %v", reopened.Theme, reopened.ThemeColors, want)
+	}
+}
 
 func TestApplyRejectsInvalidSettingsWithoutReplacingConfig(t *testing.T) {
 	base := Config{

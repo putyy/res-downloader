@@ -1,24 +1,19 @@
 <template>
-  <NCard
-    size="small"
-    :bordered="false"
-    class="app-card app-card--interactive !flex flex-col [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto h-full [--wails-draggable:no-drag]"
-  >
+  <NCard size="small" :bordered="false" class="!flex h-full flex-col [--wails-draggable:no-drag] [&>.n-card__content]:flex-1 [&>.n-card__footer]:mt-auto">
     <template #header>
       <div class="min-w-0">
-        <div class="truncate font-medium" :title="name">{{ name }}</div>
+        <div class="truncate font-semibold text-app-heading" :title="name">{{ name }}</div>
         <div class="mt-1 flex items-start gap-2">
           <div class="flex min-w-0 flex-1 flex-wrap gap-1">
-            <NTag v-if="extension.source === 'official'" size="small" type="info">{{ t("plugin.store_official") }}</NTag>
-            <NTag v-else size="small">{{ t("plugin.store_community") }}</NTag>
-            <NTag v-if="updateAvailable" size="small" type="warning">
+            <NTag size="small" :bordered="false">{{ t(extension.source === "official" ? "plugin.store_official" : "plugin.store_community") }}</NTag>
+            <NTag v-if="updateAvailable" size="small" :bordered="false" type="warning">
               {{ t("plugin.store_update_available") }}
             </NTag>
-            <NTag v-if="extension.status === 'available'" size="small" type="success">
+            <NTag v-if="extension.status === 'available'" size="small" :bordered="false">
               <template v-if="updateAvailable && installedVersion"> v{{ installedVersion }} → v{{ version }} </template>
               <template v-else>v{{ version }}</template>
             </NTag>
-            <NTag v-else size="small" type="warning">{{ t("plugin.store_unavailable") }}</NTag>
+            <NTag v-else size="small" :bordered="false" type="warning">{{ t("plugin.store_unavailable") }}</NTag>
           </div>
           <button
             v-if="extension.stars"
@@ -47,7 +42,7 @@
     </div>
     <NTooltip v-if="description" trigger="hover">
       <template #trigger>
-        <div class="text-app-muted ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">
+        <div class="text-app-text ellipsis-2 mt-2 min-h-[42px] cursor-default text-sm">
           {{ description }}
         </div>
       </template>
@@ -72,11 +67,11 @@
             :key="capability"
             class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:max-w-full"
             size="small"
-            type="warning"
+            :bordered="false"
           >
             <span class="block min-w-0 truncate">{{ capability }}</span>
           </NTag>
-          <NTag v-if="hiddenCapabilityCount" class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:truncate" size="small" type="warning">
+          <NTag v-if="hiddenCapabilityCount" class="!w-full !min-w-0 !justify-center [&_.n-tag__content]:min-w-0 [&_.n-tag__content]:truncate" size="small" :bordered="false">
             +{{ hiddenCapabilityCount }}
           </NTag>
         </div>
@@ -89,7 +84,7 @@
 
     <template #footer>
       <div class="flex min-h-[28px] flex-wrap items-center justify-end gap-2">
-        <NButton size="small" text type="primary" @click="openRepository">{{ t("plugin.store_repository") }}</NButton>
+        <NButton size="small" text @click="openRepository">{{ t("plugin.store_repository") }}</NButton>
         <NButton
           size="small"
           type="primary"

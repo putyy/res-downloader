@@ -1,4 +1,4 @@
-import type {AppThemeName} from "@/themes"
+import type {AppThemeColors, AppThemeName} from "@/themes"
 
 export namespace appType {
   interface App {
@@ -10,6 +10,7 @@ export namespace appType {
 
   interface Config {
     Theme: AppThemeName
+    ThemeColors: Partial<Record<AppThemeName, AppThemeColors>>
     Locale: string
     Host: string
     Port: string

@@ -173,7 +173,9 @@ Unclosed braces, empty variable expressions, unknown filters, invalid truncation
 
 ## Appearance
 
-Switch between light, dark, and other built-in themes. Changes take effect immediately.
+Under **Setting → Appearance**, select Light, Dark, Sakura, Forest, Warm Autumn, or Sea Salt. The selection takes effect immediately. If the saved theme ID is unrecognized, the app uses Light.
+
+Select the edit icon in the upper-right corner of the selected theme card to adjust the sidebar and its selection, workspace and card backgrounds, text, and accent color. The sample plugin card updates as you edit. Choose **Save colors** to apply your changes to the current theme. Each theme keeps its own colors. To reset one, select it, open the editor, choose **Restore default colors**, then **Save colors**.
 
 ## Interface language
 

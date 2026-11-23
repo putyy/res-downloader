@@ -5,8 +5,8 @@
     >
     <div class="pb-2 z-40 [--wails-draggable:drag]" id="header">
       <NSpace>
-        <NButton v-if="isProxy" secondary type="primary" @click.stop="close" class="[--wails-draggable:no-drag]">
-          <span class="inline-block w-1.5 h-1.5 bg-red-600 rounded-full mr-1 animate-pulse"></span>
+        <NButton v-if="isProxy" type="success" color="#236747" text-color="#ffffff" @click.stop="close" class="[--wails-draggable:no-drag]">
+          <span aria-hidden="true" class="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-red-600 ring-1 ring-white/80 motion-safe:animate-pulse"></span>
           {{ t("index.close_grab") }}{{ resourceTotal > 0 ? `&nbsp;${t("index.total_resources", {count: resourceTotal})}` : "" }}
         </NButton>
         <NButton v-else tertiary type="tertiary" @click.stop="open" class="[--wails-draggable:no-drag]">
